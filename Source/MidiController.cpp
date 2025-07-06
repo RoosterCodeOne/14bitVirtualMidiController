@@ -398,7 +398,7 @@ public:
     DebugMidiController()
     {
         // Create slider controls with MIDI callback
-        for (int i = 0; i < 4; ++i)  // Start with just 4 sliders
+        for (int i = 0; i < 8; ++i)  // Now 8 sliders total
         {
             auto* sliderControl = new SimpleSliderControl(i, [this](int sliderIndex, int value) {
                 sendMidiCC(sliderIndex, value);
@@ -406,6 +406,19 @@ public:
             sliderControls.add(sliderControl);
             addAndMakeVisible(sliderControl);
         }
+        
+        // Bank buttons
+        addAndMakeVisible(bankAButton);
+        bankAButton.setButtonText("A");
+        bankAButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red);
+        bankAButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        bankAButton.onClick = [this]() { setBank(0); };
+        
+        addAndMakeVisible(bankBButton);
+        bankBButton.setButtonText("B");
+        bankBButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
+        bankBButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        bankBButton.onClick = [this]() { setBank(1); };
         
         // Settings button
         addAndMakeVisible(settingsButton);
@@ -421,6 +434,9 @@ public:
         
         // Initialize MIDI output
         initializeMidiOutput();
+        
+        // Set initial bank
+        setBank(0);
     }
     
     ~DebugMidiController()
@@ -451,16 +467,27 @@ public:
         // Settings button - positioned on left under MIDI status
         settingsButton.setBounds(10, 35, 100, 25);
         
+        // Bank buttons - positioned on top right
+        int buttonWidth = 40;
+        int buttonHeight = 25;
+        int rightMargin = 10;
+        bankBButton.setBounds(getWidth() - rightMargin - buttonWidth, 10, buttonWidth, buttonHeight);
+        bankAButton.setBounds(getWidth() - rightMargin - (buttonWidth * 2) - 5, 10, buttonWidth, buttonHeight);
+        
         // Reserve space for button area
         area.removeFromTop(40);
         
-        // Divide space between sliders
-        int sliderWidth = area.getWidth() / sliderControls.size();
-        for (auto* slider : sliderControls)
+        // Divide space between visible sliders (4 at a time)
+        int sliderWidth = area.getWidth() / 4;
+        for (int i = 0; i < 4; ++i)
         {
-            auto sliderBounds = area.removeFromLeft(sliderWidth);
-            sliderBounds.reduce(10, 0); // Gap between sliders
-            slider->setBounds(sliderBounds);
+            int sliderIndex = currentBank * 4 + i;
+            if (sliderIndex < sliderControls.size())
+            {
+                auto sliderBounds = area.removeFromLeft(sliderWidth);
+                sliderBounds.reduce(10, 0); // Gap between sliders
+                sliderControls[sliderIndex]->setBounds(sliderBounds);
+            }
         }
         
         // Settings window
@@ -469,6 +496,37 @@ public:
     }
     
 private:
+    void setBank(int bank)
+    {
+        currentBank = bank;
+        
+        // Update button colors
+        if (bank == 0)
+        {
+            bankAButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red);
+            bankBButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
+        }
+        else
+        {
+            bankAButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
+            bankBButton.setColour(juce::TextButton::buttonColourId, juce::Colours::blue);
+        }
+        
+        // Hide all sliders first
+        for (auto* slider : sliderControls)
+            slider->setVisible(false);
+        
+        // Show only the sliders for the current bank
+        for (int i = 0; i < 4; ++i)
+        {
+            int sliderIndex = currentBank * 4 + i;
+            if (sliderIndex < sliderControls.size())
+                sliderControls[sliderIndex]->setVisible(true);
+        }
+        
+        resized(); // Re-layout
+    }
+    
     void initializeMidiOutput()
     {
         auto midiDevices = juce::MidiOutput::getAvailableDevices();
@@ -525,8 +583,10 @@ private:
     
     juce::OwnedArray<SimpleSliderControl> sliderControls;
     juce::TextButton settingsButton;
+    juce::TextButton bankAButton, bankBButton;
     SettingsWindow settingsWindow;
     std::unique_ptr<juce::MidiOutput> midiOutput;
+    int currentBank = 0;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DebugMidiController)
 };
