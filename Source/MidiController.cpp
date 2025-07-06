@@ -55,7 +55,7 @@ class SettingsWindow : public juce::Component
 public:
     SettingsWindow() : closeButton("X")
     {
-        setSize(400, 350);
+        setSize(400, 500);  // Increased height for 8 sliders
         
         // Close button
         addAndMakeVisible(closeButton);
@@ -72,20 +72,31 @@ public:
         midiChannelCombo.setSelectedId(1);
         
         // CC selectors for each slider
-        for (int i = 0; i < 4; ++i)  // Match number of sliders
+        for (int i = 0; i < 8; ++i)  // Now 8 sliders
         {
             auto* label = new juce::Label();
             ccLabels.add(label);
             addAndMakeVisible(label);
-            label->setText("Slider " + juce::String(i + 1) + " CC:", juce::dontSendNotification);
+            label->setText("Slider " + juce::String(i + 1) + ":", juce::dontSendNotification);
             
             auto* combo = new juce::ComboBox();
             ccCombos.add(combo);
             addAndMakeVisible(combo);
             for (int cc = 0; cc < 128; ++cc)
                 combo->addItem("CC " + juce::String(cc), cc + 1);
-            combo->setSelectedId(i + 1); // Default to CC 0-3
+            combo->setSelectedId(i + 1); // Default to CC 0-7
         }
+        
+        // Bank labels
+        addAndMakeVisible(bankALabel);
+        bankALabel.setText("Bank A", juce::dontSendNotification);
+        bankALabel.setColour(juce::Label::textColourId, juce::Colours::red);
+        bankALabel.setFont(juce::Font(16.0f));
+        
+        addAndMakeVisible(bankBLabel);
+        bankBLabel.setText("Bank B", juce::dontSendNotification);
+        bankBLabel.setColour(juce::Label::textColourId, juce::Colours::blue);
+        bankBLabel.setFont(juce::Font(16.0f));
     }
     
     void paint(juce::Graphics& g) override
@@ -117,15 +128,41 @@ public:
         midiChannelLabel.setBounds(channelArea.removeFromLeft(100));
         midiChannelCombo.setBounds(channelArea.removeFromLeft(120));
         
-        bounds.removeFromTop(10); // Spacing
+        bounds.removeFromTop(15); // Spacing
         
-        // CC selectors
-        for (int i = 0; i < ccLabels.size(); ++i)
+        // Bank A label
+        bankALabel.setBounds(bounds.removeFromTop(25));
+        bounds.removeFromTop(5); // Small spacing
+        
+        // CC selectors for Bank A (sliders 0-3)
+        for (int i = 0; i < 4; ++i)
         {
             auto ccArea = bounds.removeFromTop(25);
-            ccLabels[i]->setBounds(ccArea.removeFromLeft(100));
-            ccCombos[i]->setBounds(ccArea.removeFromLeft(120));
-            bounds.removeFromTop(5); // Small spacing
+            if (ccLabels[i] != nullptr && ccCombos[i] != nullptr)
+            {
+                ccLabels[i]->setBounds(ccArea.removeFromLeft(100));
+                ccCombos[i]->setBounds(ccArea.removeFromLeft(120));
+            }
+            bounds.removeFromTop(5); // Small spacing between items
+        }
+        
+        bounds.removeFromTop(10); // Spacing between banks
+        
+        // Bank B label
+        bankBLabel.setBounds(bounds.removeFromTop(25));
+        bounds.removeFromTop(5); // Small spacing
+        
+        // CC selectors for Bank B (sliders 4-7)
+        for (int i = 4; i < 8; ++i)
+        {
+            auto ccArea = bounds.removeFromTop(25);
+            if (ccLabels[i] != nullptr && ccCombos[i] != nullptr)
+            {
+                ccLabels[i]->setBounds(ccArea.removeFromLeft(100));
+                ccCombos[i]->setBounds(ccArea.removeFromLeft(120));
+            }
+            if (i < 7)
+                bounds.removeFromTop(5); // Small spacing between items
         }
     }
     
@@ -143,6 +180,7 @@ private:
     juce::TextButton closeButton;
     juce::Label midiChannelLabel;
     juce::ComboBox midiChannelCombo;
+    juce::Label bankALabel, bankBLabel;
     juce::OwnedArray<juce::Label> ccLabels;
     juce::OwnedArray<juce::ComboBox> ccCombos;
     
