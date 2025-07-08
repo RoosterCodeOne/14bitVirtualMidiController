@@ -1,4 +1,4 @@
-// SettingsWindow.h - LAZY INITIALIZATION VERSION (FIXED) -------
+// SettingsWindow.h - Production Version with Improved Layout
 #pragma once
 #include <JuceHeader.h>
 
@@ -8,8 +8,6 @@ class SettingsWindow : public juce::Component
 public:
     SettingsWindow() : controlsInitialized(false), closeButton("X")
     {
-        DBG("SettingsWindow constructor START - LAZY INITIALIZATION");
-        
         setSize(700, 600);
         
         // Only create the essential controls in constructor
@@ -35,15 +33,12 @@ public:
         bankBLabel.setText("Bank B", juce::dontSendNotification);
         bankBLabel.setColour(juce::Label::textColourId, juce::Colours::blue);
         bankBLabel.setFont(juce::FontOptions(16.0f));
-        
-        DBG("SettingsWindow constructor COMPLETE - LAZY INITIALIZATION");
     }
     
     void setVisible(bool shouldBeVisible) override
     {
         if (shouldBeVisible && !controlsInitialized)
         {
-            DBG("First time showing - initializing slider controls");
             initializeSliderControls();
         }
         
@@ -62,7 +57,7 @@ public:
         
         g.setColour(juce::Colours::white);
         g.setFont(juce::FontOptions(18.0f));
-        g.drawText("Settings - Lazy Loaded", bounds.removeFromTop(40), juce::Justification::centred);
+        g.drawText("Settings", bounds.removeFromTop(40), juce::Justification::centred);
         
         if (!controlsInitialized)
         {
@@ -71,14 +66,15 @@ public:
             return;
         }
         
-        // Draw dashes between min/max range inputs
+        // Draw separators between min/max range inputs
+        g.setColour(juce::Colours::lightgrey);
         g.setFont(juce::FontOptions(14.0f));
         bounds.removeFromTop(10);
         bounds.removeFromTop(30); // MIDI channel area
         bounds.removeFromTop(15); // Spacing
         bounds.removeFromTop(30); // Bank A label
         
-        // Draw dashes for each slider
+        // Draw separators for each slider row
         for (int i = 0; i < 8; ++i)
         {
             if (i == 4)
@@ -89,9 +85,9 @@ public:
             
             auto row = bounds.removeFromTop(30);
             
-            // Calculate dash position
-            int dashX = 50 + 65 + 80 + 10 + 45 + 60 + 5 + 5;
-            g.drawText("-", dashX, row.getY() + 5, 10, 20, juce::Justification::centred);
+            // Calculate separator position (between min and max inputs)
+            int separatorX = 50 + 120 + 80 + 70 + 5; // Label + CC + Range label + Min input + spacing
+            g.drawText("-", separatorX, row.getY() + 8, 10, 14, juce::Justification::centred);
             
             bounds.removeFromTop(5); // Small spacing
         }
@@ -123,20 +119,7 @@ public:
         // Controls for Bank A (sliders 0-3)
         for (int i = 0; i < 4; ++i)
         {
-            auto row = bounds.removeFromTop(30);
-            
-            ccLabels[i]->setBounds(row.removeFromLeft(65));
-            ccInputs[i]->setBounds(row.removeFromLeft(50)); // Smaller for text input
-            row.removeFromLeft(10);
-            rangeLabels[i]->setBounds(row.removeFromLeft(45));
-            minRangeInputs[i]->setBounds(row.removeFromLeft(60));
-            row.removeFromLeft(5);
-            row.removeFromLeft(10); // space for dash
-            maxRangeInputs[i]->setBounds(row.removeFromLeft(60));
-            row.removeFromLeft(10);
-            colorCombos[i]->setBounds(row.removeFromLeft(80));
-            
-            bounds.removeFromTop(5);
+            layoutSliderRow(bounds, i);
         }
         
         bounds.removeFromTop(10); // Spacing between banks
@@ -148,21 +131,7 @@ public:
         // Controls for Bank B (sliders 4-7)
         for (int i = 4; i < 8; ++i)
         {
-            auto row = bounds.removeFromTop(30);
-            
-            ccLabels[i]->setBounds(row.removeFromLeft(65));
-            ccInputs[i]->setBounds(row.removeFromLeft(50)); // Smaller for text input
-            row.removeFromLeft(10);
-            rangeLabels[i]->setBounds(row.removeFromLeft(45));
-            minRangeInputs[i]->setBounds(row.removeFromLeft(60));
-            row.removeFromLeft(5);
-            row.removeFromLeft(10); // space for dash
-            maxRangeInputs[i]->setBounds(row.removeFromLeft(60));
-            row.removeFromLeft(10);
-            colorCombos[i]->setBounds(row.removeFromLeft(80));
-            
-            if (i < 7)
-                bounds.removeFromTop(5);
+            layoutSliderRow(bounds, i);
         }
     }
     
@@ -170,20 +139,20 @@ public:
     
     int getCCNumber(int sliderIndex) const
     {
-        if (!controlsInitialized) return sliderIndex; // fallback before initialization
+        if (!controlsInitialized) return sliderIndex;
         
         if (sliderIndex < ccInputs.size())
         {
             auto text = ccInputs[sliderIndex]->getText();
             int ccNumber = text.getIntValue();
-            return juce::jlimit(0, 127, ccNumber); // Clamp to valid MIDI CC range
+            return juce::jlimit(0, 127, ccNumber);
         }
-        return sliderIndex; // fallback
+        return sliderIndex;
     }
     
     std::pair<double, double> getCustomRange(int sliderIndex) const
     {
-        if (!controlsInitialized) return {0.0, 16383.0}; // fallback before initialization
+        if (!controlsInitialized) return {0.0, 16383.0};
         
         if (sliderIndex < minRangeInputs.size() && sliderIndex < maxRangeInputs.size())
         {
@@ -191,14 +160,13 @@ public:
             double maxVal = maxRangeInputs[sliderIndex]->getText().getDoubleValue();
             return {minVal, maxVal};
         }
-        return {0.0, 16383.0}; // Default range
+        return {0.0, 16383.0};
     }
     
     juce::Colour getSliderColor(int sliderIndex) const
     {
         if (!controlsInitialized)
         {
-            // Return default bank colors before initialization
             return sliderIndex < 4 ? juce::Colours::red : juce::Colours::blue;
         }
         
@@ -214,64 +182,89 @@ public:
                 case 7: return juce::Colours::orange;
                 case 8: return juce::Colours::cyan;
                 case 9: return juce::Colours::white;
-                default: // Default - use bank color
+                default:
                     return sliderIndex < 4 ? juce::Colours::red : juce::Colours::blue;
             }
         }
-        return juce::Colours::cyan; // Fallback
+        return juce::Colours::cyan;
     }
     
     std::function<void()> onSettingsChanged;
     
 private:
-    // Member variables - declared once here
     bool controlsInitialized;
     juce::TextButton closeButton;
     juce::Label midiChannelLabel;
     juce::ComboBox midiChannelCombo;
     juce::Label bankALabel, bankBLabel;
-    juce::OwnedArray<juce::Label> ccLabels;
+    juce::OwnedArray<juce::Label> sliderLabels;
     juce::OwnedArray<juce::TextEditor> ccInputs;
     juce::OwnedArray<juce::Label> rangeLabels;
     juce::OwnedArray<juce::TextEditor> minRangeInputs;
     juce::OwnedArray<juce::TextEditor> maxRangeInputs;
+    juce::OwnedArray<juce::Label> colorLabels;
     juce::OwnedArray<juce::ComboBox> colorCombos;
+    
+    void layoutSliderRow(juce::Rectangle<int>& bounds, int sliderIndex)
+    {
+        auto row = bounds.removeFromTop(30);
+        
+        // SLIDER X:
+        sliderLabels[sliderIndex]->setBounds(row.removeFromLeft(120));
+        
+        // CC Value: [input]
+        ccInputs[sliderIndex]->setBounds(row.removeFromLeft(80));
+        
+        // Range:
+        rangeLabels[sliderIndex]->setBounds(row.removeFromLeft(70));
+        
+        // [min] - [max]
+        minRangeInputs[sliderIndex]->setBounds(row.removeFromLeft(70));
+        row.removeFromLeft(20); // Space for separator (-)
+        maxRangeInputs[sliderIndex]->setBounds(row.removeFromLeft(70));
+        
+        row.removeFromLeft(10); // Spacing
+        
+        // Color: [combo]
+        colorLabels[sliderIndex]->setBounds(row.removeFromLeft(50));
+        colorCombos[sliderIndex]->setBounds(row.removeFromLeft(100));
+        
+        bounds.removeFromTop(5); // Row spacing
+    }
     
     void initializeSliderControls()
     {
-        DBG("initializeSliderControls START");
-        
         // Create controls for all 8 sliders
         for (int i = 0; i < 8; ++i)
         {
-            DBG("Creating controls for slider " + juce::String(i));
+            // SLIDER X: label
+            auto* sliderLabel = new juce::Label();
+            sliderLabels.add(sliderLabel);
+            addAndMakeVisible(sliderLabel);
+            sliderLabel->setText("SLIDER " + juce::String(i + 1) + ": CC Value:", juce::dontSendNotification);
             
-            // Slider label
-            auto* label = new juce::Label();
-            ccLabels.add(label);
-            addAndMakeVisible(label);
-            label->setText("Slider " + juce::String(i + 1) + ":", juce::dontSendNotification);
-            
-            // CC input (text input instead of combo)
+            // CC input
             auto* ccInput = new juce::TextEditor();
             ccInputs.add(ccInput);
             addAndMakeVisible(ccInput);
             ccInput->setText(juce::String(i), juce::dontSendNotification);
-            ccInput->setInputRestrictions(3, "0123456789"); // Max 3 digits, numbers only
+            ccInput->setInputRestrictions(3, "0123456789");
             ccInput->setTooltip("MIDI CC number (0-127)");
-            
-            // Add validation callbacks for CC input
             ccInput->onReturnKey = [this, ccInput]() { validateCCInput(ccInput); };
             ccInput->onFocusLost = [this, ccInput]() { validateCCInput(ccInput); };
+            
+            // Range: label
+            auto* rangeLabel = new juce::Label();
+            rangeLabels.add(rangeLabel);
+            addAndMakeVisible(rangeLabel);
+            rangeLabel->setText("Range:", juce::dontSendNotification);
             
             // Min range input
             auto* minInput = new juce::TextEditor();
             minRangeInputs.add(minInput);
             addAndMakeVisible(minInput);
             minInput->setText("0");
-            minInput->setInputRestrictions(0, "-0123456789");
-            
-            // Add validation callbacks for min input
+            minInput->setInputRestrictions(0, "-0123456789.");
             minInput->onReturnKey = [this, minInput]() { validateRangeInput(minInput); };
             minInput->onFocusLost = [this, minInput]() { validateRangeInput(minInput); };
             
@@ -280,24 +273,21 @@ private:
             maxRangeInputs.add(maxInput);
             addAndMakeVisible(maxInput);
             maxInput->setText("16383");
-            maxInput->setInputRestrictions(0, "-0123456789");
-            
-            // Add validation callbacks for max input - FIXED: Added missing closing brace
+            maxInput->setInputRestrictions(0, "-0123456789.");
             maxInput->onReturnKey = [this, maxInput]() { validateRangeInput(maxInput); };
             maxInput->onFocusLost = [this, maxInput]() { validateRangeInput(maxInput); };
             
-            // Range label
-            auto* rangeLabel = new juce::Label();
-            rangeLabels.add(rangeLabel);
-            addAndMakeVisible(rangeLabel);
-            rangeLabel->setText("Range:", juce::dontSendNotification);
+            // Color: label
+            auto* colorLabel = new juce::Label();
+            colorLabels.add(colorLabel);
+            addAndMakeVisible(colorLabel);
+            colorLabel->setText("Color:", juce::dontSendNotification);
             
             // Color selector
             auto* colorCombo = new juce::ComboBox();
             colorCombos.add(colorCombo);
             addAndMakeVisible(colorCombo);
             
-            // Add color options
             colorCombo->addItem("Default", 1);
             colorCombo->addItem("Red", 2);
             colorCombo->addItem("Blue", 3);
@@ -308,22 +298,21 @@ private:
             colorCombo->addItem("Cyan", 8);
             colorCombo->addItem("White", 9);
             
-            colorCombo->setSelectedId(1); // Default
+            colorCombo->setSelectedId(1);
             
-            DBG("Controls for slider " + juce::String(i) + " created");
+            // Add callback to notify when color changes
+            colorCombo->onChange = [this]() {
+                if (onSettingsChanged)
+                    onSettingsChanged();
+            };
         }
         
         controlsInitialized = true;
-        
-        // Trigger a repaint and relayout
         resized();
         repaint();
         
-        // Notify that settings might have changed (to update any dependent components)
         if (onSettingsChanged)
             onSettingsChanged();
-        
-        DBG("initializeSliderControls COMPLETE");
     }
     
     void validateCCInput(juce::TextEditor* input)
@@ -336,14 +325,11 @@ private:
         }
         
         int ccNumber = text.getIntValue();
-        ccNumber = juce::jlimit(0, 127, ccNumber); // Clamp to valid MIDI CC range (0-127)
+        ccNumber = juce::jlimit(0, 127, ccNumber);
         input->setText(juce::String(ccNumber), juce::dontSendNotification);
         
-        // Notify that settings changed
         if (onSettingsChanged)
             onSettingsChanged();
-            
-        DBG("CC input validated: " + juce::String(ccNumber));
     }
     
     void validateRangeInput(juce::TextEditor* input)
@@ -356,18 +342,12 @@ private:
         }
         
         double value = text.getDoubleValue();
-        value = juce::jlimit(-999999.0, 999999.0, value); // Reasonable range limits
+        value = juce::jlimit(-999999.0, 999999.0, value);
         input->setText(juce::String(value, 2), juce::dontSendNotification);
         
-        // Notify that settings changed
         if (onSettingsChanged)
             onSettingsChanged();
-            
-        DBG("Range input validated: " + juce::String(value));
     }
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SettingsWindow)
 };
-
-//End SettingsWindow.h
-//=====================

@@ -1,4 +1,4 @@
-// DebugMidiController.h - TEST FULL SCALE (8 SLIDERS) ---------------
+// DebugMidiController.h - Production Version
 #pragma once
 #include <JuceHeader.h>
 #include "CustomLookAndFeel.h"
@@ -11,23 +11,17 @@ class DebugMidiController : public juce::Component
 public:
     DebugMidiController()
     {
-        DBG("DebugMidiController constructor START - FULL SCALE (8 SLIDERS)");
-        
-        // Create slider controls with MIDI callback - EXACTLY like original
-        DBG("Creating 8 sliders");
-        for (int i = 0; i < 8; ++i)  // 8 sliders total - same as original
+        // Create 8 slider controls with MIDI callback
+        for (int i = 0; i < 8; ++i)
         {
-            DBG("Creating slider " + juce::String(i));
             auto* sliderControl = new SimpleSliderControl(i, [this](int sliderIndex, int value) {
                 sendMidiCC(sliderIndex, value);
             });
             sliderControls.add(sliderControl);
             addAndMakeVisible(sliderControl);
-            DBG("Slider " + juce::String(i) + " created successfully");
         }
-        DBG("All 8 sliders created");
         
-        // Bank buttons - EXACTLY like original
+        // Bank buttons
         addAndMakeVisible(bankAButton);
         bankAButton.setButtonText("A");
         bankAButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red);
@@ -39,9 +33,8 @@ public:
         bankBButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
         bankBButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
         bankBButton.onClick = [this]() { setBank(1); };
-        DBG("Bank buttons created");
         
-        // Settings button - EXACTLY like original
+        // Settings button
         addAndMakeVisible(settingsButton);
         settingsButton.setButtonText("Settings");
         settingsButton.onClick = [this]() {
@@ -49,38 +42,25 @@ public:
             settingsWindow.setBounds(getLocalBounds());
             settingsWindow.toFront(true);
         };
-        DBG("Settings button created");
         
-        // Settings window - EXACTLY like original
+        // Settings window
         addChildComponent(settingsWindow);
         settingsWindow.onSettingsChanged = [this]() { updateSliderSettings(); };
-        DBG("Settings window created");
         
-        // Initialize MIDI output - EXACTLY like original
+        // Initialize MIDI output
         initializeMidiOutput();
-        DBG("MIDI output initialized");
         
-        // Set initial bank - EXACTLY like original
-        DBG("Setting initial bank");
+        // Set initial bank
         setBank(0);
-        DBG("Initial bank set");
         
-        // Apply initial settings - EXACTLY like original
-        DBG("Applying initial settings");
+        // Apply initial settings
         updateSliderSettings();
-        DBG("Initial settings applied");
-        
-        DBG("DebugMidiController constructor COMPLETE - FULL SCALE");
     }
     
     ~DebugMidiController()
     {
-        DBG("DebugMidiController destructor START");
-        
         if (midiOutput)
             midiOutput->stopBackgroundThread();
-            
-        DBG("DebugMidiController destructor COMPLETE");
     }
     
     void paint(juce::Graphics& g) override
@@ -89,7 +69,7 @@ public:
         
         g.setColour(juce::Colours::white);
         g.setFont(juce::FontOptions(24.0f));
-        g.drawText("Debug MIDI Controller - FULL SCALE", 10, 10, getWidth() - 20, 40, juce::Justification::centred);
+        g.drawText("14-Bit Virtual MIDI Controller", 10, 10, getWidth() - 20, 40, juce::Justification::centred);
         
         // Show MIDI status
         g.setFont(juce::FontOptions(14.0f));
@@ -99,8 +79,6 @@ public:
     
     void resized() override
     {
-        DBG("DebugMidiController resized START - currentBank: " + juce::String(currentBank));
-        
         auto area = getLocalBounds();
         area.removeFromTop(80); // Title + status space
         
@@ -117,38 +95,29 @@ public:
         // Reserve space for button area
         area.removeFromTop(40);
         
-        // Divide space between visible sliders (4 at a time) - EXACTLY like original
+        // Divide space between visible sliders (4 at a time)
         int sliderWidth = area.getWidth() / 4;
         for (int i = 0; i < 4; ++i)
         {
             int sliderIndex = currentBank * 4 + i;
-            DBG("Positioning slider " + juce::String(sliderIndex));
-            
             if (sliderIndex < sliderControls.size())
             {
                 auto sliderBounds = area.removeFromLeft(sliderWidth);
                 sliderBounds.reduce(10, 0); // Gap between sliders
                 sliderControls[sliderIndex]->setBounds(sliderBounds);
-                DBG("Slider " + juce::String(sliderIndex) + " positioned");
             }
         }
         
         // Settings window
         if (settingsWindow.isVisible())
             settingsWindow.setBounds(getLocalBounds());
-            
-        DBG("DebugMidiController resized COMPLETE");
     }
     
 private:
     void updateSliderSettings()
     {
-        DBG("updateSliderSettings START - " + juce::String(sliderControls.size()) + " sliders");
-        
         for (int i = 0; i < sliderControls.size(); ++i)
         {
-            DBG("Updating slider " + juce::String(i));
-            
             // Update display range
             auto range = settingsWindow.getCustomRange(i);
             sliderControls[i]->setDisplayRange(range.first, range.second);
@@ -156,17 +125,11 @@ private:
             // Update color
             auto color = settingsWindow.getSliderColor(i);
             sliderControls[i]->setSliderColor(color);
-            
-            DBG("Slider " + juce::String(i) + " updated");
         }
-        
-        DBG("updateSliderSettings COMPLETE");
     }
     
     void setBank(int bank)
     {
-        DBG("setBank START - bank: " + juce::String(bank));
-        
         currentBank = bank;
         
         // Update button colors
@@ -194,32 +157,24 @@ private:
         }
         
         resized(); // Re-layout
-        
-        DBG("setBank COMPLETE");
     }
     
     void initializeMidiOutput()
     {
-        DBG("initializeMidiOutput START");
-        
         auto midiDevices = juce::MidiOutput::getAvailableDevices();
         
         if (!midiDevices.isEmpty())
         {
             midiOutput = juce::MidiOutput::openDevice(midiDevices[0].identifier);
-            DBG("Connected to MIDI device: " + midiDevices[0].name);
         }
         else
         {
             // Create virtual MIDI output
             midiOutput = juce::MidiOutput::createNewDevice("JUCE Virtual Controller");
-            DBG("Created virtual MIDI device");
         }
         
         if (midiOutput)
             midiOutput->startBackgroundThread();
-            
-        DBG("initializeMidiOutput COMPLETE");
     }
     
     void sendMidiCC(int sliderIndex, int value14bit)
@@ -255,6 +210,3 @@ private:
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DebugMidiController)
 };
-
-//End DebugMidiController.h
-//=====================
