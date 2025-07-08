@@ -4,6 +4,20 @@
 #include "CustomLookAndFeel.h"
 
 //==============================================================================
+// Custom clickable label for lock functionality
+class ClickableLabel : public juce::Label
+{
+public:
+    std::function<void()> onClick;
+    
+    void mouseDown(const juce::MouseEvent& event) override
+    {
+        if (onClick)
+            onClick();
+    }
+};
+
+//==============================================================================
 class SimpleSliderControl : public juce::Component, public juce::Timer
 {
 public:
@@ -33,6 +47,9 @@ public:
         
         // Manual override detection
         mainSlider.onDragStart = [this]() {
+            // Check if locked - prevent manual dragging
+            if (isLocked) return;
+            
             if (isAutomating)
             {
                 stopTimer();
@@ -47,6 +64,15 @@ public:
         sliderNumberLabel.setJustificationType(juce::Justification::centred);
         sliderNumberLabel.setColour(juce::Label::textColourId, juce::Colours::white);
         sliderNumberLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        
+        // Lock label (acting as button)
+        addAndMakeVisible(lockLabel);
+        lockLabel.setText("U", juce::dontSendNotification); // U for Unlocked by default
+        lockLabel.setJustificationType(juce::Justification::centred);
+        lockLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+        lockLabel.setFont(juce::FontOptions(18.0f, juce::Font::bold)); // Large font to fill space
+        lockLabel.setTooltip("Click to lock/unlock manual slider control");
+        lockLabel.onClick = [this]() { toggleLock(); };
         
         // Current value label
         addAndMakeVisible(currentValueLabel);
@@ -119,7 +145,10 @@ public:
         // MIDI activity indicator in utility bar (left side)
         midiIndicatorBounds = juce::Rectangle<float>(2, 2, 10, 10);
         
-        // Slider number label in utility bar (center)
+        // Lock label in utility bar (right side)
+        lockLabel.setBounds(utilityBar.removeFromRight(20));
+        
+        // Slider number label in utility bar (remaining center space)
         sliderNumberLabel.setBounds(utilityBar);
         
         // Main slider takes most remaining space
@@ -250,6 +279,24 @@ public:
         }
     }
     
+    // Toggle lock state
+    void toggleLock()
+    {
+        isLocked = !isLocked;
+        
+        // Update label text and color
+        lockLabel.setText(isLocked ? "L" : "U", juce::dontSendNotification);
+        lockLabel.setColour(juce::Label::textColourId,
+                           isLocked ? juce::Colours::orange : juce::Colours::lightgrey);
+        
+        // Update tooltip
+        lockLabel.setTooltip(isLocked ? "Locked - Click to unlock manual control"
+                                      : "Unlocked - Click to lock manual control");
+        
+        // Enable/disable slider interaction
+        mainSlider.setInterceptsMouseClicks(!isLocked, !isLocked);
+    }
+    
 private:
     // Convert MIDI value (0-16383) to display value based on custom range
     double midiToDisplayValue(double midiValue) const
@@ -362,6 +409,7 @@ private:
     CustomSliderLookAndFeel customLookAndFeel;
     juce::Slider mainSlider;
     juce::Label sliderNumberLabel;
+    ClickableLabel lockLabel;
     juce::Label currentValueLabel;
     juce::Slider delaySlider, attackSlider;
     juce::Label delayLabel, attackLabel, targetLabel;
@@ -369,6 +417,7 @@ private:
     juce::TextButton goButton;
     
     bool isAutomating = false;
+    bool isLocked = false; // Lock state for manual controls
     double automationStartTime = 0.0;
     double startMidiValue = 0.0;
     double targetMidiValue = 0.0;
