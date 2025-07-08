@@ -41,6 +41,13 @@ public:
             }
         };
         
+        // Slider number label
+        addAndMakeVisible(sliderNumberLabel);
+        sliderNumberLabel.setText(juce::String(sliderIndex + 1), juce::dontSendNotification);
+        sliderNumberLabel.setJustificationType(juce::Justification::centred);
+        sliderNumberLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+        sliderNumberLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        
         // Current value label
         addAndMakeVisible(currentValueLabel);
         currentValueLabel.setText("0", juce::dontSendNotification);
@@ -106,7 +113,16 @@ public:
     {
         auto area = getLocalBounds();
         
-        // Main slider takes most of the space
+        // Utility bar at top (20px height)
+        auto utilityBar = area.removeFromTop(20);
+        
+        // MIDI activity indicator in utility bar (left side)
+        midiIndicatorBounds = juce::Rectangle<float>(2, 2, 10, 10);
+        
+        // Slider number label in utility bar (center)
+        sliderNumberLabel.setBounds(utilityBar);
+        
+        // Main slider takes most remaining space
         auto sliderArea = area.removeFromTop(area.getHeight() - 120);
         mainSlider.setBounds(sliderArea);
         
@@ -133,19 +149,16 @@ public:
     {
         g.fillAll(juce::Colours::transparentBlack);
         
-        // Draw MIDI activity indicator
-        auto bounds = getLocalBounds();
-        juce::Rectangle<float> indicator(2, 2, 10, 10);
-        
+        // Draw MIDI activity indicator in utility bar
         juce::Colour indicatorColor = juce::Colours::orange;
         float alpha = midiActivityState ? 1.0f : 0.2f;
         
         g.setColour(indicatorColor.withAlpha(alpha));
-        g.fillRect(indicator);
+        g.fillRect(midiIndicatorBounds);
         
         // Optional: thin outline
         g.setColour(juce::Colours::black.withAlpha(0.5f));
-        g.drawRect(indicator, 1.0f);
+        g.drawRect(midiIndicatorBounds, 1.0f);
     }
     
     double getValue() const { return mainSlider.getValue(); }
@@ -348,6 +361,7 @@ private:
     std::function<void(int, int)> sendMidiCallback;
     CustomSliderLookAndFeel customLookAndFeel;
     juce::Slider mainSlider;
+    juce::Label sliderNumberLabel;
     juce::Label currentValueLabel;
     juce::Slider delaySlider, attackSlider;
     juce::Label delayLabel, attackLabel, targetLabel;
@@ -369,6 +383,7 @@ private:
     bool midiActivityState = false;
     double lastMidiSendTime = 0.0;
     static constexpr double MIDI_ACTIVITY_DURATION = 100.0; // milliseconds
+    juce::Rectangle<float> midiIndicatorBounds;
     
     juce::Colour sliderColor;
     
