@@ -71,7 +71,6 @@ public:
         lockLabel.setJustificationType(juce::Justification::centred);
         lockLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
         lockLabel.setFont(juce::FontOptions(18.0f, juce::Font::bold)); // Large font to fill space
-        lockLabel.setTooltip("Click to lock/unlock manual slider control");
         lockLabel.onClick = [this]() { toggleLock(); };
         
         // Current value label
@@ -288,10 +287,6 @@ public:
         lockLabel.setText(isLocked ? "L" : "U", juce::dontSendNotification);
         lockLabel.setColour(juce::Label::textColourId,
                            isLocked ? juce::Colours::orange : juce::Colours::lightgrey);
-        
-        // Update tooltip
-        lockLabel.setTooltip(isLocked ? "Locked - Click to unlock manual control"
-                                      : "Unlocked - Click to lock manual control");
         
         // Enable/disable slider interaction
         mainSlider.setInterceptsMouseClicks(!isLocked, !isLocked);
