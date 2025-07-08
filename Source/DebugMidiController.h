@@ -1,4 +1,4 @@
-// DebugMidiController.h - Production Version
+// DebugMidiController.h - Production Version with MIDI Activity Indicators
 #pragma once
 #include <JuceHeader.h>
 #include "CustomLookAndFeel.h"
@@ -199,6 +199,10 @@ private:
             juce::MidiMessage lsbMessage = juce::MidiMessage::controllerEvent(midiChannel, ccNumber + 32, lsb);
             midiOutput->sendMessageNow(lsbMessage);
         }
+        
+        // Trigger MIDI activity indicator AFTER successful MIDI send
+        if (sliderIndex < sliderControls.size())
+            sliderControls[sliderIndex]->triggerMidiActivity();
     }
     
     juce::OwnedArray<SimpleSliderControl> sliderControls;

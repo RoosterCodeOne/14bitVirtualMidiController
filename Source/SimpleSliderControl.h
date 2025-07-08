@@ -1,4 +1,4 @@
-// SimpleSliderControl.h - Production Version with Display Mapping
+// SimpleSliderControl.h - Production Version with MIDI Activity Indicators
 #pragma once
 #include <JuceHeader.h>
 #include "CustomLookAndFeel.h"
@@ -132,6 +132,20 @@ public:
     void paint(juce::Graphics& g) override
     {
         g.fillAll(juce::Colours::transparentBlack);
+        
+        // Draw MIDI activity indicator
+        auto bounds = getLocalBounds();
+        juce::Rectangle<float> indicator(2, 2, 10, 10);
+        
+        juce::Colour indicatorColor = juce::Colours::orange;
+        float alpha = midiActivityState ? 1.0f : 0.2f;
+        
+        g.setColour(indicatorColor.withAlpha(alpha));
+        g.fillRect(indicator);
+        
+        // Optional: thin outline
+        g.setColour(juce::Colours::black.withAlpha(0.5f));
+        g.drawRect(indicator, 1.0f);
     }
     
     double getValue() const { return mainSlider.getValue(); }
@@ -153,41 +167,74 @@ public:
         mainSlider.repaint();
     }
     
-    // Timer callback for automation
+    // Trigger MIDI activity indicator
+    void triggerMidiActivity()
+    {
+        midiActivityState = true;
+        lastMidiSendTime = juce::Time::getMillisecondCounterHiRes();
+        
+        // Start timer if not already running (for activity timeout)
+        if (!isTimerRunning())
+            startTimer(16); // ~60fps for smooth timeout
+            
+        repaint(); // Immediate visual feedback
+    }
+    
+    // Timer callback for automation and MIDI activity timeout
     void timerCallback() override
     {
-        if (!isAutomating) return;
-        
         double currentTime = juce::Time::getMillisecondCounterHiRes();
-        double elapsed = (currentTime - automationStartTime) / 1000.0;
         
-        if (elapsed < delayTime)
+        // Handle automation
+        if (isAutomating)
         {
-            return;
-        }
-        
-        double attackElapsed = elapsed - delayTime;
-        
-        if (attackElapsed >= attackTime)
-        {
-            mainSlider.setValue(targetMidiValue, juce::dontSendNotification);
-            updateDisplayValue();
-            if (sendMidiCallback)
-                sendMidiCallback(index, (int)targetMidiValue);
+            double elapsed = (currentTime - automationStartTime) / 1000.0;
             
-            stopTimer();
-            isAutomating = false;
-            goButton.setButtonText("GO");
-            return;
+            if (elapsed < delayTime)
+            {
+                // Still in delay phase
+            }
+            else
+            {
+                double attackElapsed = elapsed - delayTime;
+                
+                if (attackElapsed >= attackTime)
+                {
+                    // Automation complete
+                    mainSlider.setValue(targetMidiValue, juce::dontSendNotification);
+                    updateDisplayValue();
+                    if (sendMidiCallback)
+                        sendMidiCallback(index, (int)targetMidiValue);
+                    
+                    isAutomating = false;
+                    goButton.setButtonText("GO");
+                }
+                else
+                {
+                    // Continue automation
+                    double progress = attackElapsed / attackTime;
+                    double currentValue = startMidiValue + (targetMidiValue - startMidiValue) * progress;
+                    
+                    mainSlider.setValue(currentValue, juce::dontSendNotification);
+                    updateDisplayValue();
+                    if (sendMidiCallback)
+                        sendMidiCallback(index, (int)currentValue);
+                }
+            }
         }
         
-        double progress = attackElapsed / attackTime;
-        double currentValue = startMidiValue + (targetMidiValue - startMidiValue) * progress;
+        // Handle MIDI activity timeout
+        if (midiActivityState && (currentTime - lastMidiSendTime) > MIDI_ACTIVITY_DURATION)
+        {
+            midiActivityState = false;
+            repaint(); // Redraw to show inactive state
+        }
         
-        mainSlider.setValue(currentValue, juce::dontSendNotification);
-        updateDisplayValue();
-        if (sendMidiCallback)
-            sendMidiCallback(index, (int)currentValue);
+        // Stop timer if no longer needed
+        if (!isAutomating && !midiActivityState)
+        {
+            stopTimer();
+        }
     }
     
 private:
@@ -317,6 +364,11 @@ private:
     // Display mapping variables
     double displayMin = 0.0;
     double displayMax = 16383.0;
+    
+    // MIDI activity indicator variables
+    bool midiActivityState = false;
+    double lastMidiSendTime = 0.0;
+    static constexpr double MIDI_ACTIVITY_DURATION = 100.0; // milliseconds
     
     juce::Colour sliderColor;
     
