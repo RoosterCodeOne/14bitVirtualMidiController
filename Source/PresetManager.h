@@ -118,17 +118,16 @@ public:
     {
         // Get app data directory for storing presets
         auto appDataDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-                            .getChildFile("VirtualMidiController");
+            .getChildFile("VirtualMidiController");
         
         if (!appDataDir.exists())
             appDataDir.createDirectory();
-            
+        
         presetDirectory = appDataDir.getChildFile("Presets");
         if (!presetDirectory.exists())
             presetDirectory.createDirectory();
-            
+        
         autoSaveFile = appDataDir.getChildFile("current_state.json");
-        DBG("Preset directory: " + presetDirectory.getFullPathName());
         
         // Load any existing preset files
         refreshPresetList();

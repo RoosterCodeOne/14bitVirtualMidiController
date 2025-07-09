@@ -345,11 +345,10 @@ private:
             presetCombo.addItem(presetNames[i], i + 1);
         }
     }
-    
-    // Replace the showSavePresetDialog() method in SettingsWindow.h with this:
-
     void showSavePresetDialog()
     {
+        auto textHolder = std::make_shared<juce::String>();
+        
         auto* alertWindow = new juce::AlertWindow("Save Preset",
                                                  "Enter preset name:",
                                                  juce::MessageBoxIconType::QuestionIcon);
@@ -357,30 +356,27 @@ private:
         alertWindow->addTextEditor("presetName", "", "Preset Name:");
         alertWindow->addButton("Save", 1, juce::KeyPress(juce::KeyPress::returnKey));
         alertWindow->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+        alertWindow->setEscapeKeyCancels(true);
         
         alertWindow->enterModalState(true,
-            juce::ModalCallbackFunction::create([this](int result)
+            juce::ModalCallbackFunction::create([this, alertWindow, textHolder](int result)
             {
-                auto* window = dynamic_cast<juce::AlertWindow*>(juce::Component::getCurrentlyModalComponent());
-                if (window && result == 1) // Save button
+                *textHolder = alertWindow->getTextEditorContents("presetName");
+                
+                if (result == 1 && textHolder->isNotEmpty())
                 {
-                    auto presetName = window->getTextEditorContents("presetName");
-                    if (presetName.isNotEmpty())
+                    auto preset = getCurrentPreset();
+                    preset.name = *textHolder;
+                    
+                    if (presetManager.savePreset(preset, *textHolder))
                     {
-                        auto preset = getCurrentPreset();
-                        preset.name = presetName;
-                        
-                        if (presetManager.savePreset(preset, presetName))
-                        {
-                            refreshPresetList();
-                            // Select the newly saved preset
-                            presetCombo.setText(presetName, juce::dontSendNotification);
-                        }
+                        refreshPresetList();
+                        presetCombo.setText(*textHolder, juce::dontSendNotification);
                     }
                 }
             }), true);
     }
-    
+
     void loadSelectedPreset()
     {
         auto selectedText = presetCombo.getText();
@@ -389,12 +385,11 @@ private:
             auto preset = presetManager.loadPreset(selectedText);
             applyPreset(preset);
             
-            // Notify parent about preset load (for slider values/lock states)
             if (onPresetLoaded)
                 onPresetLoaded(preset);
         }
     }
-    
+
     void deleteSelectedPreset()
     {
         auto selectedText = presetCombo.getText();
@@ -409,7 +404,7 @@ private:
                     .withButton("Cancel"),
                 [this, selectedText](int result)
                 {
-                    if (result == 1) // Delete button
+                    if (result == 1)
                     {
                         if (presetManager.deletePreset(selectedText))
                         {
@@ -420,7 +415,7 @@ private:
                 });
         }
     }
-    
+
     void layoutSliderRow(juce::Rectangle<int>& bounds, int sliderIndex)
     {
         auto row = bounds.removeFromTop(30);
