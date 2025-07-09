@@ -1,4 +1,4 @@
-// SimpleSliderControl.h - Production Version with MIDI Activity Indicators
+// SimpleSliderControl.h - Production Version with MIDI Activity Indicators and Preset Support
 #pragma once
 #include <JuceHeader.h>
 #include "CustomLookAndFeel.h"
@@ -48,7 +48,7 @@ public:
         // Manual override detection
         mainSlider.onDragStart = [this]() {
             // Check if locked - prevent manual dragging
-            if (isLocked) return;
+            if (lockState) return;
             
             if (isAutomating)
             {
@@ -191,6 +191,32 @@ public:
     
     double getValue() const { return mainSlider.getValue(); }
     
+    // Preset support methods
+    void setValue(double newValue)
+    {
+        mainSlider.setValue(newValue, juce::dontSendNotification);
+        updateDisplayValue();
+        updateTargetDisplayValue();
+    }
+    
+    bool isLocked() const { return lockState; }
+    
+    void setLocked(bool shouldBeLocked)
+    {
+        if (lockState != shouldBeLocked)
+        {
+            lockState = shouldBeLocked;
+            
+            // Update label text and color
+            lockLabel.setText(lockState ? "L" : "U", juce::dontSendNotification);
+            lockLabel.setColour(juce::Label::textColourId,
+                               lockState ? juce::Colours::orange : juce::Colours::lightgrey);
+            
+            // Enable/disable slider interaction
+            mainSlider.setInterceptsMouseClicks(!lockState, !lockState);
+        }
+    }
+    
     // Set custom display range - this is the key method for display mapping
     void setDisplayRange(double minVal, double maxVal)
     {
@@ -281,15 +307,27 @@ public:
     // Toggle lock state
     void toggleLock()
     {
-        isLocked = !isLocked;
-        
-        // Update label text and color
-        lockLabel.setText(isLocked ? "L" : "U", juce::dontSendNotification);
-        lockLabel.setColour(juce::Label::textColourId,
-                           isLocked ? juce::Colours::orange : juce::Colours::lightgrey);
-        
-        // Enable/disable slider interaction
-        mainSlider.setInterceptsMouseClicks(!isLocked, !isLocked);
+        setLocked(!lockState);
+    }
+    
+    void setDelayTime(double delay)
+    {
+        delaySlider.setValue(delay, juce::dontSendNotification);
+    }
+
+    double getDelayTime() const
+    {
+        return delaySlider.getValue();
+    }
+
+    void setAttackTime(double attack)
+    {
+        attackSlider.setValue(attack, juce::dontSendNotification);
+    }
+
+    double getAttackTime() const
+    {
+        return attackSlider.getValue();
     }
     
 private:
@@ -412,7 +450,7 @@ private:
     juce::TextButton goButton;
     
     bool isAutomating = false;
-    bool isLocked = false; // Lock state for manual controls
+    bool lockState = false; // Lock state for manual controls
     double automationStartTime = 0.0;
     double startMidiValue = 0.0;
     double targetMidiValue = 0.0;

@@ -1,6 +1,7 @@
-// SettingsWindow.h - Production Version with Improved Layout
+// SettingsWindow.h - Production Version with Preset System
 #pragma once
 #include <JuceHeader.h>
+#include "PresetManager.h"
 
 //==============================================================================
 class SettingsWindow : public juce::Component
@@ -8,7 +9,7 @@ class SettingsWindow : public juce::Component
 public:
     SettingsWindow() : controlsInitialized(false), closeButton("X")
     {
-        setSize(700, 600);
+        setSize(700, 650); // Slightly taller for preset controls
         
         // Only create the essential controls in constructor
         addAndMakeVisible(closeButton);
@@ -22,6 +23,27 @@ public:
         for (int i = 1; i <= 16; ++i)
             midiChannelCombo.addItem("Channel " + juce::String(i), i);
         midiChannelCombo.setSelectedId(1);
+        
+        // Preset controls
+        addAndMakeVisible(presetLabel);
+        presetLabel.setText("Presets:", juce::dontSendNotification);
+        presetLabel.setFont(juce::FontOptions(16.0f, juce::Font::bold));
+        
+        addAndMakeVisible(presetCombo);
+        presetCombo.setTextWhenNothingSelected("Select preset...");
+        refreshPresetList();
+        
+        addAndMakeVisible(savePresetButton);
+        savePresetButton.setButtonText("Save");
+        savePresetButton.onClick = [this]() { showSavePresetDialog(); };
+        
+        addAndMakeVisible(loadPresetButton);
+        loadPresetButton.setButtonText("Load");
+        loadPresetButton.onClick = [this]() { loadSelectedPreset(); };
+        
+        addAndMakeVisible(deletePresetButton);
+        deletePresetButton.setButtonText("Delete");
+        deletePresetButton.onClick = [this]() { deleteSelectedPreset(); };
         
         // Bank labels
         addAndMakeVisible(bankALabel);
@@ -40,6 +62,11 @@ public:
         if (shouldBeVisible && !controlsInitialized)
         {
             initializeSliderControls();
+        }
+        
+        if (shouldBeVisible)
+        {
+            refreshPresetList();
         }
         
         Component::setVisible(shouldBeVisible);
@@ -71,6 +98,8 @@ public:
         g.setFont(juce::FontOptions(14.0f));
         bounds.removeFromTop(10);
         bounds.removeFromTop(30); // MIDI channel area
+        bounds.removeFromTop(15); // Spacing
+        bounds.removeFromTop(40); // Preset area
         bounds.removeFromTop(15); // Spacing
         bounds.removeFromTop(30); // Bank A label
         
@@ -106,6 +135,21 @@ public:
         auto channelArea = bounds.removeFromTop(30);
         midiChannelLabel.setBounds(channelArea.removeFromLeft(100));
         midiChannelCombo.setBounds(channelArea.removeFromLeft(120));
+        
+        bounds.removeFromTop(15); // Spacing
+        
+        // Preset controls
+        auto presetArea = bounds.removeFromTop(40);
+        presetLabel.setBounds(presetArea.removeFromTop(20));
+        
+        auto presetButtonArea = presetArea;
+        presetCombo.setBounds(presetButtonArea.removeFromLeft(200));
+        presetButtonArea.removeFromLeft(10); // spacing
+        savePresetButton.setBounds(presetButtonArea.removeFromLeft(60));
+        presetButtonArea.removeFromLeft(5);
+        loadPresetButton.setBounds(presetButtonArea.removeFromLeft(60));
+        presetButtonArea.removeFromLeft(5);
+        deletePresetButton.setBounds(presetButtonArea.removeFromLeft(60));
         
         bounds.removeFromTop(15); // Spacing
         
@@ -189,13 +233,81 @@ public:
         return juce::Colours::cyan;
     }
     
+    // Preset system interface
+    ControllerPreset getCurrentPreset() const
+    {
+        ControllerPreset preset;
+        preset.name = "Current State";
+        preset.midiChannel = getMidiChannel();
+        
+        for (int i = 0; i < 8; ++i)
+        {
+            if (i < preset.sliders.size())
+            {
+                preset.sliders.getReference(i).ccNumber = getCCNumber(i);
+                auto range = getCustomRange(i);
+                preset.sliders.getReference(i).minRange = range.first;
+                preset.sliders.getReference(i).maxRange = range.second;
+                
+                // Get color ID from combo
+                if (i < colorCombos.size())
+                    preset.sliders.getReference(i).colorId = colorCombos[i]->getSelectedId();
+                
+                // Note: currentValue and isLocked need to be set by caller from actual sliders
+            }
+        }
+        
+        return preset;
+    }
+    
+    void applyPreset(const ControllerPreset& preset)
+    {
+        if (!controlsInitialized)
+            return;
+            
+        // Apply MIDI channel
+        midiChannelCombo.setSelectedId(preset.midiChannel, juce::dontSendNotification);
+        
+        // Apply slider settings
+        for (int i = 0; i < juce::jmin(8, preset.sliders.size()); ++i)
+        {
+            const auto& sliderPreset = preset.sliders[i];
+            
+            if (i < ccInputs.size())
+                ccInputs[i]->setText(juce::String(sliderPreset.ccNumber), juce::dontSendNotification);
+                
+            if (i < minRangeInputs.size())
+                minRangeInputs[i]->setText(juce::String(sliderPreset.minRange), juce::dontSendNotification);
+                
+            if (i < maxRangeInputs.size())
+                maxRangeInputs[i]->setText(juce::String(sliderPreset.maxRange), juce::dontSendNotification);
+                
+            if (i < colorCombos.size())
+                colorCombos[i]->setSelectedId(sliderPreset.colorId, juce::dontSendNotification);
+        }
+        
+        // Notify that settings changed
+        if (onSettingsChanged)
+            onSettingsChanged();
+    }
+    
+    PresetManager& getPresetManager() { return presetManager; }
+    
     std::function<void()> onSettingsChanged;
+    std::function<void(const ControllerPreset&)> onPresetLoaded; // For slider values and lock states
     
 private:
     bool controlsInitialized;
     juce::TextButton closeButton;
     juce::Label midiChannelLabel;
     juce::ComboBox midiChannelCombo;
+    
+    // Preset controls
+    juce::Label presetLabel;
+    juce::ComboBox presetCombo;
+    juce::TextButton savePresetButton, loadPresetButton, deletePresetButton;
+    PresetManager presetManager;
+    
     juce::Label bankALabel, bankBLabel;
     juce::OwnedArray<juce::Label> sliderLabels;
     juce::OwnedArray<juce::TextEditor> ccInputs;
@@ -204,6 +316,91 @@ private:
     juce::OwnedArray<juce::TextEditor> maxRangeInputs;
     juce::OwnedArray<juce::Label> colorLabels;
     juce::OwnedArray<juce::ComboBox> colorCombos;
+    
+    void refreshPresetList()
+    {
+        presetCombo.clear();
+        auto presetNames = presetManager.getPresetNames();
+        for (int i = 0; i < presetNames.size(); ++i)
+        {
+            presetCombo.addItem(presetNames[i], i + 1);
+        }
+    }
+    
+    // Replace the showSavePresetDialog() method in SettingsWindow.h with this:
+
+    void showSavePresetDialog()
+    {
+        auto* alertWindow = new juce::AlertWindow("Save Preset",
+                                                 "Enter preset name:",
+                                                 juce::MessageBoxIconType::QuestionIcon);
+        
+        alertWindow->addTextEditor("presetName", "", "Preset Name:");
+        alertWindow->addButton("Save", 1, juce::KeyPress(juce::KeyPress::returnKey));
+        alertWindow->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+        
+        alertWindow->enterModalState(true,
+            juce::ModalCallbackFunction::create([this](int result)
+            {
+                auto* window = dynamic_cast<juce::AlertWindow*>(juce::Component::getCurrentlyModalComponent());
+                if (window && result == 1) // Save button
+                {
+                    auto presetName = window->getTextEditorContents("presetName");
+                    if (presetName.isNotEmpty())
+                    {
+                        auto preset = getCurrentPreset();
+                        preset.name = presetName;
+                        
+                        if (presetManager.savePreset(preset, presetName))
+                        {
+                            refreshPresetList();
+                            // Select the newly saved preset
+                            presetCombo.setText(presetName, juce::dontSendNotification);
+                        }
+                    }
+                }
+            }), true);
+    }
+    
+    void loadSelectedPreset()
+    {
+        auto selectedText = presetCombo.getText();
+        if (selectedText.isNotEmpty())
+        {
+            auto preset = presetManager.loadPreset(selectedText);
+            applyPreset(preset);
+            
+            // Notify parent about preset load (for slider values/lock states)
+            if (onPresetLoaded)
+                onPresetLoaded(preset);
+        }
+    }
+    
+    void deleteSelectedPreset()
+    {
+        auto selectedText = presetCombo.getText();
+        if (selectedText.isNotEmpty())
+        {
+            juce::AlertWindow::showAsync(
+                juce::MessageBoxOptions()
+                    .withIconType(juce::MessageBoxIconType::WarningIcon)
+                    .withTitle("Delete Preset")
+                    .withMessage("Are you sure you want to delete preset '" + selectedText + "'?")
+                    .withButton("Delete")
+                    .withButton("Cancel"),
+                [this, selectedText](int result)
+                {
+                    if (result == 1) // Delete button
+                    {
+                        if (presetManager.deletePreset(selectedText))
+                        {
+                            refreshPresetList();
+                            presetCombo.clear();
+                        }
+                    }
+                });
+        }
+    }
     
     void layoutSliderRow(juce::Rectangle<int>& bounds, int sliderIndex)
     {
