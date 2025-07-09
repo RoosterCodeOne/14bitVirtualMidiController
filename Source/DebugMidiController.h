@@ -177,7 +177,18 @@ private:
     void loadAutoSavedState()
     {
         auto preset = settingsWindow.getPresetManager().loadAutoSavedState();
+        
+        // Force settings window to initialize its controls if not already done
+        if (!settingsWindow.isVisible())
+        {
+            settingsWindow.setVisible(true);
+            settingsWindow.setVisible(false);
+        }
+        
+        // Apply the preset to settings window (CC numbers, ranges, colors)
         settingsWindow.applyPreset(preset);
+        
+        // Apply to sliders (values, lock states, delay/attack times)
         applyPresetToSliders(preset);
     }
     

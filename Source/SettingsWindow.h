@@ -234,32 +234,51 @@ public:
     }
     
     // Preset system interface
+    // Replace the getCurrentPreset method in SettingsWindow.h:
+
     ControllerPreset getCurrentPreset() const
     {
         ControllerPreset preset;
         preset.name = "Current State";
         preset.midiChannel = getMidiChannel();
         
-        for (int i = 0; i < 8; ++i)
+        // IMPORTANT: Only read settings if controls are initialized
+        if (controlsInitialized)
         {
-            if (i < preset.sliders.size())
+            for (int i = 0; i < 8; ++i)
             {
-                preset.sliders.getReference(i).ccNumber = getCCNumber(i);
-                auto range = getCustomRange(i);
-                preset.sliders.getReference(i).minRange = range.first;
-                preset.sliders.getReference(i).maxRange = range.second;
-                
-                // Get color ID from combo
-                if (i < colorCombos.size())
-                    preset.sliders.getReference(i).colorId = colorCombos[i]->getSelectedId();
-                
-                // Note: currentValue and isLocked need to be set by caller from actual sliders
+                if (i < preset.sliders.size())
+                {
+                    preset.sliders.getReference(i).ccNumber = getCCNumber(i);
+                    auto range = getCustomRange(i);
+                    preset.sliders.getReference(i).minRange = range.first;
+                    preset.sliders.getReference(i).maxRange = range.second;
+                    
+                    // Get color ID from combo
+                    if (i < colorCombos.size())
+                        preset.sliders.getReference(i).colorId = colorCombos[i]->getSelectedId();
+                    
+                    // Note: currentValue, isLocked, delayTime, attackTime need to be set by caller from actual sliders
+                }
+            }
+        }
+        else
+        {
+            // If controls aren't initialized, provide defaults
+            for (int i = 0; i < 8; ++i)
+            {
+                if (i < preset.sliders.size())
+                {
+                    preset.sliders.getReference(i).ccNumber = i; // Default CC numbers
+                    preset.sliders.getReference(i).minRange = 0.0;
+                    preset.sliders.getReference(i).maxRange = 16383.0;
+                    preset.sliders.getReference(i).colorId = 1; // Default color
+                }
             }
         }
         
         return preset;
     }
-    
     void applyPreset(const ControllerPreset& preset)
     {
         if (!controlsInitialized)
