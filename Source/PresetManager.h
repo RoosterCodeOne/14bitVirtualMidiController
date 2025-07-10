@@ -205,6 +205,25 @@ public:
         return false;
     }
     
+    // Get current preset directory
+    juce::File getPresetDirectory() const
+    {
+        return presetDirectory;
+    }
+
+    // Set new preset directory
+    void setPresetDirectory(const juce::File& newDirectory)
+    {
+        presetDirectory = newDirectory;
+        
+        // Ensure the directory exists
+        if (!presetDirectory.exists())
+            presetDirectory.createDirectory();
+            
+        // Refresh the preset list for the new directory
+        refreshPresetList();
+    }
+    
 private:
     juce::File presetDirectory;
     juce::File autoSaveFile;

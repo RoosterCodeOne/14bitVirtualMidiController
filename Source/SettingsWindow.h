@@ -9,7 +9,7 @@ class SettingsWindow : public juce::Component
 public:
     SettingsWindow() : controlsInitialized(false), closeButton("X")
     {
-        setSize(700, 650); // Slightly taller for preset controls
+        setSize(700, 750); // Slightly taller for preset controls
         
         // Only create the essential controls in constructor
         addAndMakeVisible(closeButton);
@@ -44,6 +44,30 @@ public:
         addAndMakeVisible(deletePresetButton);
         deletePresetButton.setButtonText("Delete");
         deletePresetButton.onClick = [this]() { deleteSelectedPreset(); };
+        
+        addAndMakeVisible(presetFolderLabel);
+        presetFolderLabel.setText("Preset Folder:", juce::dontSendNotification);
+        presetFolderLabel.setFont(juce::FontOptions(14.0f));
+
+        addAndMakeVisible(presetPathLabel);
+        presetPathLabel.setText("", juce::dontSendNotification);
+        presetPathLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+        presetPathLabel.setFont(juce::FontOptions(12.0f));
+        presetPathLabel.setJustificationType(juce::Justification::centredLeft);
+        
+        addAndMakeVisible(openFolderButton);
+        openFolderButton.setButtonText("Open Folder");
+        openFolderButton.onClick = [this]() { openPresetFolder(); };
+
+        addAndMakeVisible(changeFolderButton);
+        changeFolderButton.setButtonText("Change Folder");
+        changeFolderButton.onClick = [this]() { changePresetFolder(); };
+
+        updatePresetFolderDisplay();
+        
+        addAndMakeVisible(resetToDefaultButton);
+        resetToDefaultButton.setButtonText("Reset All");
+        resetToDefaultButton.onClick = [this]() { resetToDefaults(); };
         
         // Bank labels
         addAndMakeVisible(bankALabel);
@@ -93,15 +117,20 @@ public:
             return;
         }
         
-        // Draw separators between min/max range inputs
+        // FIX 3: Update bounds calculation to match new layout order
         g.setColour(juce::Colours::lightgrey);
         g.setFont(juce::FontOptions(14.0f));
         bounds.removeFromTop(10);
-        bounds.removeFromTop(30); // MIDI channel area
+        bounds.removeFromTop(40); // Preset area (moved to top)
         bounds.removeFromTop(15); // Spacing
-        bounds.removeFromTop(40); // Preset area
+        bounds.removeFromTop(20); // Folder label
+        bounds.removeFromTop(25); // Folder path
+        bounds.removeFromTop(30); // Folder buttons
         bounds.removeFromTop(15); // Spacing
-        bounds.removeFromTop(30); // Bank A label
+        bounds.removeFromTop(30); // MIDI channel area (moved below presets)
+        bounds.removeFromTop(15); // Spacing
+        bounds.removeFromTop(25); // Bank A label
+        bounds.removeFromTop(5);  // Small spacing
         
         // Draw separators for each slider row
         for (int i = 0; i < 8; ++i)
@@ -109,7 +138,8 @@ public:
             if (i == 4)
             {
                 bounds.removeFromTop(10); // Bank spacing
-                bounds.removeFromTop(30); // Bank B label
+                bounds.removeFromTop(25); // Bank B label
+                bounds.removeFromTop(5);  // Small spacing
             }
             
             auto row = bounds.removeFromTop(30);
@@ -118,7 +148,7 @@ public:
             int separatorX = 50 + 120 + 80 + 70 + 5; // Label + CC + Range label + Min input + spacing
             g.drawText("-", separatorX, row.getY() + 8, 10, 14, juce::Justification::centred);
             
-            bounds.removeFromTop(5); // Small spacing
+            bounds.removeFromTop(5); // Row spacing
         }
     }
     
@@ -131,14 +161,7 @@ public:
         
         bounds.removeFromTop(50); // Title space
         
-        // MIDI Channel
-        auto channelArea = bounds.removeFromTop(30);
-        midiChannelLabel.setBounds(channelArea.removeFromLeft(100));
-        midiChannelCombo.setBounds(channelArea.removeFromLeft(120));
-        
-        bounds.removeFromTop(15); // Spacing
-        
-        // Preset controls
+        // MOVED: Preset controls to the top
         auto presetArea = bounds.removeFromTop(40);
         presetLabel.setBounds(presetArea.removeFromTop(20));
         
@@ -150,6 +173,31 @@ public:
         loadPresetButton.setBounds(presetButtonArea.removeFromLeft(60));
         presetButtonArea.removeFromLeft(5);
         deletePresetButton.setBounds(presetButtonArea.removeFromLeft(60));
+        presetButtonArea.removeFromLeft(10);
+        resetToDefaultButton.setBounds(presetButtonArea.removeFromLeft(80)); // NEW: Reset button
+        
+        bounds.removeFromTop(15); // Spacing
+        
+        // Preset folder controls
+        auto folderLabelArea = bounds.removeFromTop(20);
+        presetFolderLabel.setBounds(folderLabelArea);
+        
+        auto folderPathArea = bounds.removeFromTop(25);
+        // FIX 2: Remove black background and make width fit content
+        auto pathWidth = juce::jmin(400, bounds.getWidth() - 20); // Limit width
+        presetPathLabel.setBounds(folderPathArea.removeFromLeft(pathWidth));
+        
+        auto folderButtonArea = bounds.removeFromTop(30);
+        openFolderButton.setBounds(folderButtonArea.removeFromLeft(100));
+        folderButtonArea.removeFromLeft(10);
+        changeFolderButton.setBounds(folderButtonArea.removeFromLeft(100));
+        
+        bounds.removeFromTop(15); // Spacing
+        
+        // MIDI Channel (moved below presets)
+        auto channelArea = bounds.removeFromTop(30);
+        midiChannelLabel.setBounds(channelArea.removeFromLeft(100));
+        midiChannelCombo.setBounds(channelArea.removeFromLeft(120));
         
         bounds.removeFromTop(15); // Spacing
         
@@ -178,7 +226,7 @@ public:
             layoutSliderRow(bounds, i);
         }
     }
-    
+
     int getMidiChannel() const { return midiChannelCombo.getSelectedId(); }
     
     int getCCNumber(int sliderIndex) const
@@ -326,6 +374,11 @@ private:
     juce::ComboBox presetCombo;
     juce::TextButton savePresetButton, loadPresetButton, deletePresetButton;
     PresetManager presetManager;
+    juce::Label presetFolderLabel;
+    juce::Label presetPathLabel;
+    juce::TextButton openFolderButton, changeFolderButton;
+    juce::TextButton resetToDefaultButton;
+
     
     juce::Label bankALabel, bankBLabel;
     juce::OwnedArray<juce::Label> sliderLabels;
@@ -413,6 +466,76 @@ private:
                         }
                     }
                 });
+        }
+    }
+    
+    void updatePresetFolderDisplay()
+    {
+        auto path = presetManager.getPresetDirectory().getFullPathName();
+        presetPathLabel.setText(path, juce::dontSendNotification);
+    }
+
+    void openPresetFolder()
+    {
+        auto presetDir = presetManager.getPresetDirectory();
+        if (presetDir.exists())
+        {
+            presetDir.revealToUser();
+        }
+    }
+
+
+    void changePresetFolder()
+    {
+        auto chooser = std::make_shared<juce::FileChooser>("Choose preset folder",
+                                                           presetManager.getPresetDirectory());
+        
+        chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+                            [this, chooser](const juce::FileChooser&)
+                            {
+                                auto result = chooser->getResult();
+                                if (result.exists() && result.isDirectory())
+                                {
+                                    presetManager.setPresetDirectory(result);
+                                    updatePresetFolderDisplay();
+                                    refreshPresetList();
+                                }
+                            });
+    }
+    
+    void resetToDefaults()
+    {
+        // Reset MIDI channel
+        midiChannelCombo.setSelectedId(1, juce::dontSendNotification);
+        
+        // Reset all slider settings to defaults
+        if (controlsInitialized)
+        {
+            for (int i = 0; i < 8; ++i)
+            {
+                if (i < ccInputs.size())
+                    ccInputs[i]->setText(juce::String(i), juce::dontSendNotification);
+                    
+                if (i < minRangeInputs.size())
+                    minRangeInputs[i]->setText("0", juce::dontSendNotification);
+                    
+                if (i < maxRangeInputs.size())
+                    maxRangeInputs[i]->setText("16383", juce::dontSendNotification);
+                    
+                if (i < colorCombos.size())
+                    colorCombos[i]->setSelectedId(1, juce::dontSendNotification); // Default color
+            }
+        }
+        
+        // Notify that settings changed
+        if (onSettingsChanged)
+            onSettingsChanged();
+        
+        // Also notify parent to reset sliders to default values/states
+        if (onPresetLoaded)
+        {
+            ControllerPreset defaultPreset; // Creates preset with default values
+            onPresetLoaded(defaultPreset);
         }
     }
 
