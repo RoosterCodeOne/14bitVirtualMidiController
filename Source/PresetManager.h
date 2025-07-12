@@ -55,11 +55,23 @@ struct ControllerPreset
     
     ControllerPreset()
     {
-        // Initialize with 8 default sliders
-        for (int i = 0; i < 8; ++i)
+        // Initialize with 16 default sliders
+        for (int i = 0; i < 16; ++i)
         {
             SliderPreset slider;
             slider.ccNumber = i;
+            
+            // Set default colors based on bank
+            int bankIndex = i / 4;
+            switch (bankIndex)
+            {
+                case 0: slider.colorId = 2; break; // Red
+                case 1: slider.colorId = 3; break; // Blue
+                case 2: slider.colorId = 4; break; // Green
+                case 3: slider.colorId = 5; break; // Yellow
+                default: slider.colorId = 1; break; // Default
+            }
+            
             sliders.add(slider);
         }
     }
@@ -99,11 +111,23 @@ struct ControllerPreset
                 }
             }
             
-            // Ensure we always have 8 sliders
-            while (sliders.size() < 8)
+            // Ensure we always have 16 sliders
+            while (sliders.size() < 16)
             {
                 SliderPreset slider;
                 slider.ccNumber = sliders.size();
+                
+                // Set default colors based on bank for new sliders
+                int bankIndex = sliders.size() / 4;
+                switch (bankIndex)
+                {
+                    case 0: slider.colorId = 2; break; // Red
+                    case 1: slider.colorId = 3; break; // Blue
+                    case 2: slider.colorId = 4; break; // Green
+                    case 3: slider.colorId = 5; break; // Yellow
+                    default: slider.colorId = 1; break; // Default
+                }
+                
                 sliders.add(slider);
             }
         }

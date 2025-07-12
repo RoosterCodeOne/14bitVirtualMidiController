@@ -69,16 +69,43 @@ public:
         resetToDefaultButton.setButtonText("Reset All");
         resetToDefaultButton.onClick = [this]() { resetToDefaults(); };
         
-        // Bank labels
-        addAndMakeVisible(bankALabel);
-        bankALabel.setText("Bank A", juce::dontSendNotification);
-        bankALabel.setColour(juce::Label::textColourId, juce::Colours::red);
-        bankALabel.setFont(juce::FontOptions(16.0f));
+        // Bank selector
+        addAndMakeVisible(bankSelectorLabel);
+        bankSelectorLabel.setText("BANK:", juce::dontSendNotification);
+        bankSelectorLabel.setFont(juce::FontOptions(16.0f, juce::Font::bold));
         
-        addAndMakeVisible(bankBLabel);
-        bankBLabel.setText("Bank B", juce::dontSendNotification);
-        bankBLabel.setColour(juce::Label::textColourId, juce::Colours::blue);
-        bankBLabel.setFont(juce::FontOptions(16.0f));
+        // Bank selector buttons
+        addAndMakeVisible(bankASelector);
+        bankASelector.setText("A", juce::dontSendNotification);
+        bankASelector.setFont(juce::FontOptions(16.0f, juce::Font::bold));
+        bankASelector.setJustificationType(juce::Justification::centred);
+        bankASelector.setColour(juce::Label::backgroundColourId, juce::Colours::red);
+        bankASelector.setColour(juce::Label::textColourId, juce::Colours::white);
+        bankASelector.onClick = [this]() { setSelectedBank(0); };
+        
+        addAndMakeVisible(bankBSelector);
+        bankBSelector.setText("B", juce::dontSendNotification);
+        bankBSelector.setFont(juce::FontOptions(16.0f, juce::Font::bold));
+        bankBSelector.setJustificationType(juce::Justification::centred);
+        bankBSelector.setColour(juce::Label::backgroundColourId, juce::Colours::darkgrey);
+        bankBSelector.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+        bankBSelector.onClick = [this]() { setSelectedBank(1); };
+        
+        addAndMakeVisible(bankCSelector);
+        bankCSelector.setText("C", juce::dontSendNotification);
+        bankCSelector.setFont(juce::FontOptions(16.0f, juce::Font::bold));
+        bankCSelector.setJustificationType(juce::Justification::centred);
+        bankCSelector.setColour(juce::Label::backgroundColourId, juce::Colours::darkgrey);
+        bankCSelector.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+        bankCSelector.onClick = [this]() { setSelectedBank(2); };
+        
+        addAndMakeVisible(bankDSelector);
+        bankDSelector.setText("D", juce::dontSendNotification);
+        bankDSelector.setFont(juce::FontOptions(16.0f, juce::Font::bold));
+        bankDSelector.setJustificationType(juce::Justification::centred);
+        bankDSelector.setColour(juce::Label::backgroundColourId, juce::Colours::darkgrey);
+        bankDSelector.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+        bankDSelector.onClick = [this]() { setSelectedBank(3); };
     }
     
     void setVisible(bool shouldBeVisible) override
@@ -132,16 +159,9 @@ public:
         bounds.removeFromTop(25); // Bank A label
         bounds.removeFromTop(5);  // Small spacing
         
-        // Draw separators for each slider row
-        for (int i = 0; i < 8; ++i)
+        // Draw separators for each slider row (only for currently selected bank)
+        for (int i = 0; i < 4; ++i)
         {
-            if (i == 4)
-            {
-                bounds.removeFromTop(10); // Bank spacing
-                bounds.removeFromTop(25); // Bank B label
-                bounds.removeFromTop(5);  // Small spacing
-            }
-            
             auto row = bounds.removeFromTop(30);
             
             // Calculate separator position (between min and max inputs)
@@ -204,26 +224,26 @@ public:
         if (!controlsInitialized)
             return; // Don't layout controls that don't exist yet
         
-        // Bank A label
-        bankALabel.setBounds(bounds.removeFromTop(25));
+        // Bank selector
+        auto bankSelectorArea = bounds.removeFromTop(25);
+        bankSelectorLabel.setBounds(bankSelectorArea.removeFromLeft(60));
+        
+        // Bank selector buttons - each 30px wide
+        bankASelector.setBounds(bankSelectorArea.removeFromLeft(30));
+        bankSelectorArea.removeFromLeft(5); // spacing
+        bankBSelector.setBounds(bankSelectorArea.removeFromLeft(30));
+        bankSelectorArea.removeFromLeft(5); // spacing
+        bankCSelector.setBounds(bankSelectorArea.removeFromLeft(30));
+        bankSelectorArea.removeFromLeft(5); // spacing
+        bankDSelector.setBounds(bankSelectorArea.removeFromLeft(30));
+        
         bounds.removeFromTop(5); // Small spacing
         
-        // Controls for Bank A (sliders 0-3)
+        // Controls for current bank only (4 sliders)
         for (int i = 0; i < 4; ++i)
         {
-            layoutSliderRow(bounds, i);
-        }
-        
-        bounds.removeFromTop(10); // Spacing between banks
-        
-        // Bank B label
-        bankBLabel.setBounds(bounds.removeFromTop(25));
-        bounds.removeFromTop(5);
-        
-        // Controls for Bank B (sliders 4-7)
-        for (int i = 4; i < 8; ++i)
-        {
-            layoutSliderRow(bounds, i);
+            int sliderIndex = selectedBank * 4 + i;
+            layoutSliderRow(bounds, sliderIndex);
         }
     }
 
@@ -259,7 +279,16 @@ public:
     {
         if (!controlsInitialized)
         {
-            return sliderIndex < 4 ? juce::Colours::red : juce::Colours::blue;
+            // Return default bank colors
+            int bankIndex = sliderIndex / 4;
+            switch (bankIndex)
+            {
+                case 0: return juce::Colours::red;
+                case 1: return juce::Colours::blue;
+                case 2: return juce::Colours::green;
+                case 3: return juce::Colours::yellow;
+                default: return juce::Colours::cyan;
+            }
         }
         
         if (sliderIndex < colorCombos.size())
@@ -275,7 +304,18 @@ public:
                 case 8: return juce::Colours::cyan;
                 case 9: return juce::Colours::white;
                 default:
-                    return sliderIndex < 4 ? juce::Colours::red : juce::Colours::blue;
+                {
+                    // Return default bank colors
+                    int bankIndex = sliderIndex / 4;
+                    switch (bankIndex)
+                    {
+                        case 0: return juce::Colours::red;
+                        case 1: return juce::Colours::blue;
+                        case 2: return juce::Colours::green;
+                        case 3: return juce::Colours::yellow;
+                        default: return juce::Colours::cyan;
+                    }
+                }
             }
         }
         return juce::Colours::cyan;
@@ -293,7 +333,7 @@ public:
         // IMPORTANT: Only read settings if controls are initialized
         if (controlsInitialized)
         {
-            for (int i = 0; i < 8; ++i)
+            for (int i = 0; i < 16; ++i)
             {
                 if (i < preset.sliders.size())
                 {
@@ -313,14 +353,24 @@ public:
         else
         {
             // If controls aren't initialized, provide defaults
-            for (int i = 0; i < 8; ++i)
+            for (int i = 0; i < 16; ++i)
             {
                 if (i < preset.sliders.size())
                 {
                     preset.sliders.getReference(i).ccNumber = i; // Default CC numbers
                     preset.sliders.getReference(i).minRange = 0.0;
                     preset.sliders.getReference(i).maxRange = 16383.0;
-                    preset.sliders.getReference(i).colorId = 1; // Default color
+                    
+                    // Set default colors based on bank
+                    int bankIndex = i / 4;
+                    switch (bankIndex)
+                    {
+                        case 0: preset.sliders.getReference(i).colorId = 2; break; // Red
+                        case 1: preset.sliders.getReference(i).colorId = 3; break; // Blue
+                        case 2: preset.sliders.getReference(i).colorId = 4; break; // Green
+                        case 3: preset.sliders.getReference(i).colorId = 5; break; // Yellow
+                        default: preset.sliders.getReference(i).colorId = 1; break; // Default
+                    }
                 }
             }
         }
@@ -336,7 +386,7 @@ public:
         midiChannelCombo.setSelectedId(preset.midiChannel, juce::dontSendNotification);
         
         // Apply slider settings
-        for (int i = 0; i < juce::jmin(8, preset.sliders.size()); ++i)
+        for (int i = 0; i < juce::jmin(16, preset.sliders.size()); ++i)
         {
             const auto& sliderPreset = preset.sliders[i];
             
@@ -380,7 +430,9 @@ private:
     juce::TextButton resetToDefaultButton;
 
     
-    juce::Label bankALabel, bankBLabel;
+    juce::Label bankSelectorLabel;
+    ClickableLabel bankASelector, bankBSelector, bankCSelector, bankDSelector;
+    int selectedBank = 0;
     juce::OwnedArray<juce::Label> sliderLabels;
     juce::OwnedArray<juce::TextEditor> ccInputs;
     juce::OwnedArray<juce::Label> rangeLabels;
@@ -511,7 +563,7 @@ private:
         // Reset all slider settings to defaults
         if (controlsInitialized)
         {
-            for (int i = 0; i < 8; ++i)
+            for (int i = 0; i < 16; ++i)
             {
                 if (i < ccInputs.size())
                     ccInputs[i]->setText(juce::String(i), juce::dontSendNotification);
@@ -523,7 +575,18 @@ private:
                     maxRangeInputs[i]->setText("16383", juce::dontSendNotification);
                     
                 if (i < colorCombos.size())
-                    colorCombos[i]->setSelectedId(1, juce::dontSendNotification); // Default color
+                {
+                    // Set default colors based on bank
+                    int bankIndex = i / 4;
+                    switch (bankIndex)
+                    {
+                        case 0: colorCombos[i]->setSelectedId(2, juce::dontSendNotification); break; // Red
+                        case 1: colorCombos[i]->setSelectedId(3, juce::dontSendNotification); break; // Blue
+                        case 2: colorCombos[i]->setSelectedId(4, juce::dontSendNotification); break; // Green
+                        case 3: colorCombos[i]->setSelectedId(5, juce::dontSendNotification); break; // Yellow
+                        default: colorCombos[i]->setSelectedId(1, juce::dontSendNotification); break; // Default
+                    }
+                }
             }
         }
         
@@ -568,8 +631,8 @@ private:
     
     void initializeSliderControls()
     {
-        // Create controls for all 8 sliders
-        for (int i = 0; i < 8; ++i)
+        // Create controls for all 16 sliders
+        for (int i = 0; i < 16; ++i)
         {
             // SLIDER X: label
             auto* sliderLabel = new juce::Label();
@@ -642,11 +705,53 @@ private:
         }
         
         controlsInitialized = true;
+        
+        // Set initial bank visibility
+        setSelectedBank(0);
+        
         resized();
         repaint();
         
         if (onSettingsChanged)
             onSettingsChanged();
+    }
+    
+    void setSelectedBank(int bank)
+    {
+        selectedBank = bank;
+        
+        // Update bank selector button appearances
+        bankASelector.setColour(juce::Label::backgroundColourId, bank == 0 ? juce::Colours::red : juce::Colours::darkgrey);
+        bankASelector.setColour(juce::Label::textColourId, bank == 0 ? juce::Colours::white : juce::Colours::lightgrey);
+        
+        bankBSelector.setColour(juce::Label::backgroundColourId, bank == 1 ? juce::Colours::blue : juce::Colours::darkgrey);
+        bankBSelector.setColour(juce::Label::textColourId, bank == 1 ? juce::Colours::white : juce::Colours::lightgrey);
+        
+        bankCSelector.setColour(juce::Label::backgroundColourId, bank == 2 ? juce::Colours::green : juce::Colours::darkgrey);
+        bankCSelector.setColour(juce::Label::textColourId, bank == 2 ? juce::Colours::white : juce::Colours::lightgrey);
+        
+        bankDSelector.setColour(juce::Label::backgroundColourId, bank == 3 ? juce::Colours::yellow : juce::Colours::darkgrey);
+        bankDSelector.setColour(juce::Label::textColourId, bank == 3 ? juce::Colours::black : juce::Colours::lightgrey);
+        
+        // Show/hide appropriate slider controls
+        if (controlsInitialized)
+        {
+            for (int i = 0; i < 16; ++i)
+            {
+                bool shouldBeVisible = (i >= selectedBank * 4) && (i < (selectedBank + 1) * 4);
+                
+                if (i < sliderLabels.size()) sliderLabels[i]->setVisible(shouldBeVisible);
+                if (i < ccInputs.size()) ccInputs[i]->setVisible(shouldBeVisible);
+                if (i < rangeLabels.size()) rangeLabels[i]->setVisible(shouldBeVisible);
+                if (i < minRangeInputs.size()) minRangeInputs[i]->setVisible(shouldBeVisible);
+                if (i < maxRangeInputs.size()) maxRangeInputs[i]->setVisible(shouldBeVisible);
+                if (i < colorLabels.size()) colorLabels[i]->setVisible(shouldBeVisible);
+                if (i < colorCombos.size()) colorCombos[i]->setVisible(shouldBeVisible);
+            }
+        }
+        
+        resized();
+        repaint();
     }
     
     void validateCCInput(juce::TextEditor* input)

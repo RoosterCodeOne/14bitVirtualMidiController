@@ -11,8 +11,8 @@ class DebugMidiController : public juce::Component, public juce::Timer
 public:
     DebugMidiController()
     {
-        // Create 8 slider controls with MIDI callback
-        for (int i = 0; i < 8; ++i)
+        // Create 16 slider controls with MIDI callback
+        for (int i = 0; i < 16; ++i)
         {
             auto* sliderControl = new SimpleSliderControl(i, [this](int sliderIndex, int value) {
                 sendMidiCC(sliderIndex, value);
@@ -33,6 +33,18 @@ public:
         bankBButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
         bankBButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
         bankBButton.onClick = [this]() { setBank(1); };
+        
+        addAndMakeVisible(bankCButton);
+        bankCButton.setButtonText("C");
+        bankCButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
+        bankCButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        bankCButton.onClick = [this]() { setBank(2); };
+        
+        addAndMakeVisible(bankDButton);
+        bankDButton.setButtonText("D");
+        bankDButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
+        bankDButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        bankDButton.onClick = [this]() { setBank(3); };
         
         // Settings button
         addAndMakeVisible(settingsButton);
@@ -113,8 +125,10 @@ public:
         int buttonWidth = 40;
         int buttonHeight = 25;
         int rightMargin = 10;
-        bankBButton.setBounds(getWidth() - rightMargin - buttonWidth, 10, buttonWidth, buttonHeight);
-        bankAButton.setBounds(getWidth() - rightMargin - (buttonWidth * 2) - 5, 10, buttonWidth, buttonHeight);
+        bankDButton.setBounds(getWidth() - rightMargin - buttonWidth, 10, buttonWidth, buttonHeight);
+        bankCButton.setBounds(getWidth() - rightMargin - (buttonWidth * 2) - 5, 10, buttonWidth, buttonHeight);
+        bankBButton.setBounds(getWidth() - rightMargin - (buttonWidth * 3) - 10, 10, buttonWidth, buttonHeight);
+        bankAButton.setBounds(getWidth() - rightMargin - (buttonWidth * 4) - 15, 10, buttonWidth, buttonHeight);
         
         // Reserve space for button area
         area.removeFromTop(40);
@@ -180,9 +194,10 @@ public:
             return true;
         }
         
-        // Handle slider control keys
-        for (auto& mapping : keyboardMappings)
+        // Handle slider control keys - map to currently visible sliders
+        for (int i = 0; i < keyboardMappings.size() && i < 4; ++i)
         {
+            auto& mapping = keyboardMappings[i];
             if (keyChar == mapping.upKey || keyChar == mapping.downKey)
             {
                 if (!mapping.isPressed)
@@ -190,6 +205,7 @@ public:
                     mapping.isPressed = true;
                     mapping.isUpDirection = (keyChar == mapping.upKey);
                     mapping.accumulatedMovement = 0.0; // Reset accumulator
+                    mapping.currentSliderIndex = currentBank * 4 + i; // Map to visible slider
                     
                     // Start timer for smooth movement if not already running
                     if (!isTimerRunning())
@@ -253,9 +269,9 @@ public:
     {
         for (auto& mapping : keyboardMappings)
         {
-            if (mapping.isPressed && mapping.sliderIndex < sliderControls.size())
+            if (mapping.isPressed && mapping.currentSliderIndex < sliderControls.size())
             {
-                auto* slider = sliderControls[mapping.sliderIndex];
+                auto* slider = sliderControls[mapping.currentSliderIndex];
                 
                 // Check if slider is locked
                 if (slider && !slider->isLocked())
@@ -311,29 +327,29 @@ public:
 private:
     struct KeyboardMapping
     {
-        int sliderIndex;
         int upKey;
         int downKey;
         bool isPressed = false;
         bool isUpDirection = false;
         double accumulatedMovement = 0.0; // For fractional movement accumulation
+        int currentSliderIndex = 0; // Maps to currently visible slider
     };
     
     void initializeKeyboardControls()
     {
         keyboardMappings.clear();
         
-        // Q/A for slider 1, W/S for slider 2, E/D for slider 3, R/F for slider 4
-        keyboardMappings.push_back({0, 'Q', 'A'});
-        keyboardMappings.push_back({1, 'W', 'S'});
-        keyboardMappings.push_back({2, 'E', 'D'});
-        keyboardMappings.push_back({3, 'R', 'F'});
+        // Q/A for visible slider 1, W/S for visible slider 2, E/D for visible slider 3, R/F for visible slider 4
+        keyboardMappings.push_back({'Q', 'A'});
+        keyboardMappings.push_back({'W', 'S'});
+        keyboardMappings.push_back({'E', 'D'});
+        keyboardMappings.push_back({'R', 'F'});
         
-        // U/J, I/K, O/L, P/; for sliders 5-8
-        keyboardMappings.push_back({4, 'U', 'J'});
-        keyboardMappings.push_back({5, 'I', 'K'});
-        keyboardMappings.push_back({6, 'O', 'L'});
-        keyboardMappings.push_back({7, 'P', ';'});
+        // Keep the other mappings for future use when 8 sliders are visible
+        keyboardMappings.push_back({'U', 'J'});
+        keyboardMappings.push_back({'I', 'K'});
+        keyboardMappings.push_back({'O', 'L'});
+        keyboardMappings.push_back({'P', ';'});
         
         // Initialize discrete movement rates (last one is special: -1 = instant/100%)
         movementRates = {1, 5, 50, 100, 250, 500, 1000, 2500, 5000, 10000, -1};
@@ -451,16 +467,19 @@ private:
     {
         currentBank = bank;
         
-        // Update button colors
-        if (bank == 0)
+        // Reset all buttons to dark grey first
+        bankAButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
+        bankBButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
+        bankCButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
+        bankDButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
+        
+        // Set active bank color
+        switch (bank)
         {
-            bankAButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red);
-            bankBButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
-        }
-        else
-        {
-            bankAButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
-            bankBButton.setColour(juce::TextButton::buttonColourId, juce::Colours::blue);
+            case 0: bankAButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red); break;
+            case 1: bankBButton.setColour(juce::TextButton::buttonColourId, juce::Colours::blue); break;
+            case 2: bankCButton.setColour(juce::TextButton::buttonColourId, juce::Colours::green); break;
+            case 3: bankDButton.setColour(juce::TextButton::buttonColourId, juce::Colours::yellow); break;
         }
         
         // Hide all sliders first
@@ -526,7 +545,7 @@ private:
     
     juce::OwnedArray<SimpleSliderControl> sliderControls;
     juce::TextButton settingsButton;
-    juce::TextButton bankAButton, bankBButton;
+    juce::TextButton bankAButton, bankBButton, bankCButton, bankDButton;
     SettingsWindow settingsWindow;
     juce::Label movementSpeedLabel;
     std::unique_ptr<juce::MidiOutput> midiOutput;
