@@ -6,7 +6,7 @@
 #include "SettingsWindow.h"
 
 //==============================================================================
-class DebugMidiController : public juce::Component
+class DebugMidiController : public juce::Component, public juce::Timer
 {
 public:
     DebugMidiController()
@@ -50,6 +50,14 @@ public:
             applyPresetToSliders(preset);
         };
         
+        // Movement speed tooltip
+        addAndMakeVisible(movementSpeedLabel);
+        movementSpeedLabel.setJustificationType(juce::Justification::centred);
+        movementSpeedLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+        movementSpeedLabel.setColour(juce::Label::backgroundColourId, juce::Colours::darkgrey);
+        movementSpeedLabel.setFont(juce::FontOptions(12.0f));
+        updateMovementSpeedDisplay();
+        
         // Initialize MIDI output
         initializeMidiOutput();
         
@@ -61,10 +69,17 @@ public:
         
         // Apply initial settings
         updateSliderSettings();
+        
+        // Initialize keyboard control system
+        setWantsKeyboardFocus(true);
+        initializeKeyboardControls();
     }
     
     ~DebugMidiController()
     {
+        // Stop keyboard timer before destruction
+        stopTimer();
+        
         // Auto-save current state before destruction
         saveCurrentState();
         
@@ -104,7 +119,11 @@ public:
         // Reserve space for button area
         area.removeFromTop(40);
         
-        // Divide space between visible sliders (4 at a time)
+        // Reserve space for movement speed tooltip at bottom
+        auto tooltipArea = area.removeFromBottom(25);
+        movementSpeedLabel.setBounds(tooltipArea);
+        
+        // Divide remaining space between visible sliders (4 at a time)
         int sliderWidth = area.getWidth() / 4;
         for (int i = 0; i < 4; ++i)
         {
@@ -122,7 +141,224 @@ public:
             settingsWindow.setBounds(getLocalBounds());
     }
     
+    bool keyPressed(const juce::KeyPress& key) override
+    {
+        // Allow system shortcuts when modifier keys are held
+        if (key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown() || 
+            key.getModifiers().isAltDown())
+        {
+            return false; // Let the system handle Command+Q, Ctrl+C, etc.
+        }
+        
+        // Don't interfere when any text editor has focus
+        if (isTextEditorFocused())
+        {
+            return false;
+        }
+        
+        auto keyChar = key.getKeyCode();
+        
+        // Handle movement rate adjustment (Z/X keys) - discrete rates
+        if (keyChar == 'Z' || keyChar == 'z')
+        {
+            if (currentRateIndex > 0)
+            {
+                currentRateIndex--;
+                keyboardMovementRate = movementRates[currentRateIndex];
+                updateMovementSpeedDisplay();
+            }
+            return true;
+        }
+        if (keyChar == 'X' || keyChar == 'x')
+        {
+            if (currentRateIndex < movementRates.size() - 1)
+            {
+                currentRateIndex++;
+                keyboardMovementRate = movementRates[currentRateIndex];
+                updateMovementSpeedDisplay();
+            }
+            return true;
+        }
+        
+        // Handle slider control keys
+        for (auto& mapping : keyboardMappings)
+        {
+            if (keyChar == mapping.upKey || keyChar == mapping.downKey)
+            {
+                if (!mapping.isPressed)
+                {
+                    mapping.isPressed = true;
+                    mapping.isUpDirection = (keyChar == mapping.upKey);
+                    mapping.accumulatedMovement = 0.0; // Reset accumulator
+                    
+                    // Start timer for smooth movement if not already running
+                    if (!isTimerRunning())
+                        startTimer(16); // ~60fps
+                }
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    bool keyStateChanged(bool isKeyDown) override
+    {
+        // Don't interfere when modifier keys are held or text editor has focus
+        if (juce::ModifierKeys::getCurrentModifiers().isCommandDown() || 
+            juce::ModifierKeys::getCurrentModifiers().isCtrlDown() ||
+            juce::ModifierKeys::getCurrentModifiers().isAltDown() ||
+            isTextEditorFocused())
+        {
+            return false;
+        }
+        
+        if (!isKeyDown)
+        {
+            // Key released - check if any of our keys were released
+            for (auto& mapping : keyboardMappings)
+            {
+                if (mapping.isPressed)
+                {
+                    // Check if this key is still pressed
+                    bool upStillPressed = juce::KeyPress::isKeyCurrentlyDown(mapping.upKey);
+                    bool downStillPressed = juce::KeyPress::isKeyCurrentlyDown(mapping.downKey);
+                    
+                    if (!upStillPressed && !downStillPressed)
+                    {
+                        mapping.isPressed = false;
+                    }
+                }
+            }
+            
+            // Stop timer if no keys are pressed
+            bool anyKeyPressed = false;
+            for (const auto& mapping : keyboardMappings)
+            {
+                if (mapping.isPressed)
+                {
+                    anyKeyPressed = true;
+                    break;
+                }
+            }
+            
+            if (!anyKeyPressed && isTimerRunning())
+                stopTimer();
+        }
+        
+        return false;
+    }
+    
+    void timerCallback() override
+    {
+        for (auto& mapping : keyboardMappings)
+        {
+            if (mapping.isPressed && mapping.sliderIndex < sliderControls.size())
+            {
+                auto* slider = sliderControls[mapping.sliderIndex];
+                
+                // Check if slider is locked
+                if (slider && !slider->isLocked())
+                {
+                    double currentValue = slider->getValue();
+                    double newValue = currentValue;
+                    
+                    // Handle instant movement (100%)
+                    if (keyboardMovementRate == -1)
+                    {
+                        if (mapping.isUpDirection)
+                            newValue = 16383.0; // Go to max instantly
+                        else
+                            newValue = 0.0; // Go to min instantly
+                    }
+                    else
+                    {
+                        // Calculate movement delta based on rate (MIDI units per second)
+                        double deltaTime = 1.0 / 60.0; // Assuming 60fps timer
+                        double movementDelta = keyboardMovementRate * deltaTime;
+                        
+                        // Accumulate fractional movement
+                        double direction = mapping.isUpDirection ? 1.0 : -1.0;
+                        mapping.accumulatedMovement += movementDelta * direction;
+                        
+                        // Only move when we've accumulated at least 1 unit
+                        if (std::abs(mapping.accumulatedMovement) >= 1.0)
+                        {
+                            double wholeUnitsToMove = std::floor(std::abs(mapping.accumulatedMovement));
+                            
+                            if (mapping.accumulatedMovement > 0)
+                            {
+                                newValue = juce::jmin(16383.0, currentValue + wholeUnitsToMove);
+                                mapping.accumulatedMovement -= wholeUnitsToMove;
+                            }
+                            else
+                            {
+                                newValue = juce::jmax(0.0, currentValue - wholeUnitsToMove);
+                                mapping.accumulatedMovement += wholeUnitsToMove;
+                            }
+                        }
+                    }
+                    
+                    if (newValue != currentValue)
+                    {
+                        slider->setValueFromKeyboard(newValue);
+                    }
+                }
+            }
+        }
+    }
+    
 private:
+    struct KeyboardMapping
+    {
+        int sliderIndex;
+        int upKey;
+        int downKey;
+        bool isPressed = false;
+        bool isUpDirection = false;
+        double accumulatedMovement = 0.0; // For fractional movement accumulation
+    };
+    
+    void initializeKeyboardControls()
+    {
+        keyboardMappings.clear();
+        
+        // Q/A for slider 1, W/S for slider 2, E/D for slider 3, R/F for slider 4
+        keyboardMappings.push_back({0, 'Q', 'A'});
+        keyboardMappings.push_back({1, 'W', 'S'});
+        keyboardMappings.push_back({2, 'E', 'D'});
+        keyboardMappings.push_back({3, 'R', 'F'});
+        
+        // U/J, I/K, O/L, P/; for sliders 5-8
+        keyboardMappings.push_back({4, 'U', 'J'});
+        keyboardMappings.push_back({5, 'I', 'K'});
+        keyboardMappings.push_back({6, 'O', 'L'});
+        keyboardMappings.push_back({7, 'P', ';'});
+        
+        // Initialize discrete movement rates (last one is special: -1 = instant/100%)
+        movementRates = {1, 5, 50, 100, 250, 500, 1000, 2500, 5000, 10000, -1};
+        currentRateIndex = 2; // Start with 50 units/sec
+        keyboardMovementRate = movementRates[currentRateIndex];
+    }
+    
+    void updateMovementSpeedDisplay()
+    {
+        juce::String speedText;
+        if (keyboardMovementRate == -1)
+            speedText = "Keyboard Speed: 100% (instant) (Z/X to adjust)";
+        else
+            speedText = "Keyboard Speed: " + juce::String((int)keyboardMovementRate) + " units/sec (Z/X to adjust)";
+        movementSpeedLabel.setText(speedText, juce::dontSendNotification);
+    }
+    
+    bool isTextEditorFocused()
+    {
+        // Check if any text editor in the application currently has focus
+        auto* focusedComponent = juce::Component::getCurrentlyFocusedComponent();
+        return (focusedComponent != nullptr && 
+                dynamic_cast<juce::TextEditor*>(focusedComponent) != nullptr);
+    }
+    
     void updateSliderSettings()
     {
         for (int i = 0; i < sliderControls.size(); ++i)
@@ -292,8 +528,15 @@ private:
     juce::TextButton settingsButton;
     juce::TextButton bankAButton, bankBButton;
     SettingsWindow settingsWindow;
+    juce::Label movementSpeedLabel;
     std::unique_ptr<juce::MidiOutput> midiOutput;
     int currentBank = 0;
+    
+    // Keyboard control members
+    std::vector<KeyboardMapping> keyboardMappings;
+    std::vector<int> movementRates;
+    int currentRateIndex = 2;
+    double keyboardMovementRate = 50.0; // MIDI units per second
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DebugMidiController)
 };

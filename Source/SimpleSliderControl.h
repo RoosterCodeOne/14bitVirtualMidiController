@@ -118,7 +118,12 @@ public:
         // GO button with automation functionality
         addAndMakeVisible(goButton);
         goButton.setButtonText("GO");
-        goButton.onClick = [this]() { startAutomation(); };
+        goButton.onClick = [this]() { 
+            if (isAutomating)
+                stopAutomation();
+            else
+                startAutomation();
+        };
         
         // Initialize display with default range
         updateDisplayValue();
@@ -330,6 +335,15 @@ public:
         return attackSlider.getValue();
     }
     
+    // For keyboard movement - updates slider without changing target input
+    void setValueFromKeyboard(double newValue)
+    {
+        mainSlider.setValue(newValue, juce::dontSendNotification);
+        updateDisplayValue();
+        if (sendMidiCallback)
+            sendMidiCallback(index, (int)newValue);
+    }
+    
 private:
     // Convert MIDI value (0-16383) to display value based on custom range
     double midiToDisplayValue(double midiValue) const
@@ -432,9 +446,21 @@ private:
         
         isAutomating = true;
         automationStartTime = juce::Time::getMillisecondCounterHiRes();
-        goButton.setButtonText("...");
+        goButton.setButtonText("STOP");
         
         startTimer(16); // ~60fps updates
+    }
+    
+    void stopAutomation()
+    {
+        if (!isAutomating) return;
+        
+        isAutomating = false;
+        goButton.setButtonText("GO");
+        
+        // Stop the timer if not needed for MIDI activity
+        if (!midiActivityState)
+            stopTimer();
     }
     
     int index;

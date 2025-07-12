@@ -17,9 +17,9 @@ public:
         setContentOwned(controller, true);
         
         setResizable(true, true);
-        setResizeLimits(800, 600, 1200, 800);
+        setResizeLimits(800, 650, 1200, 850);
         
-        centreWithSize(1000, 700);
+        centreWithSize(1000, 750);
         setVisible(true);
     }
     
