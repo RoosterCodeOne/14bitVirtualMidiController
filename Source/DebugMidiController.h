@@ -64,17 +64,27 @@ public:
         
         // Movement speed tooltip
         addAndMakeVisible(movementSpeedLabel);
-        movementSpeedLabel.setJustificationType(juce::Justification::centred);
+        movementSpeedLabel.setJustificationType(juce::Justification::centredLeft);
         movementSpeedLabel.setColour(juce::Label::textColourId, juce::Colours::white);
         movementSpeedLabel.setColour(juce::Label::backgroundColourId, juce::Colours::darkgrey);
         movementSpeedLabel.setFont(juce::FontOptions(12.0f));
         updateMovementSpeedDisplay();
         
+        // Window size tooltip
+        addAndMakeVisible(windowSizeLabel);
+        windowSizeLabel.setJustificationType(juce::Justification::centredRight);
+        windowSizeLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+        windowSizeLabel.setColour(juce::Label::backgroundColourId, juce::Colours::darkgrey);
+        windowSizeLabel.setFont(juce::FontOptions(12.0f));
+        updateWindowSizeDisplay();
+        
         // Initialize MIDI output
         initializeMidiOutput();
         
-        // Set initial bank
+        // Set initial bank and slider visibility
         setBank(0);
+        updateSliderVisibility();
+        updateBankButtonStates();
         
         // Load auto-saved state
         loadAutoSavedState();
@@ -116,6 +126,19 @@ public:
     void resized() override
     {
         auto area = getLocalBounds();
+        
+        // Check if we should switch between 4 and 8 slider modes
+        bool shouldBeEightSliderMode = getWidth() >= EIGHT_SLIDER_THRESHOLD;
+        if (shouldBeEightSliderMode != isEightSliderMode)
+        {
+            isEightSliderMode = shouldBeEightSliderMode;
+            updateSliderVisibility();
+            updateBankButtonStates();
+        }
+        
+        // Update window size display
+        updateWindowSizeDisplay();
+        
         area.removeFromTop(80); // Title + status space
         
         // Settings button - positioned on left under MIDI status
@@ -133,19 +156,23 @@ public:
         // Reserve space for button area
         area.removeFromTop(40);
         
-        // Reserve space for movement speed tooltip at bottom
+        // Reserve space for tooltips at bottom
         auto tooltipArea = area.removeFromBottom(25);
-        movementSpeedLabel.setBounds(tooltipArea);
+        auto leftTooltip = tooltipArea.removeFromLeft(tooltipArea.getWidth() / 2);
+        movementSpeedLabel.setBounds(leftTooltip);
+        windowSizeLabel.setBounds(tooltipArea);
         
-        // Divide remaining space between visible sliders (4 at a time)
-        int sliderWidth = area.getWidth() / 4;
-        for (int i = 0; i < 4; ++i)
+        // Layout sliders based on current mode
+        int visibleSliderCount = isEightSliderMode ? 8 : 4;
+        int sliderWidth = area.getWidth() / visibleSliderCount;
+        
+        for (int i = 0; i < visibleSliderCount; ++i)
         {
-            int sliderIndex = currentBank * 4 + i;
+            int sliderIndex = getVisibleSliderIndex(i);
             if (sliderIndex < sliderControls.size())
             {
                 auto sliderBounds = area.removeFromLeft(sliderWidth);
-                sliderBounds.reduce(10, 0); // Gap between sliders
+                sliderBounds.reduce(5, 0); // Gap between sliders
                 sliderControls[sliderIndex]->setBounds(sliderBounds);
             }
         }
@@ -195,7 +222,8 @@ public:
         }
         
         // Handle slider control keys - map to currently visible sliders
-        for (int i = 0; i < keyboardMappings.size() && i < 4; ++i)
+        int maxMappings = isEightSliderMode ? 8 : 4;
+        for (int i = 0; i < keyboardMappings.size() && i < maxMappings; ++i)
         {
             auto& mapping = keyboardMappings[i];
             if (keyChar == mapping.upKey || keyChar == mapping.downKey)
@@ -205,7 +233,7 @@ public:
                     mapping.isPressed = true;
                     mapping.isUpDirection = (keyChar == mapping.upKey);
                     mapping.accumulatedMovement = 0.0; // Reset accumulator
-                    mapping.currentSliderIndex = currentBank * 4 + i; // Map to visible slider
+                    mapping.currentSliderIndex = getVisibleSliderIndex(i); // Map to visible slider
                     
                     // Start timer for smooth movement if not already running
                     if (!isTimerRunning())
@@ -357,6 +385,72 @@ private:
         keyboardMovementRate = movementRates[currentRateIndex];
     }
     
+    int getVisibleSliderIndex(int visiblePosition) const
+    {
+        if (isEightSliderMode)
+        {
+            // In 8-slider mode, show bank pairs: A+B (0-7) or C+D (8-15)
+            int bankPair = currentBank >= 2 ? 1 : 0; // 0 for A+B, 1 for C+D
+            return (bankPair * 8) + visiblePosition;
+        }
+        else
+        {
+            // In 4-slider mode, show single bank
+            return (currentBank * 4) + visiblePosition;
+        }
+    }
+    
+    void updateSliderVisibility()
+    {
+        // Hide all sliders first
+        for (auto* slider : sliderControls)
+            slider->setVisible(false);
+        
+        // Show appropriate sliders based on mode
+        int visibleCount = isEightSliderMode ? 8 : 4;
+        for (int i = 0; i < visibleCount; ++i)
+        {
+            int sliderIndex = getVisibleSliderIndex(i);
+            if (sliderIndex < sliderControls.size())
+                sliderControls[sliderIndex]->setVisible(true);
+        }
+    }
+    
+    void updateBankButtonStates()
+    {
+        // Reset all buttons to dark grey first
+        bankAButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
+        bankBButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
+        bankCButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
+        bankDButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
+        
+        if (isEightSliderMode)
+        {
+            // In 8-slider mode, light up both banks in the pair
+            if (currentBank <= 1) // A+B pair
+            {
+                bankAButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red);
+                bankBButton.setColour(juce::TextButton::buttonColourId, juce::Colours::blue);
+            }
+            else // C+D pair
+            {
+                bankCButton.setColour(juce::TextButton::buttonColourId, juce::Colours::green);
+                bankDButton.setColour(juce::TextButton::buttonColourId, juce::Colours::yellow);
+            }
+        }
+        else
+        {
+            // In 4-slider mode, light up only the active bank
+            switch (currentBank)
+            {
+                case 0: bankAButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red); break;
+                case 1: bankBButton.setColour(juce::TextButton::buttonColourId, juce::Colours::blue); break;
+                case 2: bankCButton.setColour(juce::TextButton::buttonColourId, juce::Colours::green); break;
+                case 3: bankDButton.setColour(juce::TextButton::buttonColourId, juce::Colours::yellow); break;
+            }
+        }
+    }
+    
     void updateMovementSpeedDisplay()
     {
         juce::String speedText;
@@ -365,6 +459,14 @@ private:
         else
             speedText = "Keyboard Speed: " + juce::String((int)keyboardMovementRate) + " units/sec (Z/X to adjust)";
         movementSpeedLabel.setText(speedText, juce::dontSendNotification);
+    }
+    
+    void updateWindowSizeDisplay()
+    {
+        juce::String sizeText = "Window: " + juce::String(getWidth()) + "x" + juce::String(getHeight()) + 
+                               " | Mode: " + (isEightSliderMode ? "8-slider" : "4-slider") + 
+                               " | Threshold: " + juce::String(EIGHT_SLIDER_THRESHOLD);
+        windowSizeLabel.setText(sizeText, juce::dontSendNotification);
     }
     
     bool isTextEditorFocused()
@@ -465,35 +567,22 @@ private:
     
     void setBank(int bank)
     {
-        currentBank = bank;
-        
-        // Reset all buttons to dark grey first
-        bankAButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
-        bankBButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
-        bankCButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
-        bankDButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
-        
-        // Set active bank color
-        switch (bank)
+        if (isEightSliderMode)
         {
-            case 0: bankAButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red); break;
-            case 1: bankBButton.setColour(juce::TextButton::buttonColourId, juce::Colours::blue); break;
-            case 2: bankCButton.setColour(juce::TextButton::buttonColourId, juce::Colours::green); break;
-            case 3: bankDButton.setColour(juce::TextButton::buttonColourId, juce::Colours::yellow); break;
+            // In 8-slider mode, clicking a bank switches to its pair
+            if (bank <= 1)
+                currentBank = 0; // Clicking A or B shows A+B pair
+            else
+                currentBank = 2; // Clicking C or D shows C+D pair
+        }
+        else
+        {
+            // In 4-slider mode, show the individual bank
+            currentBank = bank;
         }
         
-        // Hide all sliders first
-        for (auto* slider : sliderControls)
-            slider->setVisible(false);
-        
-        // Show only the sliders for the current bank
-        for (int i = 0; i < 4; ++i)
-        {
-            int sliderIndex = currentBank * 4 + i;
-            if (sliderIndex < sliderControls.size())
-                sliderControls[sliderIndex]->setVisible(true);
-        }
-        
+        updateSliderVisibility();
+        updateBankButtonStates();
         resized(); // Re-layout
     }
     
@@ -548,8 +637,11 @@ private:
     juce::TextButton bankAButton, bankBButton, bankCButton, bankDButton;
     SettingsWindow settingsWindow;
     juce::Label movementSpeedLabel;
+    juce::Label windowSizeLabel;
     std::unique_ptr<juce::MidiOutput> midiOutput;
     int currentBank = 0;
+    bool isEightSliderMode = false;
+    static constexpr int EIGHT_SLIDER_THRESHOLD = 1280; // Width threshold for 8-slider mode
     
     // Keyboard control members
     std::vector<KeyboardMapping> keyboardMappings;

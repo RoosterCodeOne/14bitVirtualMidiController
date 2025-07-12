@@ -16,10 +16,18 @@ public:
         auto* controller = new DebugMidiController();
         setContentOwned(controller, true);
         
-        setResizable(true, true);
-        setResizeLimits(800, 650, 1200, 850);
+        setResizable(true, false); // Allow width resize only, lock height
         
-        centreWithSize(1000, 750);
+        // Calculate optimal height for threshold width (1280px)
+        int optimalHeight = static_cast<int>(1280 / 1.6); // 800px height
+        setResizeLimits(800, optimalHeight, 1800, optimalHeight);
+        
+        // Set up constrainer to lock height
+        setConstrainer(&constrainer);
+        constrainer.setMinimumHeight(optimalHeight);
+        constrainer.setMaximumHeight(optimalHeight);
+        
+        centreWithSize(1000, optimalHeight);
         setVisible(true);
     }
     
@@ -29,6 +37,7 @@ public:
     }
     
 private:
+    juce::ComponentBoundsConstrainer constrainer;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainWindow)
 };
 
