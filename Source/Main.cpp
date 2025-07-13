@@ -17,9 +17,9 @@ public:
         setContentOwned(controller, true);
         
         // Calculate dimensions
-        int optimalHeight = 650;
-        int minWidth = 450; // 4×100 + 3×10 + 20 = 450px
-        int maxWidth = 990; // 8×100 + 7×10 + 20 + 100 = 990px
+        int optimalHeight = 700;
+        int minWidth = 490; // 4×110 + 3×10 + 20 = 490px
+        int maxWidth = 1030; // 8×110 + 7×10 + 20 + 100 = 1030px
         
         // Set resizable before setting any constraints
         setResizable(true, true);

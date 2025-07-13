@@ -64,7 +64,7 @@ public:
         g.drawRoundedRectangle(bounds.reduced(1), 3.0f, 1.0f);
         
         // Corner mounting screws with balanced positioning  
-        float horizontalInset = 6.0f; // Reduced for narrower plate (was 8px)
+        float horizontalInset = 8.0f; // Reduced for narrower plate (was 8px)
         float verticalInset = 8.0f; // Keep vertical distance for balance
         
         // Top screws with balanced positioning

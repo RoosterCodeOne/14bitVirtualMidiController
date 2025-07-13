@@ -818,7 +818,7 @@ private:
     std::unique_ptr<juce::MidiOutput> midiOutput;
     int currentBank = 0;
     bool isEightSliderMode = false;
-    static constexpr int SLIDER_PLATE_WIDTH = 100; // Fixed slider plate width (reduced from 145)
+    static constexpr int SLIDER_PLATE_WIDTH = 110; // Fixed slider plate width (increased from 100)
     static constexpr int SLIDER_GAP = 10; // Gap between sliders
     
     // Keyboard control members

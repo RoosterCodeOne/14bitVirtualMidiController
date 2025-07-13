@@ -2,6 +2,9 @@
 #pragma once
 #include <JuceHeader.h>
 #include "CustomLookAndFeel.h"
+#include "CustomKnob.h"
+#include "CustomLEDInput.h"
+#include "Custom3DButton.h"
 
 //==============================================================================
 // Custom clickable label for lock functionality
@@ -22,7 +25,10 @@ class SimpleSliderControl : public juce::Component, public juce::Timer
 {
 public:
     SimpleSliderControl(int sliderIndex, std::function<void(int, int)> midiCallback)
-        : index(sliderIndex), sendMidiCallback(midiCallback), sliderColor(juce::Colours::cyan)
+        : index(sliderIndex), sendMidiCallback(midiCallback), sliderColor(juce::Colours::cyan),
+          attackKnob("ATTACK", 0.0, 30.0, CustomKnob::Large), 
+          delayKnob("DELAY", 0.0, 10.0, CustomKnob::Small), 
+          returnKnob("RETURN", 0.0, 30.0, CustomKnob::Small)
     {
         // Main slider with custom look
         addAndMakeVisible(mainSlider);
@@ -57,7 +63,8 @@ public:
             {
                 stopTimer();
                 isAutomating = false;
-                goButton.setButtonText("GO");
+                isReturning = false; // Reset return phase flag
+                goButton3D.setButtonText("GO");
             }
         };
         
@@ -84,48 +91,25 @@ public:
         currentValueLabel.setColour(juce::Label::textColourId, juce::Colours::white);
         currentValueLabel.setFont(juce::FontOptions(12.0f));
         
-        // Delay slider
-        addAndMakeVisible(delaySlider);
-        delaySlider.setSliderStyle(juce::Slider::LinearHorizontal);
-        delaySlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 40, 20);
-        delaySlider.setRange(0.0, 10.0, 0.1);
-        delaySlider.setValue(0.0);
-        delaySlider.setTextValueSuffix(" s");
+        // Attack knob (large)
+        addAndMakeVisible(attackKnob);
+        attackKnob.setValue(1.0);
         
-        addAndMakeVisible(delayLabel);
-        delayLabel.setText("Delay:", juce::dontSendNotification);
-        delayLabel.setFont(juce::FontOptions(11.0f));
-        delayLabel.attachToComponent(&delaySlider, true);
+        // Delay knob (small)
+        addAndMakeVisible(delayKnob);
+        delayKnob.setValue(0.0);
         
-        // Attack slider
-        addAndMakeVisible(attackSlider);
-        attackSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-        attackSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 40, 20);
-        attackSlider.setRange(0.0, 30.0, 0.1);
-        attackSlider.setValue(1.0);
-        attackSlider.setTextValueSuffix(" s");
+        // Return knob (small)
+        addAndMakeVisible(returnKnob);
+        returnKnob.setValue(0.0);
         
-        addAndMakeVisible(attackLabel);
-        attackLabel.setText("Attack:", juce::dontSendNotification);
-        attackLabel.setFont(juce::FontOptions(11.0f));
-        attackLabel.attachToComponent(&attackSlider, true);
+        // Target value input - LED display style
+        addAndMakeVisible(targetLEDInput);
+        targetLEDInput.setValidatedValue(8192); // Will be converted to display range
         
-        // Target value input - shows display range values
-        addAndMakeVisible(targetInput);
-        targetInput.setInputRestrictions(0, "-0123456789.");
-        targetInput.setText("8192", juce::dontSendNotification); // Will be converted to display range
-        targetInput.onReturnKey = [this]() { validateTargetValue(); };
-        targetInput.onFocusLost = [this]() { validateTargetValue(); };
-        
-        addAndMakeVisible(targetLabel);
-        targetLabel.setText("Target:", juce::dontSendNotification);
-        targetLabel.setFont(juce::FontOptions(11.0f));
-        targetLabel.attachToComponent(&targetInput, true);
-        
-        // GO button with automation functionality
-        addAndMakeVisible(goButton);
-        goButton.setButtonText("GO");
-        goButton.onClick = [this]() { 
+        // 3D GO button with automation functionality
+        addAndMakeVisible(goButton3D);
+        goButton3D.onClick = [this]() { 
             if (isAutomating)
                 stopAutomation();
             else
@@ -159,19 +143,32 @@ public:
         area.removeFromTop(4); // spacing after utility bar
         
         // Main slider - invisible, positioned for mouse interaction in track area
-        int automationControlsHeight = 95;
+        int automationControlsHeight = 145; // Increased from 95 to 145 (50px more)
         int availableSliderHeight = area.getHeight() - automationControlsHeight;
         int reducedSliderHeight = (int)(availableSliderHeight * 0.80); // 20% reduction
         auto sliderArea = area.removeFromTop(reducedSliderHeight);
         auto trackBounds = sliderArea.withWidth(20).withCentre(sliderArea.getCentre()); // Reduced from 30px to 20px
         
-        // Position slider for mouse interaction (accounting for thumb travel)
-        float thumbHeight = 20.0f; // Reduced by 4px to match new thumb height
-        auto interactionBounds = trackBounds;
-        interactionBounds.setHeight(trackBounds.getHeight() - thumbHeight + 10.0f); // Add 10px to height (was 6px)
-        interactionBounds.setY(trackBounds.getY() + (thumbHeight / 2.0f) - 5.0f); // Offset by half the added height
+        // Position slider for mouse interaction (proper thumb travel alignment)
+        float thumbHeight = 24.0f; // Use visual thumb height for proper alignment
         
-        mainSlider.setBounds(interactionBounds.toNearestInt());
+        // Calculate precise values to avoid rounding errors
+        int trackY = trackBounds.getY();
+        int trackHeight = trackBounds.getHeight();
+        int thumbHalfHeight = (int)(thumbHeight / 2.0f); // 12px
+        
+        // MainSlider positioning for exact thumb center alignment
+        int sliderY = trackY + thumbHalfHeight;
+        int sliderHeight = trackHeight - (int)thumbHeight + 3; // Add 3px to align bottom edge with thumb center
+        
+        auto interactionBounds = juce::Rectangle<int>(
+            trackBounds.getX(), 
+            sliderY, 
+            trackBounds.getWidth(), 
+            sliderHeight
+        );
+        
+        mainSlider.setBounds(interactionBounds);
         
         area.removeFromTop(4); // spacing before value label
         
@@ -188,30 +185,43 @@ public:
         
         area.removeFromTop(4); // spacing before automation controls
         
-        // Automation controls - centered and properly spaced
+        // New automation layout: GO button, LED input, then knob group
         auto automationArea = area;
-        int controlWidth = automationArea.getWidth() - 15; // Leave margins (reduced for narrower plate)
-        int controlsStartX = (automationArea.getWidth() - controlWidth) / 2;
         
-        // Delay slider
-        auto delayArea = automationArea.removeFromTop(20);
-        delaySlider.setBounds(delayArea.removeFromLeft(controlWidth - 50).translated(controlsStartX, 0));
+        // GO button first - offset slightly right from center
+        auto buttonArea = automationArea.removeFromTop(30); // Height for 3D button + spacing (reduced from 35)
+        int buttonX = (buttonArea.getWidth() - 35) / 2 + 15; // Offset 15px to the right
+        goButton3D.setBounds(buttonX, buttonArea.getY(), 35, 25);
         
-        automationArea.removeFromTop(2); // spacing between controls
+        automationArea.removeFromTop(5); // spacing after button
         
-        // Attack slider
-        auto attackArea = automationArea.removeFromTop(20);
-        attackSlider.setBounds(attackArea.removeFromLeft(controlWidth - 50).translated(controlsStartX, 0));
+        // Target LED input - centered horizontally below button
+        auto targetArea = automationArea.removeFromTop(25); // Height for LED input + spacing (reduced from 30)
+        int targetX = (targetArea.getWidth() - 50) / 2;
+        targetLEDInput.setBounds(targetX, targetArea.getY(), 50, 20);
         
-        automationArea.removeFromTop(2); // spacing before target row
+        automationArea.removeFromTop(5); // spacing after target
         
-        // Target and GO button - centered
-        auto bottomArea = automationArea.removeFromTop(20);
-        int targetRowWidth = 85; // 45 for input + 5 spacing + 35 for button (reduced for narrower plate)
-        int targetRowStartX = (bottomArea.getWidth() - targetRowWidth) / 2;
+        // Knob group arrangement as specified:
+        // attackKnob: large (50px), bottom-left of group
+        // delayKnob: small (35px), up and right relative to attack  
+        // returnKnob: small (35px), down and right relative to attack
+        auto knobArea = automationArea;
         
-        goButton.setBounds(targetRowStartX + 50, bottomArea.getY(), 35, bottomArea.getHeight());
-        targetInput.setBounds(targetRowStartX, bottomArea.getY(), 45, bottomArea.getHeight());
+        // Calculate group bounds to center the entire knob arrangement with more horizontal space for Return label
+        int groupWidth = 40 + 16 + 32; // attack width + gap + small knob width (increased gap and return knob width)
+        int groupHeight = 48 + 12 + 48; // small knob height + gap + attack height (reduced heights)
+        int groupStartX = (knobArea.getWidth() - groupWidth) / 2;
+        int groupStartY = knobArea.getY();
+        
+        // Attack knob: large, bottom-left of group (moved up 40px total)
+        attackKnob.setBounds(groupStartX, groupStartY + 48 + 12 - 40, 40, 60); // Moved up 40px total for better layout
+        
+        // Delay knob: small, up and right relative to attack
+        delayKnob.setBounds(groupStartX + 40 + 16, groupStartY, 28, 48); // Increased gap from 12 to 16
+        
+        // Return knob: small, down and right relative to attack (moved up 10px, wider for label)
+        returnKnob.setBounds(groupStartX + 40 + 16, groupStartY + 48 + 12 + 12 - 10, 32, 48); // Increased width from 28 to 32 for label space
     }
     
     void paint(juce::Graphics& g) override
@@ -228,6 +238,12 @@ public:
         g.drawRect(midiIndicatorBounds, 1.0f);
     }
     
+    void paintOverChildren(juce::Graphics& g) override
+    {
+        // Draw arrow from display value to target value ON TOP of all other components
+        drawDirectionalArrow(g);
+    }
+    
     double getValue() const { return mainSlider.getValue(); }
     
     // Methods for parent component to get visual track and thumb positions
@@ -236,7 +252,7 @@ public:
         // Calculate the full visual track area based on current layout
         auto area = getLocalBounds();
         area.removeFromTop(20); // utility bar + spacing
-        int automationControlsHeight = 95;
+        int automationControlsHeight = 145; // Increased from 95 to 145 (50px more)
         int availableSliderHeight = area.getHeight() - automationControlsHeight;
         int reducedSliderHeight = (int)(availableSliderHeight * 0.80); // Match resized() method
         auto sliderArea = area.removeFromTop(reducedSliderHeight);
@@ -292,6 +308,7 @@ public:
     {
         displayMin = minVal;
         displayMax = maxVal;
+        targetLEDInput.setValidRange(minVal, maxVal);
         updateDisplayValue();
         updateTargetDisplayValue();
     }
@@ -336,41 +353,59 @@ public:
     {
         double currentTime = juce::Time::getMillisecondCounterHiRes();
         
-        // Handle automation
+        // Handle automation with three phases: delay, attack, return
         if (isAutomating)
         {
             double elapsed = (currentTime - automationStartTime) / 1000.0;
             
             if (elapsed < delayTime)
             {
-                // Still in delay phase
+                // DELAY PHASE: Still waiting
+                // Button shows "STOP" throughout automation
+            }
+            else if (elapsed < delayTime + attackTime)
+            {
+                // ATTACK PHASE: Move from start to target
+                double attackElapsed = elapsed - delayTime;
+                double progress = attackElapsed / attackTime;
+                double currentValue = startMidiValue + (targetMidiValue - startMidiValue) * progress;
+                
+                mainSlider.setValue(currentValue, juce::dontSendNotification);
+                updateDisplayValue();
+                if (sendMidiCallback)
+                    sendMidiCallback(index, (int)currentValue);
+            }
+            else if (returnTime > 0.0 && elapsed < delayTime + attackTime + returnTime)
+            {
+                // RETURN PHASE: Move from target back to original
+                if (!isReturning)
+                {
+                    isReturning = true;
+                }
+                
+                double returnElapsed = elapsed - delayTime - attackTime;
+                double progress = returnElapsed / returnTime;
+                double currentValue = targetMidiValue + (originalValue - targetMidiValue) * progress;
+                
+                mainSlider.setValue(currentValue, juce::dontSendNotification);
+                updateDisplayValue();
+                if (sendMidiCallback)
+                    sendMidiCallback(index, (int)currentValue);
             }
             else
             {
-                double attackElapsed = elapsed - delayTime;
+                // AUTOMATION COMPLETE
+                // If we had a return phase, end at original value; otherwise end at target
+                double finalValue = (returnTime > 0.0) ? originalValue : targetMidiValue;
                 
-                if (attackElapsed >= attackTime)
-                {
-                    // Automation complete
-                    mainSlider.setValue(targetMidiValue, juce::dontSendNotification);
-                    updateDisplayValue();
-                    if (sendMidiCallback)
-                        sendMidiCallback(index, (int)targetMidiValue);
-                    
-                    isAutomating = false;
-                    goButton.setButtonText("GO");
-                }
-                else
-                {
-                    // Continue automation
-                    double progress = attackElapsed / attackTime;
-                    double currentValue = startMidiValue + (targetMidiValue - startMidiValue) * progress;
-                    
-                    mainSlider.setValue(currentValue, juce::dontSendNotification);
-                    updateDisplayValue();
-                    if (sendMidiCallback)
-                        sendMidiCallback(index, (int)currentValue);
-                }
+                mainSlider.setValue(finalValue, juce::dontSendNotification);
+                updateDisplayValue();
+                if (sendMidiCallback)
+                    sendMidiCallback(index, (int)finalValue);
+                
+                isAutomating = false;
+                isReturning = false;
+                goButton3D.setButtonText("GO");
             }
         }
         
@@ -396,22 +431,32 @@ public:
     
     void setDelayTime(double delay)
     {
-        delaySlider.setValue(delay, juce::dontSendNotification);
+        delayKnob.setValue(delay);
     }
 
     double getDelayTime() const
     {
-        return delaySlider.getValue();
+        return delayKnob.getValue();
     }
 
     void setAttackTime(double attack)
     {
-        attackSlider.setValue(attack, juce::dontSendNotification);
+        attackKnob.setValue(attack);
     }
 
     double getAttackTime() const
     {
-        return attackSlider.getValue();
+        return attackKnob.getValue();
+    }
+
+    void setReturnTime(double returnVal)
+    {
+        returnKnob.setValue(returnVal);
+    }
+
+    double getReturnTime() const
+    {
+        return returnKnob.getValue();
     }
     
     // For keyboard movement - updates slider without changing target input
@@ -424,6 +469,65 @@ public:
     }
     
 private:
+    void drawDirectionalArrow(juce::Graphics& g)
+    {
+        // Calculate start point: center bottom of currentValueLabel (display value) moved 15px left
+        auto displayBounds = currentValueLabel.getBounds();
+        auto startPoint = juce::Point<float>(displayBounds.getCentreX() - 15, displayBounds.getBottom() + 2);
+        
+        // Calculate end point: center top of targetLEDInput (straight down) moved 15px left
+        auto targetBounds = targetLEDInput.getBounds();
+        auto endPoint = juce::Point<float>(displayBounds.getCentreX() - 15, targetBounds.getY() - 2);
+        
+        // Only draw arrow if there's enough vertical space
+        if (endPoint.y - startPoint.y > 15)
+        {
+            // Draw arrow line (straight down)
+            g.setColour(juce::Colours::darkgrey.withAlpha(0.8f)); // Increased alpha for better visibility
+            juce::Line<float> arrowLine(startPoint, endPoint);
+            g.drawLine(arrowLine, 2.0f); // Thicker line for visibility
+            
+            // Draw arrowhead pointing toward target
+            drawArrowhead(g, startPoint, endPoint);
+        }
+    }
+    
+    void drawArrowhead(juce::Graphics& g, juce::Point<float> start, juce::Point<float> end)
+    {
+        // Calculate direction vector
+        auto direction = end - start;
+        auto length = direction.getDistanceFromOrigin();
+        
+        if (length > 0)
+        {
+            // Normalize direction
+            direction = direction / length;
+            
+            // Arrowhead size
+            float arrowheadSize = 5.0f;
+            
+            // Calculate arrowhead points
+            auto arrowheadTip = end;
+            auto arrowheadBase = end - (direction * arrowheadSize);
+            
+            // Perpendicular vector for arrowhead wings
+            auto perpendicular = juce::Point<float>(-direction.y, direction.x) * (arrowheadSize * 0.5f);
+            
+            auto wing1 = arrowheadBase + perpendicular;
+            auto wing2 = arrowheadBase - perpendicular;
+            
+            // Draw arrowhead triangle
+            juce::Path arrowheadPath;
+            arrowheadPath.startNewSubPath(arrowheadTip);
+            arrowheadPath.lineTo(wing1);
+            arrowheadPath.lineTo(wing2);
+            arrowheadPath.closeSubPath();
+            
+            g.setColour(juce::Colours::darkgrey.withAlpha(0.8f)); // Match line alpha
+            g.fillPath(arrowheadPath);
+        }
+    }
+    
     // Convert MIDI value (0-16383) to display value based on custom range
     double midiToDisplayValue(double midiValue) const
     {
@@ -461,35 +565,14 @@ private:
         double midiValue = mainSlider.getValue();
         double displayValue = midiToDisplayValue(midiValue);
         
-        juce::String displayText;
-        if (std::abs(displayValue - std::round(displayValue)) < 0.01)
-            displayText = juce::String((int)std::round(displayValue));
-        else
-            displayText = juce::String(displayValue, 2);
-            
-        targetInput.setText(displayText, juce::dontSendNotification);
+        targetLEDInput.setValidatedValue(displayValue);
     }
     
     void validateTargetValue()
     {
-        auto text = targetInput.getText();
-        if (text.isEmpty())
-        {
-            targetInput.setText(juce::String(displayMin), juce::dontSendNotification);
-            return;
-        }
-        
-        double displayValue = text.getDoubleValue();
-        displayValue = juce::jlimit(displayMin, displayMax, displayValue);
-        
-        // Format nicely
-        juce::String displayText;
-        if (std::abs(displayValue - std::round(displayValue)) < 0.01)
-            displayText = juce::String((int)std::round(displayValue));
-        else
-            displayText = juce::String(displayValue, 2);
-            
-        targetInput.setText(displayText, juce::dontSendNotification);
+        // LED input handles its own validation
+        double displayValue = targetLEDInput.getValidatedValue();
+        targetLEDInput.setValidatedValue(displayValue);
     }
     
     void startAutomation()
@@ -497,21 +580,21 @@ private:
         if (isAutomating) return;
         
         validateTargetValue();
-        auto targetText = targetInput.getText();
-        if (targetText.isEmpty()) return;
-        
-        double targetDisplayValue = targetText.getDoubleValue();
+        double targetDisplayValue = targetLEDInput.getValidatedValue();
         targetMidiValue = displayToMidiValue(targetDisplayValue);
         
         startMidiValue = mainSlider.getValue();
+        originalValue = startMidiValue; // Store original value for return phase
         
         if (std::abs(targetMidiValue - startMidiValue) < 1.0)
         {
             return; // Already at target
         }
         
-        delayTime = delaySlider.getValue();
-        attackTime = attackSlider.getValue();
+        delayTime = delayKnob.getValue();
+        attackTime = attackKnob.getValue();
+        returnTime = returnKnob.getValue();
+        isReturning = false; // Reset return phase flag
         
         if (attackTime <= 0.0)
         {
@@ -525,7 +608,9 @@ private:
         
         isAutomating = true;
         automationStartTime = juce::Time::getMillisecondCounterHiRes();
-        goButton.setButtonText("STOP");
+        
+        // Set button text to STOP during automation
+        goButton3D.setButtonText("STOP");
         
         startTimer(16); // ~60fps updates
     }
@@ -535,7 +620,8 @@ private:
         if (!isAutomating) return;
         
         isAutomating = false;
-        goButton.setButtonText("GO");
+        isReturning = false; // Reset return phase flag
+        goButton3D.setButtonText("GO");
         
         // Stop the timer if not needed for MIDI activity
         if (!midiActivityState)
@@ -549,18 +635,20 @@ private:
     juce::Label sliderNumberLabel;
     ClickableLabel lockLabel;
     juce::Label currentValueLabel;
-    juce::Slider delaySlider, attackSlider;
-    juce::Label delayLabel, attackLabel, targetLabel;
-    juce::TextEditor targetInput;
-    juce::TextButton goButton;
+    CustomKnob attackKnob, delayKnob, returnKnob;
+    CustomLEDInput targetLEDInput;
+    Custom3DButton goButton3D;
     
     bool isAutomating = false;
     bool lockState = false; // Lock state for manual controls
     double automationStartTime = 0.0;
     double startMidiValue = 0.0;
     double targetMidiValue = 0.0;
+    double originalValue = 0.0; // Value at start of automation (for return phase)
     double delayTime = 0.0;
     double attackTime = 0.0;
+    double returnTime = 0.0;
+    bool isReturning = false; // Flag for return phase
     
     // Display mapping variables
     double displayMin = 0.0;
