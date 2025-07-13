@@ -63,11 +63,17 @@ public:
         g.setColour(juce::Colour(0x40FFFFFF));
         g.drawRoundedRectangle(bounds.reduced(1), 3.0f, 1.0f);
         
-        // Corner mounting screws
-        drawMountingScrew(g, bounds.getTopLeft() + juce::Point<float>(6, 6));
-        drawMountingScrew(g, bounds.getTopRight() + juce::Point<float>(-6, 6));
-        drawMountingScrew(g, bounds.getBottomLeft() + juce::Point<float>(6, -6));
-        drawMountingScrew(g, bounds.getBottomRight() + juce::Point<float>(-6, -6));
+        // Corner mounting screws with balanced positioning  
+        float horizontalInset = 6.0f; // Reduced for narrower plate (was 8px)
+        float verticalInset = 8.0f; // Keep vertical distance for balance
+        
+        // Top screws with balanced positioning
+        drawMountingScrew(g, bounds.getTopLeft() + juce::Point<float>(horizontalInset, verticalInset));
+        drawMountingScrew(g, bounds.getTopRight() + juce::Point<float>(-horizontalInset, verticalInset));
+        
+        // Bottom screws with balanced positioning
+        drawMountingScrew(g, bounds.getBottomLeft() + juce::Point<float>(horizontalInset, -verticalInset));
+        drawMountingScrew(g, bounds.getBottomRight() + juce::Point<float>(-horizontalInset, -verticalInset));
     }
     
     // Public drawing methods for external use
@@ -113,7 +119,7 @@ public:
         g.setColour(juce::Colour(0xFF606060));
         
         auto tickArea = trackArea.reduced(0, 8);
-        int numTicks = 21; // 0-20 marks for nice granularity
+        int numTicks = 17; // Reduced from 21 to 17 for shorter track (better spacing)
         
         for (int i = 0; i <= numTicks; ++i)
         {
@@ -121,7 +127,7 @@ public:
             
             // Major ticks every 5
             bool isMajor = (i % 5 == 0);
-            float tickLength = isMajor ? 16.0f : 10.0f; // Doubled from 8.0f/5.0f to 16.0f/10.0f
+            float tickLength = isMajor ? 12.0f : 8.0f; // Reduced from 16.0f/10.0f to 12.0f/8.0f for narrower track
             float tickWidth = isMajor ? 1.0f : 0.5f;
             
             // Left side ticks
@@ -134,15 +140,15 @@ public:
     
     void drawSliderThumb(juce::Graphics& g, float centerX, float centerY, juce::Colour trackColor)
     {
-        float thumbWidth = 64.0f;  // Doubled from 32.0f
-        float thumbHeight = 24.0f; // Doubled from 12.0f
+        float thumbWidth = 48.0f;  // Reduced from 64.0f to match narrower 30px track (25% reduction)
+        float thumbHeight = 20.0f; // Reduced by 4px from 24px
         
         auto thumbBounds = juce::Rectangle<float>(thumbWidth, thumbHeight)
             .withCentre(juce::Point<float>(centerX, centerY));
         
-        // Drop shadow
+        // Drop shadow (increased visibility)
         auto shadowBounds = thumbBounds.translated(1, 2);
-        g.setColour(juce::Colour(0x40000000));
+        g.setColour(juce::Colour(0x80000000)); // Increased alpha from 0x40 to 0x80
         g.fillRoundedRectangle(shadowBounds, 6.0f);
         
         // Main thumb body gradient
@@ -195,7 +201,7 @@ private:
     
     void drawMountingScrew(juce::Graphics& g, juce::Point<float> center)
     {
-        float radius = 3.0f;
+        float radius = 6.0f; // Doubled from 3.0f
         auto screwBounds = juce::Rectangle<float>(radius * 2, radius * 2).withCentre(center);
         
         // Screw hole (dark)

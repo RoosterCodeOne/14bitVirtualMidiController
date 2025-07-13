@@ -66,14 +66,14 @@ public:
         sliderNumberLabel.setText(juce::String(sliderIndex + 1), juce::dontSendNotification);
         sliderNumberLabel.setJustificationType(juce::Justification::centred);
         sliderNumberLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-        sliderNumberLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        sliderNumberLabel.setFont(juce::FontOptions(11.0f, juce::Font::bold));
         
         // Lock label (acting as button)
         addAndMakeVisible(lockLabel);
         lockLabel.setText("U", juce::dontSendNotification); // U for Unlocked by default
         lockLabel.setJustificationType(juce::Justification::centred);
         lockLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
-        lockLabel.setFont(juce::FontOptions(18.0f, juce::Font::bold)); // Large font to fill space
+        lockLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold)); // Large font to fill space
         lockLabel.onClick = [this]() { toggleLock(); };
         
         // Current value label
@@ -82,6 +82,7 @@ public:
         currentValueLabel.setJustificationType(juce::Justification::centred);
         currentValueLabel.setColour(juce::Label::backgroundColourId, juce::Colours::black);
         currentValueLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+        currentValueLabel.setFont(juce::FontOptions(12.0f));
         
         // Delay slider
         addAndMakeVisible(delaySlider);
@@ -93,6 +94,7 @@ public:
         
         addAndMakeVisible(delayLabel);
         delayLabel.setText("Delay:", juce::dontSendNotification);
+        delayLabel.setFont(juce::FontOptions(11.0f));
         delayLabel.attachToComponent(&delaySlider, true);
         
         // Attack slider
@@ -105,6 +107,7 @@ public:
         
         addAndMakeVisible(attackLabel);
         attackLabel.setText("Attack:", juce::dontSendNotification);
+        attackLabel.setFont(juce::FontOptions(11.0f));
         attackLabel.attachToComponent(&attackSlider, true);
         
         // Target value input - shows display range values
@@ -116,6 +119,7 @@ public:
         
         addAndMakeVisible(targetLabel);
         targetLabel.setText("Target:", juce::dontSendNotification);
+        targetLabel.setFont(juce::FontOptions(11.0f));
         targetLabel.attachToComponent(&targetInput, true);
         
         // GO button with automation functionality
@@ -146,69 +150,73 @@ public:
     {
         auto area = getLocalBounds();
         
-        // Utility bar at top (20px height)  
-        auto utilityBar = area.removeFromTop(20);
+        // Utility bar at top (16px height)  
+        auto utilityBar = area.removeFromTop(16);
         
-        // MIDI activity indicator in utility bar (left side)
-        midiIndicatorBounds = juce::Rectangle<float>(2, 2, 10, 10);
-        
-        // Lock label in utility bar (right side)
-        lockLabel.setBounds(utilityBar.removeFromRight(20));
-        
-        // Slider number label in utility bar (remaining center space)
+        // Slider number label in utility bar (centered)
         sliderNumberLabel.setBounds(utilityBar);
         
-        area.removeFromTop(5); // spacing after utility bar
+        area.removeFromTop(4); // spacing after utility bar
         
         // Main slider - invisible, positioned for mouse interaction in track area
-        auto sliderArea = area.removeFromTop(area.getHeight() - 120);
-        auto trackBounds = sliderArea.withWidth(40).withCentre(sliderArea.getCentre());
+        int automationControlsHeight = 95;
+        int availableSliderHeight = area.getHeight() - automationControlsHeight;
+        int reducedSliderHeight = (int)(availableSliderHeight * 0.80); // 20% reduction
+        auto sliderArea = area.removeFromTop(reducedSliderHeight);
+        auto trackBounds = sliderArea.withWidth(20).withCentre(sliderArea.getCentre()); // Reduced from 30px to 20px
         
         // Position slider for mouse interaction (accounting for thumb travel)
-        float thumbHeight = 24.0f;
+        float thumbHeight = 20.0f; // Reduced by 4px to match new thumb height
         auto interactionBounds = trackBounds;
         interactionBounds.setHeight(trackBounds.getHeight() - thumbHeight + 10.0f); // Add 10px to height (was 6px)
         interactionBounds.setY(trackBounds.getY() + (thumbHeight / 2.0f) - 5.0f); // Offset by half the added height
         
         mainSlider.setBounds(interactionBounds.toNearestInt());
         
-        area.removeFromTop(5); // spacing before value label
+        area.removeFromTop(4); // spacing before value label
         
         // Current value label
-        auto labelArea = area.removeFromTop(25);
+        auto labelArea = area.removeFromTop(20);
         currentValueLabel.setBounds(labelArea);
         
-        area.removeFromTop(5); // spacing before automation controls
+        // MIDI activity indicator - positioned above currentValueLabel on left side
+        midiIndicatorBounds = juce::Rectangle<float>(5, labelArea.getY() - 15, 10, 10);
+        
+        // Lock label - positioned above currentValueLabel on right side, aligned with MIDI indicator
+        int lockLabelX = getWidth() - 25; // 5px from right edge, 20px width
+        lockLabel.setBounds(lockLabelX, labelArea.getY() - 15, 20, 10);
+        
+        area.removeFromTop(4); // spacing before automation controls
         
         // Automation controls - centered and properly spaced
         auto automationArea = area;
-        int controlWidth = automationArea.getWidth() - 20; // Leave margins
+        int controlWidth = automationArea.getWidth() - 15; // Leave margins (reduced for narrower plate)
         int controlsStartX = (automationArea.getWidth() - controlWidth) / 2;
         
         // Delay slider
-        auto delayArea = automationArea.removeFromTop(25);
+        auto delayArea = automationArea.removeFromTop(20);
         delaySlider.setBounds(delayArea.removeFromLeft(controlWidth - 50).translated(controlsStartX, 0));
         
-        automationArea.removeFromTop(3); // spacing between controls
+        automationArea.removeFromTop(2); // spacing between controls
         
         // Attack slider
-        auto attackArea = automationArea.removeFromTop(25);
+        auto attackArea = automationArea.removeFromTop(20);
         attackSlider.setBounds(attackArea.removeFromLeft(controlWidth - 50).translated(controlsStartX, 0));
         
-        automationArea.removeFromTop(3); // spacing before target row
+        automationArea.removeFromTop(2); // spacing before target row
         
         // Target and GO button - centered
-        auto bottomArea = automationArea.removeFromTop(25);
-        int targetRowWidth = 105; // 60 for input + 5 spacing + 40 for button
+        auto bottomArea = automationArea.removeFromTop(20);
+        int targetRowWidth = 85; // 45 for input + 5 spacing + 35 for button (reduced for narrower plate)
         int targetRowStartX = (bottomArea.getWidth() - targetRowWidth) / 2;
         
-        goButton.setBounds(targetRowStartX + 65, bottomArea.getY(), 40, bottomArea.getHeight());
-        targetInput.setBounds(targetRowStartX, bottomArea.getY(), 60, bottomArea.getHeight());
+        goButton.setBounds(targetRowStartX + 50, bottomArea.getY(), 35, bottomArea.getHeight());
+        targetInput.setBounds(targetRowStartX, bottomArea.getY(), 45, bottomArea.getHeight());
     }
     
     void paint(juce::Graphics& g) override
     {
-        // Draw MIDI activity indicator in utility bar
+        // Draw MIDI activity indicator above value label
         juce::Colour indicatorColor = juce::Colours::orange;
         float alpha = midiActivityState ? 1.0f : 0.2f;
         
@@ -227,9 +235,12 @@ public:
     {
         // Calculate the full visual track area based on current layout
         auto area = getLocalBounds();
-        area.removeFromTop(25); // utility bar + spacing
-        auto sliderArea = area.removeFromTop(area.getHeight() - 120);
-        return sliderArea.withWidth(40).withCentre(sliderArea.getCentre());
+        area.removeFromTop(20); // utility bar + spacing
+        int automationControlsHeight = 95;
+        int availableSliderHeight = area.getHeight() - automationControlsHeight;
+        int reducedSliderHeight = (int)(availableSliderHeight * 0.80); // Match resized() method
+        auto sliderArea = area.removeFromTop(reducedSliderHeight);
+        return sliderArea.withWidth(20).withCentre(sliderArea.getCentre()); // Updated to 20px width
     }
     
     juce::Point<float> getThumbPosition() const 
@@ -241,7 +252,7 @@ public:
         float norm = juce::jmap<float>(value, mainSlider.getMinimum(), mainSlider.getMaximum(), 0.0f, 1.0f);
         
         // Map to the usable track area (excluding thumb size)
-        float thumbHeight = 24.0f;
+        float thumbHeight = 24.0f; // Reverted to original for thumb positioning
         float usableTrackHeight = trackBounds.getHeight() - thumbHeight;
         float trackTop = trackBounds.getY() + (thumbHeight / 2.0f);
         float trackBottom = trackTop + usableTrackHeight;

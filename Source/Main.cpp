@@ -16,18 +16,25 @@ public:
         auto* controller = new DebugMidiController();
         setContentOwned(controller, true);
         
-        setResizable(true, false); // Allow width resize only, lock height
+        // Calculate dimensions
+        int optimalHeight = 650;
+        int minWidth = 450; // 4×100 + 3×10 + 20 = 450px
+        int maxWidth = 990; // 8×100 + 7×10 + 20 + 100 = 990px
         
-        // Calculate optimal height for threshold width (1280px)
-        int optimalHeight = static_cast<int>(1280 / 1.6); // 800px height
-        setResizeLimits(800, optimalHeight, 1800, optimalHeight);
+        // Set resizable before setting any constraints
+        setResizable(true, true);
         
-        // Set up constrainer to lock height
-        setConstrainer(&constrainer);
+        // Set up constrainer with proper limits
+        constrainer.setMinimumWidth(minWidth);
+        constrainer.setMaximumWidth(maxWidth);
         constrainer.setMinimumHeight(optimalHeight);
         constrainer.setMaximumHeight(optimalHeight);
         
-        centreWithSize(1000, optimalHeight);
+        // Apply constrainer
+        setConstrainer(&constrainer);
+        
+        // Start with minimum width to show 4-slider mode by default
+        centreWithSize(minWidth, optimalHeight);
         setVisible(true);
     }
     

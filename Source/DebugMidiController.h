@@ -67,7 +67,7 @@ public:
         movementSpeedLabel.setJustificationType(juce::Justification::centredLeft);
         movementSpeedLabel.setColour(juce::Label::textColourId, juce::Colours::white);
         movementSpeedLabel.setColour(juce::Label::backgroundColourId, juce::Colours::darkgrey);
-        movementSpeedLabel.setFont(juce::FontOptions(12.0f));
+        movementSpeedLabel.setFont(juce::FontOptions(10.0f));
         updateMovementSpeedDisplay();
         
         // Window size tooltip
@@ -75,7 +75,7 @@ public:
         windowSizeLabel.setJustificationType(juce::Justification::centredRight);
         windowSizeLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
         windowSizeLabel.setColour(juce::Label::backgroundColourId, juce::Colours::darkgrey);
-        windowSizeLabel.setFont(juce::FontOptions(12.0f));
+        windowSizeLabel.setFont(juce::FontOptions(10.0f));
         updateWindowSizeDisplay();
         
         // Initialize MIDI output
@@ -112,6 +112,9 @@ public:
     void paint(juce::Graphics& g) override
     {
         g.fillAll(juce::Colours::black);
+        
+        // Draw eurorack-style background before slider plates
+        drawEurorackBackground(g);
         
         CustomSliderLookAndFeel lookAndFeel;
         
@@ -163,11 +166,11 @@ public:
         }
         
         g.setColour(juce::Colours::white);
-        g.setFont(juce::FontOptions(24.0f));
-        g.drawText("14-Bit Virtual MIDI Controller", 10, 10, getWidth() - 20, 40, juce::Justification::centred);
+        g.setFont(juce::FontOptions(20.0f));
+        g.drawText("14-Bit Virtual MIDI Controller", 10, 10, getWidth() - 20, 35, juce::Justification::centred);
         
         // Show MIDI status
-        g.setFont(juce::FontOptions(14.0f));
+        g.setFont(juce::FontOptions(12.0f));
         juce::String status = midiOutput ? "MIDI: Connected" : "MIDI: Disconnected";
         g.drawText(status, 10, 10, 200, 20, juce::Justification::left);
     }
@@ -176,7 +179,7 @@ public:
     {
         auto area = getLocalBounds();
         
-        // Calculate how many sliders can fit with fixed 175px width + gaps
+        // Calculate how many sliders can fit with fixed 100px width + gaps
         int visibleSliderCount = calculateVisibleSliderCount();
         bool shouldBeEightSliderMode = (visibleSliderCount == 8);
         
@@ -190,31 +193,46 @@ public:
         // Update window size display
         updateWindowSizeDisplay();
         
-        area.removeFromTop(80); // Title + status space
+        area.removeFromTop(65); // Title + status space
         
         // Settings button - positioned on left under MIDI status
-        settingsButton.setBounds(10, 35, 100, 25);
+        settingsButton.setBounds(10, 35, 100, 20);
         
-        // Bank buttons - positioned on top right
-        int buttonWidth = 40;
-        int buttonHeight = 25;
+        // Bank buttons - positioned as 2x2 grid in top right
+        int buttonWidth = 35;
+        int buttonHeight = 20;
+        int buttonSpacing = 5;
         int rightMargin = 10;
-        bankDButton.setBounds(getWidth() - rightMargin - buttonWidth, 10, buttonWidth, buttonHeight);
-        bankCButton.setBounds(getWidth() - rightMargin - (buttonWidth * 2) - 5, 10, buttonWidth, buttonHeight);
-        bankBButton.setBounds(getWidth() - rightMargin - (buttonWidth * 3) - 10, 10, buttonWidth, buttonHeight);
-        bankAButton.setBounds(getWidth() - rightMargin - (buttonWidth * 4) - 15, 10, buttonWidth, buttonHeight);
         
-        // Reserve space for button area
-        area.removeFromTop(40);
+        // Calculate grid position (75x55px total: 2×35 + 5 spacing wide, 2×25 + 5 spacing tall)
+        int gridWidth = (2 * buttonWidth) + buttonSpacing;
+        int gridHeight = (2 * buttonHeight) + buttonSpacing;
+        int gridStartX = getWidth() - rightMargin - gridWidth;
+        int gridStartY = 10;
         
-        // Reserve space for tooltips at bottom
-        auto tooltipArea = area.removeFromBottom(25);
+        // Top row: A and B buttons
+        bankAButton.setBounds(gridStartX, gridStartY, buttonWidth, buttonHeight);
+        bankBButton.setBounds(gridStartX + buttonWidth + buttonSpacing, gridStartY, buttonWidth, buttonHeight);
+        
+        // Bottom row: C and D buttons
+        bankCButton.setBounds(gridStartX, gridStartY + buttonHeight + buttonSpacing, buttonWidth, buttonHeight);
+        bankDButton.setBounds(gridStartX + buttonWidth + buttonSpacing, gridStartY + buttonHeight + buttonSpacing, buttonWidth, buttonHeight);
+        
+        // Reserve space for button area (further reduced gap)
+        area.removeFromTop(15); // Further reduced gap between buttons and eurorack
+        
+        // Reserve space at bottom to match eurorack background area (gap + tooltip bar)
+        area.removeFromBottom(50); // Gap above tooltip bar (25px) + tooltip bar (25px)
+        
+        // Layout sliders with fixed width and proper centering (aligned with eurorack)
+        layoutSlidersFixed(area, visibleSliderCount);
+        
+        // Position tooltips at very bottom of window
+        auto windowBounds = getLocalBounds();
+        auto tooltipArea = windowBounds.removeFromBottom(25);
         auto leftTooltip = tooltipArea.removeFromLeft(tooltipArea.getWidth() / 2);
         movementSpeedLabel.setBounds(leftTooltip);
         windowSizeLabel.setBounds(tooltipArea);
-        
-        // Layout sliders with fixed 175px width and proper centering
-        layoutSlidersFixed(area, visibleSliderCount);
         
         // Settings window
         if (settingsWindow.isVisible())
@@ -423,6 +441,91 @@ public:
                 sliderControls[sliderIndex]->setBounds(sliderBounds);
             }
         }
+    }
+    
+    void drawEurorackBackground(juce::Graphics& g)
+    {
+        auto bounds = getLocalBounds();
+        int railHeight = 15;
+        
+        // Define rack area (skip title/status area and leave gap above tooltips)
+        auto rackArea = bounds;
+        rackArea.removeFromTop(65); // Skip title + status area
+        rackArea.removeFromTop(15); // Skip further reduced button area gap
+        rackArea.removeFromBottom(50); // Gap above tooltip bar (25px) + tooltip bar (25px)
+        
+        // Top rail
+        auto topRail = rackArea.removeFromTop(railHeight);
+        drawMetallicRail(g, topRail);
+        
+        // Bottom rail
+        auto bottomRail = rackArea.removeFromBottom(railHeight);
+        drawMetallicRail(g, bottomRail);
+        
+        // Central recessed area (rack body depth)
+        drawRackBodyDepth(g, rackArea);
+    }
+    
+    void drawMetallicRail(juce::Graphics& g, juce::Rectangle<int> railBounds)
+    {
+        auto bounds = railBounds.toFloat();
+        
+        // Calculate track dimensions (8px total height with gap in middle)
+        float trackHeight = 8.0f;
+        float lineHeight = 2.0f;
+        float gapHeight = trackHeight - (2 * lineHeight); // 4px gap
+        
+        // Center the track within the rail bounds
+        float trackY = bounds.getY() + (bounds.getHeight() - trackHeight) / 2.0f;
+        
+        // Upper mounting track line (lighter metallic)
+        auto upperLine = juce::Rectangle<float>(bounds.getX(), trackY, bounds.getWidth(), lineHeight);
+        g.setColour(juce::Colour(0xFFE0E0E0)); // Lighter metallic color
+        g.fillRect(upperLine);
+        
+        // Gap in middle (background color or slightly darker)
+        auto gapArea = juce::Rectangle<float>(bounds.getX(), trackY + lineHeight, bounds.getWidth(), gapHeight);
+        g.setColour(juce::Colour(0xFF303030)); // Slightly darker background
+        g.fillRect(gapArea);
+        
+        // Lower mounting track line (darker metallic)
+        auto lowerLine = juce::Rectangle<float>(bounds.getX(), trackY + lineHeight + gapHeight, bounds.getWidth(), lineHeight);
+        g.setColour(juce::Colour(0xFFA0A0A0)); // Darker metallic color
+        g.fillRect(lowerLine);
+    }
+    
+    void drawRackBodyDepth(juce::Graphics& g, juce::Rectangle<int> bodyBounds)
+    {
+        auto bounds = bodyBounds.toFloat();
+        
+        // Central recessed area gradient (darker in center, lighter at edges)
+        juce::ColourGradient depthGradient(
+            juce::Colour(0xFF2A2A2A), bounds.getCentre(), // Dark center
+            juce::Colour(0xFF404040), bounds.getTopLeft(), // Lighter edges
+            true // Radial gradient
+        );
+        depthGradient.addColour(0.7f, juce::Colour(0xFF353535));
+        
+        g.setGradientFill(depthGradient);
+        g.fillRect(bounds);
+        
+        // Subtle inner shadow at top
+        juce::ColourGradient topShadow(
+            juce::Colour(0x60000000), bounds.getTopLeft(),
+            juce::Colour(0x00000000), bounds.getTopLeft() + juce::Point<float>(0, 20),
+            false
+        );
+        g.setGradientFill(topShadow);
+        g.fillRect(bounds.removeFromTop(20));
+        
+        // Subtle highlight at bottom
+        juce::ColourGradient bottomHighlight(
+            juce::Colour(0x00000000), bounds.getBottomLeft() - juce::Point<float>(0, 20),
+            juce::Colour(0x30FFFFFF), bounds.getBottomLeft(),
+            false
+        );
+        g.setGradientFill(bottomHighlight);
+        g.fillRect(bounds.removeFromBottom(20));
     }
     
 private:
@@ -715,7 +818,7 @@ private:
     std::unique_ptr<juce::MidiOutput> midiOutput;
     int currentBank = 0;
     bool isEightSliderMode = false;
-    static constexpr int SLIDER_PLATE_WIDTH = 175; // Fixed slider plate width
+    static constexpr int SLIDER_PLATE_WIDTH = 100; // Fixed slider plate width (reduced from 145)
     static constexpr int SLIDER_GAP = 10; // Gap between sliders
     
     // Keyboard control members
