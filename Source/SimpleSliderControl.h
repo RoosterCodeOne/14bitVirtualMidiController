@@ -42,6 +42,9 @@ public:
                 updateDisplayValue();
                 if (sendMidiCallback)
                     sendMidiCallback(index, value);
+                // Trigger parent repaint to update visual thumb position
+                if (auto* parent = getParentComponent())
+                    parent->repaint();
             }
         };
         
@@ -143,7 +146,7 @@ public:
     {
         auto area = getLocalBounds();
         
-        // Utility bar at top (20px height)
+        // Utility bar at top (20px height)  
         auto utilityBar = area.removeFromTop(20);
         
         // MIDI activity indicator in utility bar (left side)
@@ -155,33 +158,56 @@ public:
         // Slider number label in utility bar (remaining center space)
         sliderNumberLabel.setBounds(utilityBar);
         
-        // Main slider takes most remaining space
+        area.removeFromTop(5); // spacing after utility bar
+        
+        // Main slider - invisible, positioned for mouse interaction in track area
         auto sliderArea = area.removeFromTop(area.getHeight() - 120);
-        mainSlider.setBounds(sliderArea);
+        auto trackBounds = sliderArea.withWidth(40).withCentre(sliderArea.getCentre());
+        
+        // Position slider for mouse interaction (accounting for thumb travel)
+        float thumbHeight = 24.0f;
+        auto interactionBounds = trackBounds;
+        interactionBounds.setHeight(trackBounds.getHeight() - thumbHeight + 10.0f); // Add 10px to height (was 6px)
+        interactionBounds.setY(trackBounds.getY() + (thumbHeight / 2.0f) - 5.0f); // Offset by half the added height
+        
+        mainSlider.setBounds(interactionBounds.toNearestInt());
+        
+        area.removeFromTop(5); // spacing before value label
         
         // Current value label
         auto labelArea = area.removeFromTop(25);
         currentValueLabel.setBounds(labelArea);
         
+        area.removeFromTop(5); // spacing before automation controls
+        
+        // Automation controls - centered and properly spaced
+        auto automationArea = area;
+        int controlWidth = automationArea.getWidth() - 20; // Leave margins
+        int controlsStartX = (automationArea.getWidth() - controlWidth) / 2;
+        
         // Delay slider
-        auto delayArea = area.removeFromTop(25);
-        delaySlider.setBounds(delayArea.removeFromLeft(delayArea.getWidth() - 50));
+        auto delayArea = automationArea.removeFromTop(25);
+        delaySlider.setBounds(delayArea.removeFromLeft(controlWidth - 50).translated(controlsStartX, 0));
+        
+        automationArea.removeFromTop(3); // spacing between controls
         
         // Attack slider
-        auto attackArea = area.removeFromTop(25);
-        attackSlider.setBounds(attackArea.removeFromLeft(attackArea.getWidth() - 50));
+        auto attackArea = automationArea.removeFromTop(25);
+        attackSlider.setBounds(attackArea.removeFromLeft(controlWidth - 50).translated(controlsStartX, 0));
         
-        // Target and GO button
-        auto bottomArea = area.removeFromTop(25);
-        goButton.setBounds(bottomArea.removeFromRight(40));
-        bottomArea.removeFromRight(5); // spacing
-        targetInput.setBounds(bottomArea.removeFromRight(60));
+        automationArea.removeFromTop(3); // spacing before target row
+        
+        // Target and GO button - centered
+        auto bottomArea = automationArea.removeFromTop(25);
+        int targetRowWidth = 105; // 60 for input + 5 spacing + 40 for button
+        int targetRowStartX = (bottomArea.getWidth() - targetRowWidth) / 2;
+        
+        goButton.setBounds(targetRowStartX + 65, bottomArea.getY(), 40, bottomArea.getHeight());
+        targetInput.setBounds(targetRowStartX, bottomArea.getY(), 60, bottomArea.getHeight());
     }
     
     void paint(juce::Graphics& g) override
     {
-        g.fillAll(juce::Colours::transparentBlack);
-        
         // Draw MIDI activity indicator in utility bar
         juce::Colour indicatorColor = juce::Colours::orange;
         float alpha = midiActivityState ? 1.0f : 0.2f;
@@ -195,6 +221,34 @@ public:
     }
     
     double getValue() const { return mainSlider.getValue(); }
+    
+    // Methods for parent component to get visual track and thumb positions
+    juce::Rectangle<int> getVisualTrackBounds() const 
+    {
+        // Calculate the full visual track area based on current layout
+        auto area = getLocalBounds();
+        area.removeFromTop(25); // utility bar + spacing
+        auto sliderArea = area.removeFromTop(area.getHeight() - 120);
+        return sliderArea.withWidth(40).withCentre(sliderArea.getCentre());
+    }
+    
+    juce::Point<float> getThumbPosition() const 
+    {
+        auto trackBounds = getVisualTrackBounds().toFloat();
+        
+        // Calculate thumb position based on slider value
+        auto value = mainSlider.getValue();
+        float norm = juce::jmap<float>(value, mainSlider.getMinimum(), mainSlider.getMaximum(), 0.0f, 1.0f);
+        
+        // Map to the usable track area (excluding thumb size)
+        float thumbHeight = 24.0f;
+        float usableTrackHeight = trackBounds.getHeight() - thumbHeight;
+        float trackTop = trackBounds.getY() + (thumbHeight / 2.0f);
+        float trackBottom = trackTop + usableTrackHeight;
+        
+        float thumbY = juce::jmap(norm, trackBottom, trackTop);
+        return juce::Point<float>(trackBounds.getCentreX(), thumbY);
+    }
     
     // Preset support methods
     void setValue(double newValue)
@@ -236,7 +290,21 @@ public:
     {
         sliderColor = color;
         customLookAndFeel.setSliderColor(color);
-        mainSlider.repaint();
+        // Trigger parent repaint since visuals are now drawn there
+        if (auto* parent = getParentComponent())
+            parent->repaint();
+    }
+    
+    // Get slider color
+    juce::Colour getSliderColor() const
+    {
+        return sliderColor;
+    }
+    
+    // Debug method to get mainSlider bounds
+    juce::Rectangle<int> getMainSliderBounds() const
+    {
+        return mainSlider.getBounds();
     }
     
     // Trigger MIDI activity indicator

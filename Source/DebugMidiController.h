@@ -113,6 +113,55 @@ public:
     {
         g.fillAll(juce::Colours::black);
         
+        CustomSliderLookAndFeel lookAndFeel;
+        
+        // Draw plates and visual tracks for each visible slider
+        int visibleSliderCount = isEightSliderMode ? 8 : 4;
+        for (int i = 0; i < visibleSliderCount; ++i)
+        {
+            int sliderIndex = getVisibleSliderIndex(i);
+            if (sliderIndex < sliderControls.size())
+            {
+                auto* sliderControl = sliderControls[sliderIndex];
+                auto sliderBounds = sliderControl->getBounds();
+                
+                // Draw the plate background
+                lookAndFeel.drawExtendedModulePlate(g, sliderBounds.toFloat());
+                
+                // Get visual track bounds relative to this component
+                auto trackBounds = sliderControl->getVisualTrackBounds();
+                trackBounds.setX(trackBounds.getX() + sliderBounds.getX());
+                trackBounds.setY(trackBounds.getY() + sliderBounds.getY());
+                
+                // Set slider color
+                lookAndFeel.setSliderColor(sliderControl->getSliderColor());
+                
+                // Draw the track
+                lookAndFeel.drawSliderTrack(g, trackBounds.toFloat(), sliderControl->getSliderColor());
+                
+                // Draw tick marks
+                lookAndFeel.drawTickMarks(g, trackBounds.toFloat());
+                
+                // Get thumb position relative to this component
+                auto thumbPos = sliderControl->getThumbPosition();
+                thumbPos.x += sliderBounds.getX();
+                thumbPos.y += sliderBounds.getY();
+                
+                // Draw the thumb
+                lookAndFeel.drawSliderThumb(g, thumbPos.x, thumbPos.y, sliderControl->getSliderColor());
+                
+                // DEBUG: Draw mainSlider bounds overlay
+                auto mainSliderBounds = sliderControl->getMainSliderBounds();
+                mainSliderBounds.setX(mainSliderBounds.getX() + sliderBounds.getX());
+                mainSliderBounds.setY(mainSliderBounds.getY() + sliderBounds.getY());
+                
+                g.setColour(juce::Colours::yellow.withAlpha(0.3f));
+                g.fillRect(mainSliderBounds);
+                g.setColour(juce::Colours::yellow.withAlpha(0.8f));
+                g.drawRect(mainSliderBounds, 1);
+            }
+        }
+        
         g.setColour(juce::Colours::white);
         g.setFont(juce::FontOptions(24.0f));
         g.drawText("14-Bit Virtual MIDI Controller", 10, 10, getWidth() - 20, 40, juce::Justification::centred);
@@ -127,8 +176,10 @@ public:
     {
         auto area = getLocalBounds();
         
-        // Check if we should switch between 4 and 8 slider modes
-        bool shouldBeEightSliderMode = getWidth() >= EIGHT_SLIDER_THRESHOLD;
+        // Calculate how many sliders can fit with fixed 175px width + gaps
+        int visibleSliderCount = calculateVisibleSliderCount();
+        bool shouldBeEightSliderMode = (visibleSliderCount == 8);
+        
         if (shouldBeEightSliderMode != isEightSliderMode)
         {
             isEightSliderMode = shouldBeEightSliderMode;
@@ -162,20 +213,8 @@ public:
         movementSpeedLabel.setBounds(leftTooltip);
         windowSizeLabel.setBounds(tooltipArea);
         
-        // Layout sliders based on current mode
-        int visibleSliderCount = isEightSliderMode ? 8 : 4;
-        int sliderWidth = area.getWidth() / visibleSliderCount;
-        
-        for (int i = 0; i < visibleSliderCount; ++i)
-        {
-            int sliderIndex = getVisibleSliderIndex(i);
-            if (sliderIndex < sliderControls.size())
-            {
-                auto sliderBounds = area.removeFromLeft(sliderWidth);
-                sliderBounds.reduce(5, 0); // Gap between sliders
-                sliderControls[sliderIndex]->setBounds(sliderBounds);
-            }
-        }
+        // Layout sliders with fixed 175px width and proper centering
+        layoutSlidersFixed(area, visibleSliderCount);
         
         // Settings window
         if (settingsWindow.isVisible())
@@ -352,6 +391,40 @@ public:
         }
     }
     
+    int calculateVisibleSliderCount()
+    {
+        // Calculate available width for sliders (excluding margins/gaps)
+        int availableWidth = getWidth() - 20; // 10px margin on each side
+        
+        // Calculate how many 8-slider setup would need
+        int eightSliderTotalWidth = (8 * SLIDER_PLATE_WIDTH) + (7 * SLIDER_GAP);
+        
+        if (availableWidth >= eightSliderTotalWidth)
+            return 8;
+        else
+            return 4;
+    }
+    
+    void layoutSlidersFixed(juce::Rectangle<int> area, int visibleSliderCount)
+    {
+        // Calculate total width needed for the slider rack
+        int totalSliderWidth = (visibleSliderCount * SLIDER_PLATE_WIDTH) + ((visibleSliderCount - 1) * SLIDER_GAP);
+        
+        // Center the slider rack horizontally
+        int startX = (area.getWidth() - totalSliderWidth) / 2;
+        
+        for (int i = 0; i < visibleSliderCount; ++i)
+        {
+            int sliderIndex = getVisibleSliderIndex(i);
+            if (sliderIndex < sliderControls.size())
+            {
+                int xPos = startX + (i * (SLIDER_PLATE_WIDTH + SLIDER_GAP));
+                auto sliderBounds = juce::Rectangle<int>(xPos, area.getY(), SLIDER_PLATE_WIDTH, area.getHeight());
+                sliderControls[sliderIndex]->setBounds(sliderBounds);
+            }
+        }
+    }
+    
 private:
     struct KeyboardMapping
     {
@@ -463,9 +536,10 @@ private:
     
     void updateWindowSizeDisplay()
     {
+        int eightSliderThreshold = (8 * SLIDER_PLATE_WIDTH) + (7 * SLIDER_GAP) + 20; // +20 for margins
         juce::String sizeText = "Window: " + juce::String(getWidth()) + "x" + juce::String(getHeight()) + 
                                " | Mode: " + (isEightSliderMode ? "8-slider" : "4-slider") + 
-                               " | Threshold: " + juce::String(EIGHT_SLIDER_THRESHOLD);
+                               " | 8-Slider Threshold: " + juce::String(eightSliderThreshold);
         windowSizeLabel.setText(sizeText, juce::dontSendNotification);
     }
     
@@ -641,7 +715,8 @@ private:
     std::unique_ptr<juce::MidiOutput> midiOutput;
     int currentBank = 0;
     bool isEightSliderMode = false;
-    static constexpr int EIGHT_SLIDER_THRESHOLD = 1280; // Width threshold for 8-slider mode
+    static constexpr int SLIDER_PLATE_WIDTH = 175; // Fixed slider plate width
+    static constexpr int SLIDER_GAP = 10; // Gap between sliders
     
     // Keyboard control members
     std::vector<KeyboardMapping> keyboardMappings;
