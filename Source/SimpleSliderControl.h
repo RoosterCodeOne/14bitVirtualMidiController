@@ -190,8 +190,8 @@ public:
         
         // GO button first - offset slightly right from center
         auto buttonArea = automationArea.removeFromTop(30); // Height for 3D button + spacing (reduced from 35)
-        int buttonX = (buttonArea.getWidth() - 35) / 2 + 15; // Offset 15px to the right
-        goButton3D.setBounds(buttonX, buttonArea.getY(), 35, 25);
+        int buttonX = (buttonArea.getWidth() - 35) / 2 + 20; // Offset 15px to the right
+        goButton3D.setBounds(buttonX, buttonArea.getY() + 3, 35, 25);
         
         automationArea.removeFromTop(5); // spacing after button
         
@@ -473,11 +473,11 @@ private:
     {
         // Calculate start point: center bottom of currentValueLabel (display value) moved 15px left
         auto displayBounds = currentValueLabel.getBounds();
-        auto startPoint = juce::Point<float>(displayBounds.getCentreX() - 15, displayBounds.getBottom() + 2);
+        auto startPoint = juce::Point<float>(displayBounds.getCentreX() - 15, displayBounds.getBottom() + 4);
         
         // Calculate end point: center top of targetLEDInput (straight down) moved 15px left
         auto targetBounds = targetLEDInput.getBounds();
-        auto endPoint = juce::Point<float>(displayBounds.getCentreX() - 15, targetBounds.getY() - 2);
+        auto endPoint = juce::Point<float>(displayBounds.getCentreX() - 15, targetBounds.getY() - 4);
         
         // Only draw arrow if there's enough vertical space
         if (endPoint.y - startPoint.y > 15)
