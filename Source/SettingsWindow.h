@@ -2,20 +2,16 @@
 #pragma once
 #include <JuceHeader.h>
 #include "PresetManager.h"
+#include "CustomLookAndFeel.h"
 
 //==============================================================================
 class SettingsWindow : public juce::Component
 {
 public:
-    SettingsWindow() : controlsInitialized(false), closeButton("X")
+    SettingsWindow() : controlsInitialized(false)
     {
-        setSize(700, 750); // Slightly taller for preset controls
-        
-        // Only create the essential controls in constructor
-        addAndMakeVisible(closeButton);
-        closeButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red);
-        closeButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-        closeButton.onClick = [this]() { setVisible(false); };
+        // Size will be controlled by parent component to match slider rack area
+        // Closing is handled by the main Settings button toggle
         
         addAndMakeVisible(midiChannelLabel);
         midiChannelLabel.setText("MIDI Channel:", juce::dontSendNotification);
@@ -125,17 +121,21 @@ public:
     
     void paint(juce::Graphics& g) override
     {
-        // Semi-transparent background
-        g.fillAll(juce::Colours::black.withAlpha(0.8f));
+        // Draw eurorack-style settings panel background
+        auto bounds = getLocalBounds().toFloat();
         
-        // Settings panel
-        auto bounds = getLocalBounds().reduced(50);
-        g.setColour(juce::Colours::darkgrey);
-        g.fillRoundedRectangle(bounds.toFloat(), 10.0f);
+        // Use eurorack plate styling similar to slider plates
+        CustomSliderLookAndFeel lookAndFeel;
+        lookAndFeel.drawExtendedModulePlate(g, bounds);
         
-        g.setColour(juce::Colours::white);
-        g.setFont(juce::FontOptions(18.0f));
-        g.drawText("Settings", bounds.removeFromTop(40), juce::Justification::centred);
+        // Add mounting screws in corners like eurorack modules
+        drawMountingScrews(g, bounds);
+        
+        // Settings title with metallic appearance
+        g.setColour(juce::Colour(0xFF333333)); // Dark text for contrast on metallic background
+        g.setFont(juce::FontOptions(18.0f, juce::Font::bold));
+        auto titleArea = bounds.removeFromTop(40);
+        g.drawText("SETTINGS", titleArea, juce::Justification::centred);
         
         if (!controlsInitialized)
         {
@@ -174,27 +174,25 @@ public:
     
     void resized() override
     {
-        auto bounds = getLocalBounds().reduced(50);
+        auto bounds = getLocalBounds().reduced(20); // Reduced margin for better space usage
         
-        // Close button
-        closeButton.setBounds(bounds.getRight() - 30, bounds.getY() + 5, 25, 25);
-        
-        bounds.removeFromTop(50); // Title space
+        bounds.removeFromTop(30); // Reduced title space since no close button needed
         
         // MOVED: Preset controls to the top
         auto presetArea = bounds.removeFromTop(40);
         presetLabel.setBounds(presetArea.removeFromTop(20));
         
         auto presetButtonArea = presetArea;
-        presetCombo.setBounds(presetButtonArea.removeFromLeft(200));
-        presetButtonArea.removeFromLeft(10); // spacing
-        savePresetButton.setBounds(presetButtonArea.removeFromLeft(60));
-        presetButtonArea.removeFromLeft(5);
-        loadPresetButton.setBounds(presetButtonArea.removeFromLeft(60));
-        presetButtonArea.removeFromLeft(5);
-        deletePresetButton.setBounds(presetButtonArea.removeFromLeft(60));
-        presetButtonArea.removeFromLeft(10);
-        resetToDefaultButton.setBounds(presetButtonArea.removeFromLeft(80)); // NEW: Reset button
+        // Expand preset combo to use more of the available width (310px total width available)
+        presetCombo.setBounds(presetButtonArea.removeFromLeft(220));
+        presetButtonArea.removeFromLeft(8); // spacing
+        savePresetButton.setBounds(presetButtonArea.removeFromLeft(55));
+        presetButtonArea.removeFromLeft(4);
+        loadPresetButton.setBounds(presetButtonArea.removeFromLeft(55));
+        presetButtonArea.removeFromLeft(4);
+        deletePresetButton.setBounds(presetButtonArea.removeFromLeft(55));
+        presetButtonArea.removeFromLeft(8);
+        resetToDefaultButton.setBounds(presetButtonArea); // Use remaining space
         
         bounds.removeFromTop(15); // Spacing
         
@@ -203,21 +201,21 @@ public:
         presetFolderLabel.setBounds(folderLabelArea);
         
         auto folderPathArea = bounds.removeFromTop(25);
-        // FIX 2: Remove black background and make width fit content
-        auto pathWidth = juce::jmin(400, bounds.getWidth() - 20); // Limit width
-        presetPathLabel.setBounds(folderPathArea.removeFromLeft(pathWidth));
+        // Use full available width for better visibility of path
+        presetPathLabel.setBounds(folderPathArea);
         
         auto folderButtonArea = bounds.removeFromTop(30);
-        openFolderButton.setBounds(folderButtonArea.removeFromLeft(100));
+        // Expand folder buttons to use available width more efficiently
+        openFolderButton.setBounds(folderButtonArea.removeFromLeft(150));
         folderButtonArea.removeFromLeft(10);
-        changeFolderButton.setBounds(folderButtonArea.removeFromLeft(100));
+        changeFolderButton.setBounds(folderButtonArea); // Use remaining space
         
         bounds.removeFromTop(15); // Spacing
         
         // MIDI Channel (moved below presets)
         auto channelArea = bounds.removeFromTop(30);
-        midiChannelLabel.setBounds(channelArea.removeFromLeft(100));
-        midiChannelCombo.setBounds(channelArea.removeFromLeft(120));
+        midiChannelLabel.setBounds(channelArea.removeFromLeft(120));
+        midiChannelCombo.setBounds(channelArea); // Use remaining space for better visibility
         
         bounds.removeFromTop(15); // Spacing
         
@@ -415,7 +413,7 @@ public:
     
 private:
     bool controlsInitialized;
-    juce::TextButton closeButton;
+    // Close button removed - closing handled by main Settings button toggle
     juce::Label midiChannelLabel;
     juce::ComboBox midiChannelCombo;
     
@@ -786,6 +784,45 @@ private:
         
         if (onSettingsChanged)
             onSettingsChanged();
+    }
+    
+    void drawMountingScrews(juce::Graphics& g, juce::Rectangle<float> bounds)
+    {
+        float screwSize = 8.0f;
+        float margin = 12.0f;
+        
+        // Screw positions: corners with margin
+        juce::Array<juce::Point<float>> screwPositions;
+        screwPositions.add({bounds.getX() + margin, bounds.getY() + margin}); // Top-left
+        screwPositions.add({bounds.getRight() - margin - screwSize, bounds.getY() + margin}); // Top-right
+        screwPositions.add({bounds.getX() + margin, bounds.getBottom() - margin - screwSize}); // Bottom-left
+        screwPositions.add({bounds.getRight() - margin - screwSize, bounds.getBottom() - margin - screwSize}); // Bottom-right
+        
+        for (auto& screwPos : screwPositions)
+        {
+            auto screwBounds = juce::Rectangle<float>(screwPos.x, screwPos.y, screwSize, screwSize);
+            
+            // Outer ring (darker)
+            g.setColour(juce::Colour(0xFF404040));
+            g.fillEllipse(screwBounds);
+            
+            // Inner ring (lighter metallic)
+            auto innerBounds = screwBounds.reduced(1.0f);
+            g.setColour(juce::Colour(0xFF808080));
+            g.fillEllipse(innerBounds);
+            
+            // Center hole
+            auto holeBounds = screwBounds.reduced(3.0f);
+            g.setColour(juce::Colour(0xFF202020));
+            g.fillEllipse(holeBounds);
+            
+            // Phillips screw cross
+            float crossSize = 2.0f;
+            auto center = screwBounds.getCentre();
+            g.setColour(juce::Colour(0xFF101010));
+            g.drawLine(center.x - crossSize, center.y, center.x + crossSize, center.y, 1.0f);
+            g.drawLine(center.x, center.y - crossSize, center.x, center.y + crossSize, 1.0f);
+        }
     }
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SettingsWindow)
