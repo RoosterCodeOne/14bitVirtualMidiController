@@ -3,3 +3,6 @@ JuceLibraryCode
 14bit\ Virtual\ Midi\ Controller.jucer
 Builds
 .DS_Store
+
+# Claude Code conversation exports
+*.txt

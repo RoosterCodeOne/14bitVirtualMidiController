@@ -18,8 +18,8 @@ public:
         
         // Calculate dimensions
         int optimalHeight = 685; // Reduced by 15px (removed 25px gap, added 10px to tooltip)
-        int minWidth = 490; // 4×110 + 3×10 + 20 = 490px
-        int maxWidth = 1030; // 8×110 + 7×10 + 20 + 100 = 1030px
+        int minWidth = 490; // 4×110 + 3×10 + 50 = 490px
+        int maxWidth = 1320; // 8×110 + 7×10 + 50 + 350 = 1320px
         
         // Set resizable before setting any constraints
         setResizable(true, true);
