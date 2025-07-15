@@ -53,6 +53,15 @@ public:
             toggleSettingsMode();
         };
         
+        // Mode toggle button
+        addAndMakeVisible(modeButton);
+        modeButton.setButtonText(isEightSliderMode ? "8" : "4");
+        modeButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkblue);
+        modeButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        modeButton.onClick = [this]() {
+            toggleSliderMode();
+        };
+        
         // Settings window
         addChildComponent(settingsWindow);
         settingsWindow.onSettingsChanged = [this]() { updateSliderSettings(); };
@@ -163,22 +172,30 @@ public:
             }
         }
         
-        // Calculate main content area bounds for text positioning
-        auto contentBounds = getLocalBounds();
-        if (isInSettingsMode)
+        // Calculate content area bounds for text positioning (same logic as resized)
+        int contentAreaWidth = isEightSliderMode ? 970 : 490;
+        juce::Rectangle<int> contentBounds;
+        
+        if (isInSettingsMode && settingsWindow.isVisible())
         {
-            contentBounds.removeFromLeft(SETTINGS_PANEL_WIDTH);
+            // Settings open: content area positioned to right, settings panel on left
+            contentBounds = juce::Rectangle<int>(SETTINGS_PANEL_WIDTH, 0, contentAreaWidth, getHeight());
+        }
+        else
+        {
+            // Settings closed: content area starts at left edge
+            contentBounds = juce::Rectangle<int>(0, 0, contentAreaWidth, getHeight());
         }
         
         g.setColour(juce::Colours::white);
         g.setFont(juce::FontOptions(20.0f));
-        // Title centered in main content area
+        // Title centered in content area
         g.drawText("14-Bit Virtual MIDI Controller", 
                   contentBounds.getX() + 10, 10, 
                   contentBounds.getWidth() - 20, 35, 
                   juce::Justification::centred);
         
-        // Show MIDI status in main content area
+        // Show MIDI status in content area
         g.setFont(juce::FontOptions(12.0f));
         juce::String status = midiOutput ? "MIDI: Connected" : "MIDI: Disconnected";
         g.drawText(status, contentBounds.getX() + 10, 10, 200, 20, juce::Justification::left);
@@ -187,48 +204,61 @@ public:
     void resized() override
     {
         auto area = getLocalBounds();
-        auto mainContentArea = area;
         
-        // Handle settings panel layout
-        if (isInSettingsMode && settingsWindow.isVisible())
-        {
-            // Reserve left side for settings panel - will set precise bounds later
-            mainContentArea = area.withTrimmedLeft(SETTINGS_PANEL_WIDTH);
-        }
-        
-        // Calculate how many sliders can fit in the main content area
-        int availableWidth = mainContentArea.getWidth() - 20; // 10px margin on each side
-        int eightSliderTotalWidth = (8 * SLIDER_PLATE_WIDTH) + (7 * SLIDER_GAP);
-        int visibleSliderCount = (availableWidth >= eightSliderTotalWidth) ? 8 : 4;
-        bool shouldBeEightSliderMode = (visibleSliderCount == 8);
-        
-        if (shouldBeEightSliderMode != isEightSliderMode)
-        {
-            isEightSliderMode = shouldBeEightSliderMode;
-            updateSliderVisibility();
-            updateBankButtonStates();
-        }
+        // Use current slider mode (controlled by mode button)
+        int visibleSliderCount = isEightSliderMode ? 8 : 4;
         
         // Update window size display
         updateWindowSizeDisplay();
         
-        mainContentArea.removeFromTop(65); // Title + status space
+        // STEP 1: Define fixed-width content area bounds
+        int contentAreaWidth = isEightSliderMode ? 970 : 490;
+        int contentAreaHeight = area.getHeight();
         
-        // Settings button - positioned on left under MIDI status (relative to main content area)
+        // STEP 2: Calculate content area positioning
+        juce::Rectangle<int> contentAreaBounds;
+        if (isInSettingsMode && settingsWindow.isVisible())
+        {
+            // Settings open: content area positioned to right, settings panel on left
+            contentAreaBounds = juce::Rectangle<int>(SETTINGS_PANEL_WIDTH, 0, contentAreaWidth, contentAreaHeight);
+        }
+        else
+        {
+            // Settings closed: content area starts at left edge (no centering)
+            contentAreaBounds = juce::Rectangle<int>(0, 0, contentAreaWidth, contentAreaHeight);
+        }
+        
+        // STEP 3: Top area expansion logic
+        juce::Rectangle<int> topAreaBounds;
+        if (isInSettingsMode && settingsWindow.isVisible())
+        {
+            // Settings open: top area spans full window width
+            topAreaBounds = area.removeFromTop(65);
+        }
+        else
+        {
+            // Settings closed: top area spans content area width only
+            topAreaBounds = contentAreaBounds.removeFromTop(65);
+        }
+        
+        // STEP 4: Position top area components
+        // Settings button - positioned on left under MIDI status
         int settingsButtonX = isInSettingsMode ? SETTINGS_PANEL_WIDTH + 10 : 10;
         settingsButton.setBounds(settingsButtonX, 35, 100, 20);
         
-        // Bank buttons - positioned as 2x2 grid in top right (relative to main content area)
+        // Mode button - positioned next to settings button
+        int modeButtonX = settingsButtonX + 110; // 100px settings button + 10px gap
+        modeButton.setBounds(modeButtonX, 35, 30, 20);
+        
+        // Bank buttons - positioned as 2x2 grid in top right of top area
         int buttonWidth = 35;
         int buttonHeight = 20;
         int buttonSpacing = 5;
         int rightMargin = 10;
         
-        // Calculate grid position relative to main content area (not full window)
         int gridWidth = (2 * buttonWidth) + buttonSpacing;
-        int gridHeight = (2 * buttonHeight) + buttonSpacing;
-        int contentAreaRight = isInSettingsMode ? getWidth() : getWidth();
-        int gridStartX = contentAreaRight - rightMargin - gridWidth;
+        int topAreaRight = isInSettingsMode ? area.getWidth() : contentAreaBounds.getRight();
+        int gridStartX = topAreaRight - rightMargin - gridWidth;
         int gridStartY = 10;
         
         // Top row: A and B buttons
@@ -239,35 +269,46 @@ public:
         bankCButton.setBounds(gridStartX, gridStartY + buttonHeight + buttonSpacing, buttonWidth, buttonHeight);
         bankDButton.setBounds(gridStartX + buttonWidth + buttonSpacing, gridStartY + buttonHeight + buttonSpacing, buttonWidth, buttonHeight);
         
-        // Reserve space for button area (further reduced gap)
-        mainContentArea.removeFromTop(15); // Further reduced gap between buttons and eurorack
+        // STEP 5: Prepare main content area for sliders (remove space for button gap and bottom tooltips)
+        auto mainContentArea = contentAreaBounds;
+        mainContentArea.removeFromTop(15); // Gap between buttons and eurorack
+        mainContentArea.removeFromBottom(35); // Tooltip bar only (35px) - no gap above
         
-        // Reserve space at bottom to match eurorack background area (gap + tooltip bar)
-        mainContentArea.removeFromBottom(50); // Gap above tooltip bar (25px) + tooltip bar (25px)
-        
-        // Calculate slider rack bounds for settings window alignment
+        // STEP 6: Position settings window if visible
         if (isInSettingsMode && settingsWindow.isVisible())
         {
-            // Calculate exact slider rack Y position and height
-            int sliderRackY = 65 + 15; // Title/status space + button area gap
-            int sliderRackHeight = getHeight() - sliderRackY - 50; // Exclude tooltip area at bottom
+            // Settings panel: fixed 350px width, from below top area to bottom
+            int settingsY = 65; // Below top area
+            int settingsHeight = area.getHeight() - settingsY; // Full height below top area
             
-            // Position settings window to match slider rack bounds exactly
-            auto settingsArea = juce::Rectangle<int>(0, sliderRackY, SETTINGS_PANEL_WIDTH, sliderRackHeight);
+            // Position settings window at left edge of full window
+            auto settingsArea = juce::Rectangle<int>(0, settingsY, SETTINGS_PANEL_WIDTH, settingsHeight);
             settingsWindow.setBounds(settingsArea);
         }
         
-        // Layout sliders with fixed width - centered in normal mode, left-aligned in settings mode
-        layoutSlidersFixed(mainContentArea, visibleSliderCount, isInSettingsMode);
+        // STEP 7: Layout sliders within content area (always centered within content area)
+        layoutSlidersFixed(mainContentArea, visibleSliderCount, 0.0); // Always centered within content area
         
-        // Position tooltips at very bottom of window (full width)
+        // STEP 8: Position tooltips at very bottom
         auto windowBounds = getLocalBounds();
-        auto tooltipArea = windowBounds.removeFromBottom(25);
-        int tooltipLeftOffset = isInSettingsMode ? SETTINGS_PANEL_WIDTH : 0;
-        auto adjustedTooltipArea = tooltipArea.withTrimmedLeft(tooltipLeftOffset);
-        auto leftTooltip = adjustedTooltipArea.removeFromLeft(adjustedTooltipArea.getWidth() / 2);
-        movementSpeedLabel.setBounds(leftTooltip);
-        windowSizeLabel.setBounds(adjustedTooltipArea);
+        auto tooltipArea = windowBounds.removeFromBottom(35);
+        if (isInSettingsMode && settingsWindow.isVisible())
+        {
+            // Settings open: tooltips span full window width, offset by settings panel
+            auto adjustedTooltipArea = tooltipArea.withTrimmedLeft(SETTINGS_PANEL_WIDTH);
+            auto leftTooltip = adjustedTooltipArea.removeFromLeft(adjustedTooltipArea.getWidth() / 2);
+            movementSpeedLabel.setBounds(leftTooltip);
+            windowSizeLabel.setBounds(adjustedTooltipArea);
+        }
+        else
+        {
+            // Settings closed: tooltips positioned within content area bounds
+            int contentAreaX = (area.getWidth() - contentAreaWidth) / 2;
+            auto contentTooltipArea = tooltipArea.withX(contentAreaX).withWidth(contentAreaWidth);
+            auto leftTooltip = contentTooltipArea.removeFromLeft(contentTooltipArea.getWidth() / 2);
+            movementSpeedLabel.setBounds(leftTooltip);
+            windowSizeLabel.setBounds(contentTooltipArea);
+        }
     }
     
     bool keyPressed(const juce::KeyPress& key) override
@@ -383,6 +424,7 @@ public:
     
     void timerCallback() override
     {
+        // Handle keyboard controls
         for (auto& mapping : keyboardMappings)
         {
             if (mapping.isPressed && mapping.currentSliderIndex < sliderControls.size())
@@ -440,42 +482,24 @@ public:
         }
     }
     
-    int calculateVisibleSliderCount()
-    {
-        // Calculate available width for sliders (excluding margins/gaps and settings panel)
-        int totalWidth = getWidth();
-        if (isInSettingsMode)
-            totalWidth -= SETTINGS_PANEL_WIDTH; // Subtract settings panel width
-        
-        int availableWidth = totalWidth - 20; // 10px margin on each side
-        
-        // Calculate how many 8-slider setup would need
-        int eightSliderTotalWidth = (8 * SLIDER_PLATE_WIDTH) + (7 * SLIDER_GAP);
-        
-        if (availableWidth >= eightSliderTotalWidth)
-            return 8;
-        else
-            return 4;
-    }
     
-    void layoutSlidersFixed(juce::Rectangle<int> area, int visibleSliderCount, bool inSettingsMode = false)
+    void layoutSlidersFixed(juce::Rectangle<int> area, int visibleSliderCount, double animationProgress = 0.0)
     {
-        // Calculate total width needed for the slider rack
+        // Calculate total width needed for the slider rack - force fresh calculation
         int totalSliderWidth = (visibleSliderCount * SLIDER_PLATE_WIDTH) + ((visibleSliderCount - 1) * SLIDER_GAP);
         
-        int startX;
-        if (inSettingsMode)
-        {
-            // Settings mode: position sliders with left alignment in main content area
-            int leftMargin = 20; // Fixed margin from settings panel edge
-            startX = area.getX() + leftMargin;
-        }
-        else
-        {
-            // Normal mode: center the slider rack horizontally
-            startX = area.getX() + (area.getWidth() - totalSliderWidth) / 2;
-        }
+        // Calculate centered position (normal mode) - fresh calculation
+        int centeredStartX = area.getX() + (area.getWidth() - totalSliderWidth) / 2;
         
+        // Calculate left-aligned position (settings mode) - fresh calculation
+        int leftMargin = 20; // Fixed margin from settings panel edge
+        int leftAlignedStartX = area.getX() + leftMargin;
+        
+        // Interpolate between centered and left-aligned based on animation progress
+        int startX = static_cast<int>(centeredStartX + (leftAlignedStartX - centeredStartX) * animationProgress);
+
+        
+        // Set bounds for each visible slider - complete recalculation
         for (int i = 0; i < visibleSliderCount; ++i)
         {
             int sliderIndex = getVisibleSliderIndex(i);
@@ -484,42 +508,56 @@ public:
                 int xPos = startX + (i * (SLIDER_PLATE_WIDTH + SLIDER_GAP));
                 auto sliderBounds = juce::Rectangle<int>(xPos, area.getY(), SLIDER_PLATE_WIDTH, area.getHeight());
                 sliderControls[sliderIndex]->setBounds(sliderBounds);
+                
+                // Force slider to repaint with fresh bounds
+                sliderControls[sliderIndex]->repaint();
             }
         }
     }
     
     void drawEurorackBackground(juce::Graphics& g)
     {
-        auto bounds = getLocalBounds();
         int railHeight = 15;
         
-        // In settings mode, draw eurorack across FULL window width for unified appearance
-        // This creates the appearance that settings panel is part of the same rack
+        // Calculate content area bounds (same logic as paint and resized methods)
+        int contentAreaWidth = isEightSliderMode ? 970 : 490;
+        juce::Rectangle<int> contentAreaBounds;
         
-        // Define rack area (skip title/status area and leave gap above tooltips)
-        auto rackArea = bounds;
+        if (isInSettingsMode && settingsWindow.isVisible())
+        {
+            // Settings open: content area positioned to right, settings panel on left
+            contentAreaBounds = juce::Rectangle<int>(SETTINGS_PANEL_WIDTH, 0, contentAreaWidth, getHeight());
+        }
+        else
+        {
+            // Settings closed: content area starts at left edge
+            contentAreaBounds = juce::Rectangle<int>(0, 0, contentAreaWidth, getHeight());
+        }
+        
+        // Define rack area within content bounds (skip title/status area, extend to tooltip)
+        auto rackArea = contentAreaBounds;
         rackArea.removeFromTop(65); // Skip title + status area
-        rackArea.removeFromTop(15); // Skip further reduced button area gap
-        rackArea.removeFromBottom(50); // Gap above tooltip bar (25px) + tooltip bar (25px)
+        rackArea.removeFromTop(15); // Skip button area gap
+        rackArea.removeFromBottom(35); // Tooltip bar only (35px) - no gap above
         
-        // Top rail spans full width
+        // Top rail within content area
         auto topRail = rackArea.removeFromTop(railHeight);
         drawMetallicRail(g, topRail);
         
-        // Bottom rail spans full width
+        // Bottom rail within content area
         auto bottomRail = rackArea.removeFromBottom(railHeight);
         drawMetallicRail(g, bottomRail);
         
-        // Central recessed area (rack body depth) spans full width
+        // Central recessed area (rack body depth) within content area
         drawRackBodyDepth(g, rackArea);
         
         // In settings mode, draw additional visual separation
-        if (isInSettingsMode)
+        if (isInSettingsMode && settingsWindow.isVisible())
         {
             // Draw subtle vertical divider line between settings and main content
             int dividerX = SETTINGS_PANEL_WIDTH;
             g.setColour(juce::Colour(0xFF606060));
-            g.drawLine(dividerX, 65, dividerX, getHeight() - 50, 1.0f);
+            g.drawLine(dividerX, 65, dividerX, getHeight() - 35, 1.0f);
             
             // Add subtle shadow effect on the right side of settings panel
             juce::ColourGradient shadow(
@@ -528,7 +566,7 @@ public:
                 false
             );
             g.setGradientFill(shadow);
-            g.fillRect(dividerX, 65, 10, getHeight() - 115);
+            g.fillRect(dividerX, 65, 10, getHeight() - 100);
         }
     }
     
@@ -780,10 +818,23 @@ private:
         {
             if (isInSettingsMode)
             {
-                // Store original width and expand window
+                // Store original width and expand window instantly
                 originalWindowWidth = topLevel->getWidth();
-                int newWidth = originalWindowWidth + SETTINGS_PANEL_WIDTH;
-                topLevel->setSize(newWidth, topLevel->getHeight());
+                
+                // Calculate smart expansion based on available space
+                int currentWidth = topLevel->getWidth();
+                int visibleSliderCount = isEightSliderMode ? 8 : 4;
+                int requiredSliderSpace = (visibleSliderCount * SLIDER_PLATE_WIDTH) + 
+                                        ((visibleSliderCount - 1) * SLIDER_GAP) + 40; // margins
+                int availableSpace = currentWidth - requiredSliderSpace;
+                int expansionNeeded = juce::jmax(0, SETTINGS_PANEL_WIDTH - availableSpace);
+                
+                // Expand window instantly if needed
+                if (expansionNeeded > 0)
+                {
+                    int newWidth = originalWindowWidth + expansionNeeded;
+                    topLevel->setSize(newWidth, topLevel->getHeight());
+                }
                 
                 // Show settings window
                 addAndMakeVisible(settingsWindow);
@@ -791,11 +842,10 @@ private:
             }
             else
             {
-                // Hide settings window and restore original width
+                // Hide settings window and restore original width instantly
                 settingsWindow.setVisible(false);
                 if (originalWindowWidth > 0)
                 {
-                    // Ensure we don't go below the new minimum width
                     int baseMinWidth = 490;
                     int targetWidth = juce::jmax(originalWindowWidth, baseMinWidth);
                     topLevel->setSize(targetWidth, topLevel->getHeight());
@@ -806,6 +856,30 @@ private:
         resized(); // Re-layout components
     }
     
+    void toggleSliderMode()
+    {
+        isEightSliderMode = !isEightSliderMode;
+        
+        // Update button text
+        modeButton.setButtonText(isEightSliderMode ? "8" : "4");
+        
+        // Set fixed window width based on mode
+        if (auto* topLevel = getTopLevelComponent())
+        {
+            int targetWidth = isEightSliderMode ? 970 : 490; // Fixed widths for each mode
+            if (isInSettingsMode)
+                targetWidth += SETTINGS_PANEL_WIDTH; // Add settings panel width if needed
+                
+            topLevel->setSize(targetWidth, topLevel->getHeight());
+        }
+        
+        // Update window constraints and layout
+        updateWindowConstraints();
+        updateSliderVisibility();
+        updateBankButtonStates();
+        resized();
+    }
+    
     void parentSizeChanged() override
     {
         // Handle case where user manually resizes window while in settings mode
@@ -814,8 +888,16 @@ private:
             if (auto* topLevel = getTopLevelComponent())
             {
                 int currentWidth = topLevel->getWidth();
+                
+                // Calculate how much space the settings actually consumed
+                int visibleSliderCount = isEightSliderMode ? 8 : 4;
+                int requiredSliderSpace = (visibleSliderCount * SLIDER_PLATE_WIDTH) + 
+                                        ((visibleSliderCount - 1) * SLIDER_GAP) + 40; // margins
+                int availableSpace = originalWindowWidth - requiredSliderSpace;
+                int actualExpansion = juce::jmax(0, SETTINGS_PANEL_WIDTH - availableSpace);
+                
                 // Update the stored original width to account for manual resize
-                originalWindowWidth = currentWidth - SETTINGS_PANEL_WIDTH;
+                originalWindowWidth = currentWidth - actualExpansion;
                 // Ensure it doesn't go below base minimum
                 originalWindowWidth = juce::jmax(originalWindowWidth, 490);
             }
@@ -831,21 +913,18 @@ private:
             {
                 if (auto* constrainer = documentWindow->getConstrainer())
                 {
-                    int baseMinWidth = 490; // 4×110 + 3×10 + 20 = 490px
-                    int baseMaxWidth = 1030; // 8×110 + 7×10 + 20 + 100 = 1030px
+                    // Fixed window widths based on mode
+                    int fixedWidth = isEightSliderMode ? 970 : 490;
                     
                     if (isInSettingsMode)
                     {
-                        // Add settings panel width to constraints
-                        constrainer->setMinimumWidth(baseMinWidth + SETTINGS_PANEL_WIDTH);
-                        constrainer->setMaximumWidth(baseMaxWidth + SETTINGS_PANEL_WIDTH);
+                        // Add settings panel width to fixed width
+                        fixedWidth += SETTINGS_PANEL_WIDTH;
                     }
-                    else
-                    {
-                        // Restore original constraints
-                        constrainer->setMinimumWidth(baseMinWidth);
-                        constrainer->setMaximumWidth(baseMaxWidth);
-                    }
+                    
+                    // Set both min and max to the same value to prevent resizing
+                    constrainer->setMinimumWidth(fixedWidth);
+                    constrainer->setMaximumWidth(fixedWidth);
                 }
             }
         }
@@ -963,6 +1042,7 @@ private:
     
     juce::OwnedArray<SimpleSliderControl> sliderControls;
     juce::TextButton settingsButton;
+    juce::TextButton modeButton;
     juce::TextButton bankAButton, bankBButton, bankCButton, bankDButton;
     SettingsWindow settingsWindow;
     juce::Label movementSpeedLabel;
@@ -972,6 +1052,7 @@ private:
     bool isEightSliderMode = false;
     bool isInSettingsMode = false;
     int originalWindowWidth = 0;
+    
     static constexpr int SLIDER_PLATE_WIDTH = 110; // Fixed slider plate width (increased from 100)
     static constexpr int SLIDER_GAP = 10; // Gap between sliders
     static constexpr int SETTINGS_PANEL_WIDTH = 350; // Width of settings panel

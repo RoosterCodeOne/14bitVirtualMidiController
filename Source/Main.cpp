@@ -17,7 +17,7 @@ public:
         setContentOwned(controller, true);
         
         // Calculate dimensions
-        int optimalHeight = 700;
+        int optimalHeight = 685; // Reduced by 15px (removed 25px gap, added 10px to tooltip)
         int minWidth = 490; // 4×110 + 3×10 + 20 = 490px
         int maxWidth = 1030; // 8×110 + 7×10 + 20 + 100 = 1030px
         

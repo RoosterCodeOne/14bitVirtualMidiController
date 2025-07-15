@@ -15,92 +15,115 @@ public:
         
         addAndMakeVisible(midiChannelLabel);
         midiChannelLabel.setText("MIDI Channel:", juce::dontSendNotification);
+        midiChannelLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
+        
         addAndMakeVisible(midiChannelCombo);
         for (int i = 1; i <= 16; ++i)
             midiChannelCombo.addItem("Channel " + juce::String(i), i);
         midiChannelCombo.setSelectedId(1);
+        midiChannelCombo.setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xFF404040));
+        midiChannelCombo.setColour(juce::ComboBox::textColourId, juce::Colour(0xFFEEEEEE));
+        midiChannelCombo.setColour(juce::ComboBox::outlineColourId, juce::Colour(0xFF1A1A1A));
         
         // Preset controls
         addAndMakeVisible(presetLabel);
         presetLabel.setText("Presets:", juce::dontSendNotification);
         presetLabel.setFont(juce::FontOptions(16.0f, juce::Font::bold));
+        presetLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
         
         addAndMakeVisible(presetCombo);
         presetCombo.setTextWhenNothingSelected("Select preset...");
+        presetCombo.setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xFF404040));
+        presetCombo.setColour(juce::ComboBox::textColourId, juce::Colour(0xFFEEEEEE));
+        presetCombo.setColour(juce::ComboBox::outlineColourId, juce::Colour(0xFF1A1A1A));
         refreshPresetList();
         
         addAndMakeVisible(savePresetButton);
         savePresetButton.setButtonText("Save");
+        savePresetButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF404040));
+        savePresetButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFFEEEEEE));
         savePresetButton.onClick = [this]() { showSavePresetDialog(); };
         
         addAndMakeVisible(loadPresetButton);
         loadPresetButton.setButtonText("Load");
+        loadPresetButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF404040));
+        loadPresetButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFFEEEEEE));
         loadPresetButton.onClick = [this]() { loadSelectedPreset(); };
         
         addAndMakeVisible(deletePresetButton);
         deletePresetButton.setButtonText("Delete");
+        deletePresetButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF404040));
+        deletePresetButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFFEEEEEE));
         deletePresetButton.onClick = [this]() { deleteSelectedPreset(); };
         
         addAndMakeVisible(presetFolderLabel);
         presetFolderLabel.setText("Preset Folder:", juce::dontSendNotification);
         presetFolderLabel.setFont(juce::FontOptions(14.0f));
+        presetFolderLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
 
         addAndMakeVisible(presetPathLabel);
         presetPathLabel.setText("", juce::dontSendNotification);
-        presetPathLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+        presetPathLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFBBBBBB)); // Slightly dimmed
         presetPathLabel.setFont(juce::FontOptions(12.0f));
         presetPathLabel.setJustificationType(juce::Justification::centredLeft);
         
         addAndMakeVisible(openFolderButton);
         openFolderButton.setButtonText("Open Folder");
+        openFolderButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF404040));
+        openFolderButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFFEEEEEE));
         openFolderButton.onClick = [this]() { openPresetFolder(); };
 
         addAndMakeVisible(changeFolderButton);
         changeFolderButton.setButtonText("Change Folder");
+        changeFolderButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF404040));
+        changeFolderButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFFEEEEEE));
         changeFolderButton.onClick = [this]() { changePresetFolder(); };
 
         updatePresetFolderDisplay();
         
         addAndMakeVisible(resetToDefaultButton);
         resetToDefaultButton.setButtonText("Reset All");
+        resetToDefaultButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF404040));
+        resetToDefaultButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFFEEEEEE));
         resetToDefaultButton.onClick = [this]() { resetToDefaults(); };
         
         // Bank selector
         addAndMakeVisible(bankSelectorLabel);
-        bankSelectorLabel.setText("BANK:", juce::dontSendNotification);
-        bankSelectorLabel.setFont(juce::FontOptions(16.0f, juce::Font::bold));
+        bankSelectorLabel.setText("Bank:", juce::dontSendNotification);
+        bankSelectorLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        bankSelectorLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
         
-        // Bank selector buttons
+        // Bank selector buttons - modern styling
         addAndMakeVisible(bankASelector);
         bankASelector.setText("A", juce::dontSendNotification);
-        bankASelector.setFont(juce::FontOptions(16.0f, juce::Font::bold));
+        bankASelector.setFont(juce::FontOptions(14.0f, juce::Font::bold));
         bankASelector.setJustificationType(juce::Justification::centred);
-        bankASelector.setColour(juce::Label::backgroundColourId, juce::Colours::red);
-        bankASelector.setColour(juce::Label::textColourId, juce::Colours::white);
+        bankASelector.setColour(juce::Label::backgroundColourId, juce::Colour(0xFF0066CC)); // Modern blue
+        bankASelector.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
         bankASelector.onClick = [this]() { setSelectedBank(0); };
         
         addAndMakeVisible(bankBSelector);
         bankBSelector.setText("B", juce::dontSendNotification);
-        bankBSelector.setFont(juce::FontOptions(16.0f, juce::Font::bold));
+        bankBSelector.setFont(juce::FontOptions(14.0f, juce::Font::bold));
         bankBSelector.setJustificationType(juce::Justification::centred);
-        bankBSelector.setColour(juce::Label::backgroundColourId, juce::Colours::darkgrey);
-        bankBSelector.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+        bankBSelector.setColour(juce::Label::backgroundColourId, juce::Colour(0xFF404040));
+        bankBSelector.setColour(juce::Label::textColourId, juce::Colour(0xFFBBBBBB));
         bankBSelector.onClick = [this]() { setSelectedBank(1); };
         
         addAndMakeVisible(bankCSelector);
         bankCSelector.setText("C", juce::dontSendNotification);
-        bankCSelector.setFont(juce::FontOptions(16.0f, juce::Font::bold));
+        bankCSelector.setFont(juce::FontOptions(14.0f, juce::Font::bold));
         bankCSelector.setJustificationType(juce::Justification::centred);
-        bankCSelector.setColour(juce::Label::backgroundColourId, juce::Colours::darkgrey);
-        bankCSelector.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+        bankCSelector.setColour(juce::Label::backgroundColourId, juce::Colour(0xFF404040));
+        bankCSelector.setColour(juce::Label::textColourId, juce::Colour(0xFFBBBBBB));
         bankCSelector.onClick = [this]() { setSelectedBank(2); };
         
         addAndMakeVisible(bankDSelector);
         bankDSelector.setText("D", juce::dontSendNotification);
-        bankDSelector.setFont(juce::FontOptions(16.0f, juce::Font::bold));
+        bankDSelector.setFont(juce::FontOptions(14.0f, juce::Font::bold));
         bankDSelector.setJustificationType(juce::Justification::centred);
-        bankDSelector.setColour(juce::Label::backgroundColourId, juce::Colours::darkgrey);
-        bankDSelector.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+        bankDSelector.setColour(juce::Label::backgroundColourId, juce::Colour(0xFF404040));
+        bankDSelector.setColour(juce::Label::textColourId, juce::Colour(0xFFBBBBBB));
         bankDSelector.onClick = [this]() { setSelectedBank(3); };
     }
     
@@ -121,121 +144,99 @@ public:
     
     void paint(juce::Graphics& g) override
     {
-        // Draw eurorack-style settings panel background
+        // Modern dark interface background
         auto bounds = getLocalBounds().toFloat();
         
-        // Use eurorack plate styling similar to slider plates
-        CustomSliderLookAndFeel lookAndFeel;
-        lookAndFeel.drawExtendedModulePlate(g, bounds);
+        // Dark background with rounded corners
+        g.setColour(juce::Colour(0xFF2D2D2D)); // Dark charcoal background
+        g.fillRoundedRectangle(bounds, 8.0f);
         
-        // Add mounting screws in corners like eurorack modules
-        drawMountingScrews(g, bounds);
+        // Subtle border
+        g.setColour(juce::Colour(0xFF1A1A1A)); // Dark border
+        g.drawRoundedRectangle(bounds, 8.0f, 1.0f);
         
-        // Settings title with metallic appearance
-        g.setColour(juce::Colour(0xFF333333)); // Dark text for contrast on metallic background
-        g.setFont(juce::FontOptions(18.0f, juce::Font::bold));
+        // Settings title with clean modern styling
+        g.setColour(juce::Colour(0xFFEEEEEE)); // Light gray text
+        g.setFont(juce::FontOptions(16.0f, juce::Font::bold));
         auto titleArea = bounds.removeFromTop(40);
-        g.drawText("SETTINGS", titleArea, juce::Justification::centred);
+        g.drawText("Settings", titleArea, juce::Justification::centred);
         
         if (!controlsInitialized)
         {
+            g.setColour(juce::Colour(0xFFEEEEEE));
             g.setFont(juce::FontOptions(14.0f));
             g.drawText("Loading controls...", bounds, juce::Justification::centred);
             return;
-        }
-        
-        // FIX 3: Update bounds calculation to match new layout order
-        g.setColour(juce::Colours::lightgrey);
-        g.setFont(juce::FontOptions(14.0f));
-        bounds.removeFromTop(10);
-        bounds.removeFromTop(40); // Preset area (moved to top)
-        bounds.removeFromTop(15); // Spacing
-        bounds.removeFromTop(20); // Folder label
-        bounds.removeFromTop(25); // Folder path
-        bounds.removeFromTop(30); // Folder buttons
-        bounds.removeFromTop(15); // Spacing
-        bounds.removeFromTop(30); // MIDI channel area (moved below presets)
-        bounds.removeFromTop(15); // Spacing
-        bounds.removeFromTop(25); // Bank A label
-        bounds.removeFromTop(5);  // Small spacing
-        
-        // Draw separators for each slider row (only for currently selected bank)
-        for (int i = 0; i < 4; ++i)
-        {
-            auto row = bounds.removeFromTop(30);
-            
-            // Calculate separator position (between min and max inputs)
-            int separatorX = 50 + 120 + 80 + 70 + 5; // Label + CC + Range label + Min input + spacing
-            g.drawText("-", separatorX, row.getY() + 8, 10, 14, juce::Justification::centred);
-            
-            bounds.removeFromTop(5); // Row spacing
         }
     }
     
     void resized() override
     {
-        auto bounds = getLocalBounds().reduced(20); // Reduced margin for better space usage
+        auto bounds = getLocalBounds().reduced(15); // Modern consistent padding
         
-        bounds.removeFromTop(30); // Reduced title space since no close button needed
+        bounds.removeFromTop(35); // Space for title
         
-        // MOVED: Preset controls to the top
-        auto presetArea = bounds.removeFromTop(40);
+        // Preset controls section
+        auto presetArea = bounds.removeFromTop(50); // Increased height for better spacing
         presetLabel.setBounds(presetArea.removeFromTop(20));
         
-        auto presetButtonArea = presetArea;
-        // Expand preset combo to use more of the available width (310px total width available)
-        presetCombo.setBounds(presetButtonArea.removeFromLeft(220));
-        presetButtonArea.removeFromLeft(8); // spacing
-        savePresetButton.setBounds(presetButtonArea.removeFromLeft(55));
-        presetButtonArea.removeFromLeft(4);
-        loadPresetButton.setBounds(presetButtonArea.removeFromLeft(55));
-        presetButtonArea.removeFromLeft(4);
-        deletePresetButton.setBounds(presetButtonArea.removeFromLeft(55));
+        bounds.removeFromTop(5); // Small gap after label
+        
+        auto presetButtonArea = bounds.removeFromTop(25);
+        presetCombo.setBounds(presetButtonArea.removeFromLeft(180));
+        presetButtonArea.removeFromLeft(10);
+        savePresetButton.setBounds(presetButtonArea.removeFromLeft(50));
         presetButtonArea.removeFromLeft(8);
-        resetToDefaultButton.setBounds(presetButtonArea); // Use remaining space
+        loadPresetButton.setBounds(presetButtonArea.removeFromLeft(50));
+        presetButtonArea.removeFromLeft(8);
+        deletePresetButton.setBounds(presetButtonArea.removeFromLeft(55));
+        presetButtonArea.removeFromLeft(10);
+        resetToDefaultButton.setBounds(presetButtonArea);
         
-        bounds.removeFromTop(15); // Spacing
+        bounds.removeFromTop(20); // Section spacing
         
-        // Preset folder controls
+        // Folder controls section
         auto folderLabelArea = bounds.removeFromTop(20);
         presetFolderLabel.setBounds(folderLabelArea);
         
-        auto folderPathArea = bounds.removeFromTop(25);
-        // Use full available width for better visibility of path
+        bounds.removeFromTop(5);
+        auto folderPathArea = bounds.removeFromTop(20);
         presetPathLabel.setBounds(folderPathArea);
         
-        auto folderButtonArea = bounds.removeFromTop(30);
-        // Expand folder buttons to use available width more efficiently
-        openFolderButton.setBounds(folderButtonArea.removeFromLeft(150));
+        bounds.removeFromTop(8);
+        auto folderButtonArea = bounds.removeFromTop(25);
+        openFolderButton.setBounds(folderButtonArea.removeFromLeft(120));
         folderButtonArea.removeFromLeft(10);
-        changeFolderButton.setBounds(folderButtonArea); // Use remaining space
+        changeFolderButton.setBounds(folderButtonArea);
         
-        bounds.removeFromTop(15); // Spacing
+        bounds.removeFromTop(20); // Section spacing
         
-        // MIDI Channel (moved below presets)
-        auto channelArea = bounds.removeFromTop(30);
-        midiChannelLabel.setBounds(channelArea.removeFromLeft(120));
-        midiChannelCombo.setBounds(channelArea); // Use remaining space for better visibility
+        // MIDI Channel section
+        auto channelArea = bounds.removeFromTop(25);
+        midiChannelLabel.setBounds(channelArea.removeFromLeft(100));
+        channelArea.removeFromLeft(10);
+        midiChannelCombo.setBounds(channelArea);
         
-        bounds.removeFromTop(15); // Spacing
+        bounds.removeFromTop(20); // Section spacing
         
         if (!controlsInitialized)
             return; // Don't layout controls that don't exist yet
         
-        // Bank selector
+        // Bank selector section
         auto bankSelectorArea = bounds.removeFromTop(25);
-        bankSelectorLabel.setBounds(bankSelectorArea.removeFromLeft(60));
+        bankSelectorLabel.setBounds(bankSelectorArea.removeFromLeft(50));
+        bankSelectorArea.removeFromLeft(10);
         
-        // Bank selector buttons - each 30px wide
-        bankASelector.setBounds(bankSelectorArea.removeFromLeft(30));
-        bankSelectorArea.removeFromLeft(5); // spacing
-        bankBSelector.setBounds(bankSelectorArea.removeFromLeft(30));
-        bankSelectorArea.removeFromLeft(5); // spacing
-        bankCSelector.setBounds(bankSelectorArea.removeFromLeft(30));
-        bankSelectorArea.removeFromLeft(5); // spacing
-        bankDSelector.setBounds(bankSelectorArea.removeFromLeft(30));
+        // Bank selector buttons with consistent spacing
+        bankASelector.setBounds(bankSelectorArea.removeFromLeft(28));
+        bankSelectorArea.removeFromLeft(8);
+        bankBSelector.setBounds(bankSelectorArea.removeFromLeft(28));
+        bankSelectorArea.removeFromLeft(8);
+        bankCSelector.setBounds(bankSelectorArea.removeFromLeft(28));
+        bankSelectorArea.removeFromLeft(8);
+        bankDSelector.setBounds(bankSelectorArea.removeFromLeft(28));
         
-        bounds.removeFromTop(5); // Small spacing
+        bounds.removeFromTop(15); // Section spacing
         
         // Controls for current bank only (4 sliders)
         for (int i = 0; i < 4; ++i)
@@ -636,7 +637,8 @@ private:
             auto* sliderLabel = new juce::Label();
             sliderLabels.add(sliderLabel);
             addAndMakeVisible(sliderLabel);
-            sliderLabel->setText("SLIDER " + juce::String(i + 1) + ": CC Value:", juce::dontSendNotification);
+            sliderLabel->setText("Slider " + juce::String(i + 1) + ": CC Value:", juce::dontSendNotification);
+            sliderLabel->setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
             
             // CC input
             auto* ccInput = new juce::TextEditor();
@@ -645,6 +647,9 @@ private:
             ccInput->setText(juce::String(i), juce::dontSendNotification);
             ccInput->setInputRestrictions(3, "0123456789");
             ccInput->setTooltip("MIDI CC number (0-127)");
+            ccInput->setColour(juce::TextEditor::backgroundColourId, juce::Colour(0xFF404040));
+            ccInput->setColour(juce::TextEditor::textColourId, juce::Colour(0xFFEEEEEE));
+            ccInput->setColour(juce::TextEditor::outlineColourId, juce::Colour(0xFF1A1A1A));
             ccInput->onReturnKey = [this, ccInput]() { validateCCInput(ccInput); };
             ccInput->onFocusLost = [this, ccInput]() { validateCCInput(ccInput); };
             
@@ -653,6 +658,7 @@ private:
             rangeLabels.add(rangeLabel);
             addAndMakeVisible(rangeLabel);
             rangeLabel->setText("Range:", juce::dontSendNotification);
+            rangeLabel->setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
             
             // Min range input
             auto* minInput = new juce::TextEditor();
@@ -660,6 +666,9 @@ private:
             addAndMakeVisible(minInput);
             minInput->setText("0");
             minInput->setInputRestrictions(0, "-0123456789.");
+            minInput->setColour(juce::TextEditor::backgroundColourId, juce::Colour(0xFF404040));
+            minInput->setColour(juce::TextEditor::textColourId, juce::Colour(0xFFEEEEEE));
+            minInput->setColour(juce::TextEditor::outlineColourId, juce::Colour(0xFF1A1A1A));
             minInput->onReturnKey = [this, minInput]() { validateRangeInput(minInput); };
             minInput->onFocusLost = [this, minInput]() { validateRangeInput(minInput); };
             
@@ -669,6 +678,9 @@ private:
             addAndMakeVisible(maxInput);
             maxInput->setText("16383");
             maxInput->setInputRestrictions(0, "-0123456789.");
+            maxInput->setColour(juce::TextEditor::backgroundColourId, juce::Colour(0xFF404040));
+            maxInput->setColour(juce::TextEditor::textColourId, juce::Colour(0xFFEEEEEE));
+            maxInput->setColour(juce::TextEditor::outlineColourId, juce::Colour(0xFF1A1A1A));
             maxInput->onReturnKey = [this, maxInput]() { validateRangeInput(maxInput); };
             maxInput->onFocusLost = [this, maxInput]() { validateRangeInput(maxInput); };
             
@@ -677,11 +689,15 @@ private:
             colorLabels.add(colorLabel);
             addAndMakeVisible(colorLabel);
             colorLabel->setText("Color:", juce::dontSendNotification);
+            colorLabel->setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
             
             // Color selector
             auto* colorCombo = new juce::ComboBox();
             colorCombos.add(colorCombo);
             addAndMakeVisible(colorCombo);
+            colorCombo->setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xFF404040));
+            colorCombo->setColour(juce::ComboBox::textColourId, juce::Colour(0xFFEEEEEE));
+            colorCombo->setColour(juce::ComboBox::outlineColourId, juce::Colour(0xFF1A1A1A));
             
             colorCombo->addItem("Default", 1);
             colorCombo->addItem("Red", 2);
@@ -786,44 +802,6 @@ private:
             onSettingsChanged();
     }
     
-    void drawMountingScrews(juce::Graphics& g, juce::Rectangle<float> bounds)
-    {
-        float screwSize = 8.0f;
-        float margin = 12.0f;
-        
-        // Screw positions: corners with margin
-        juce::Array<juce::Point<float>> screwPositions;
-        screwPositions.add({bounds.getX() + margin, bounds.getY() + margin}); // Top-left
-        screwPositions.add({bounds.getRight() - margin - screwSize, bounds.getY() + margin}); // Top-right
-        screwPositions.add({bounds.getX() + margin, bounds.getBottom() - margin - screwSize}); // Bottom-left
-        screwPositions.add({bounds.getRight() - margin - screwSize, bounds.getBottom() - margin - screwSize}); // Bottom-right
-        
-        for (auto& screwPos : screwPositions)
-        {
-            auto screwBounds = juce::Rectangle<float>(screwPos.x, screwPos.y, screwSize, screwSize);
-            
-            // Outer ring (darker)
-            g.setColour(juce::Colour(0xFF404040));
-            g.fillEllipse(screwBounds);
-            
-            // Inner ring (lighter metallic)
-            auto innerBounds = screwBounds.reduced(1.0f);
-            g.setColour(juce::Colour(0xFF808080));
-            g.fillEllipse(innerBounds);
-            
-            // Center hole
-            auto holeBounds = screwBounds.reduced(3.0f);
-            g.setColour(juce::Colour(0xFF202020));
-            g.fillEllipse(holeBounds);
-            
-            // Phillips screw cross
-            float crossSize = 2.0f;
-            auto center = screwBounds.getCentre();
-            g.setColour(juce::Colour(0xFF101010));
-            g.drawLine(center.x - crossSize, center.y, center.x + crossSize, center.y, 1.0f);
-            g.drawLine(center.x, center.y - crossSize, center.x, center.y + crossSize, 1.0f);
-        }
-    }
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SettingsWindow)
 };
