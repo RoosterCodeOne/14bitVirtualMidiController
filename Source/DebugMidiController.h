@@ -121,22 +121,18 @@ public:
         // App background - solid color
         g.fillAll(juce::Colour(0xFF5E5E5E));
         
-        // Calculate same content area bounds for eurorack drawing
-        int topAreaHeight = 65;
-        int tooltipHeight = 38;
-        int contentY = topAreaHeight + 15;
-        int contentHeight = getHeight() - topAreaHeight - tooltipHeight - 30;
-        int contentAreaWidth = isEightSliderMode ? 970 : 490;
+        // Calculate content area bounds using same logic as resized()
+        const int topAreaHeight = 65;
+        const int tooltipHeight = 38;
+        const int verticalGap = 15;
+        const int contentAreaWidth = isEightSliderMode ? 970 : 490;
+        
         auto area = getLocalBounds();
         int contentX = isInSettingsMode ? SETTINGS_PANEL_WIDTH : (area.getWidth() - contentAreaWidth) / 2;
-        juce::Rectangle<int> contentAreaBounds(contentX, contentY, contentAreaWidth, contentHeight);
+        int contentY = topAreaHeight + verticalGap;
+        int contentHeight = area.getHeight() - topAreaHeight - tooltipHeight - (2 * verticalGap);
         
-        // Debug: Verify paint method uses same bounds as resized (can be commented out in production)
-        #ifdef JUCE_DEBUG
-        DBG("Paint ContentArea: X=" << contentAreaBounds.getX() << " Y=" << contentAreaBounds.getY() << 
-            " W=" << contentAreaBounds.getWidth() << " H=" << contentAreaBounds.getHeight() << 
-            " Settings=" << (isInSettingsMode ? "ON" : "OFF"));
-        #endif
+        juce::Rectangle<int> contentAreaBounds(contentX, contentY, contentAreaWidth, contentHeight);
         
         // Draw eurorack-style background before slider plates
         drawEurorackBackground(g, contentAreaBounds);
@@ -180,43 +176,29 @@ public:
                 
                 // Draw the thumb
                 lookAndFeel.drawSliderThumb(g, thumbPos.x, thumbPos.y, sliderControl->getSliderColor());
-                
-                // DEBUG: Draw mainSlider bounds overlay
-                auto mainSliderBounds = sliderControl->getMainSliderBounds();
-                mainSliderBounds.setX(mainSliderBounds.getX() + sliderBounds.getX());
-                mainSliderBounds.setY(mainSliderBounds.getY() + sliderBounds.getY());
-                
-                g.setColour(juce::Colours::yellow.withAlpha(0.3f));
-                g.fillRect(mainSliderBounds);
-                g.setColour(juce::Colours::yellow.withAlpha(0.8f));
-                g.drawRect(mainSliderBounds, 1);
             }
         }
         
-        // Calculate same top area bounds as resized() for text positioning
+        // Calculate top area bounds for text positioning
         juce::Rectangle<int> topAreaBounds;
         if (isInSettingsMode && settingsWindow.isVisible())
         {
-            // Settings open: top area spans full window width
-            topAreaBounds = juce::Rectangle<int>(0, 0, getWidth(), 65);
+            topAreaBounds = juce::Rectangle<int>(0, 0, getWidth(), topAreaHeight);
         }
         else
         {
-            // Settings closed: top area spans content width only
-            auto area = getLocalBounds();
-            int contentAreaX = (area.getWidth() - contentAreaWidth) / 2;
-            topAreaBounds = juce::Rectangle<int>(contentAreaX, 0, contentAreaWidth, 65);
+            topAreaBounds = juce::Rectangle<int>(contentX, 0, contentAreaWidth, topAreaHeight);
         }
         
         g.setColour(juce::Colours::white);
         g.setFont(juce::FontOptions(20.0f));
         // Title centered in top area
-        g.drawText("14-Bit Virtual MIDI Controller", 
-                  topAreaBounds.getX() + 10, 10, 
+        g.drawText("VMC14",
+                  topAreaBounds.getX() + 10, 10,
                   topAreaBounds.getWidth() - 20, 35, 
                   juce::Justification::centred);
         
-        // Show MIDI status left-aligned in top area (stays glued to left position)
+        // Show MIDI status left-aligned in top area
         g.setFont(juce::FontOptions(12.0f));
         juce::String status = midiOutput ? "MIDI: Connected" : "MIDI: Disconnected";
         g.drawText(status, topAreaBounds.getX() + 10, 10, 200, 20, juce::Justification::left);
@@ -232,107 +214,46 @@ public:
         // Update window size display
         updateWindowSizeDisplay();
         
-        // STEP 1: Define fixed-width content area bounds
-        int contentAreaWidth = isEightSliderMode ? 970 : 490;
-        int contentAreaHeight = area.getHeight();
+        // Calculate layout dimensions once
+        const int topAreaHeight = 65;
+        const int tooltipHeight = 38;
+        const int verticalGap = 15;
+        const int contentAreaWidth = isEightSliderMode ? 970 : 490;
         
-        // STEP 2: Calculate top area FIRST (independent of content area)
+        // Calculate content area bounds - simplified logic
+        int contentX = isInSettingsMode ? SETTINGS_PANEL_WIDTH : (area.getWidth() - contentAreaWidth) / 2;
+        int contentY = topAreaHeight + verticalGap;
+        int contentHeight = area.getHeight() - topAreaHeight - tooltipHeight - (2 * verticalGap);
+        
+        juce::Rectangle<int> contentAreaBounds(contentX, contentY, contentAreaWidth, contentHeight);
+        
+        // Calculate top area bounds based on settings state
         juce::Rectangle<int> topAreaBounds;
         if (isInSettingsMode && settingsWindow.isVisible())
         {
-            // Settings open: top area spans full window width
-            topAreaBounds = juce::Rectangle<int>(0, 0, getWidth(), 65);
+            topAreaBounds = juce::Rectangle<int>(0, 0, getWidth(), topAreaHeight);
         }
         else
         {
-            // Settings closed: top area spans content width only
-            int contentAreaX = (area.getWidth() - contentAreaWidth) / 2;
-            topAreaBounds = juce::Rectangle<int>(contentAreaX, 0, contentAreaWidth, 65);
+            topAreaBounds = juce::Rectangle<int>(contentX, 0, contentAreaWidth, topAreaHeight);
         }
         
-        // STEP 3: Explicitly define content area bounds with FIXED height
-        int topAreaHeight = 65; // Fixed
-        int tooltipHeight = 38; // Fixed  
-        int contentY = topAreaHeight + 15; // Fixed Y position (gap after top area)
-        int contentHeight = getHeight() - topAreaHeight - tooltipHeight - 30; // Fixed height (15px top gap + 15px bottom gap)
+        // Position top area components
+        layoutTopAreaComponents(topAreaBounds);
         
-        // Only X position changes with settings - height and Y remain constant
-        int contentX = isInSettingsMode ? SETTINGS_PANEL_WIDTH : (area.getWidth() - contentAreaWidth) / 2;
-        juce::Rectangle<int> contentAreaBounds(contentX, contentY, contentAreaWidth, contentHeight);
-        
-        // Debug: Verify content area bounds are consistent (can be commented out in production)
-        #ifdef JUCE_DEBUG
-        DBG("ContentArea: X=" << contentAreaBounds.getX() << " Y=" << contentAreaBounds.getY() << 
-            " W=" << contentAreaBounds.getWidth() << " H=" << contentAreaBounds.getHeight() << 
-            " Settings=" << (isInSettingsMode ? "ON" : "OFF"));
-        #endif
-        
-        // STEP 4: Position top area components within the calculated topAreaBounds
-        // Settings button - positioned on left within top area
-        int settingsButtonX = topAreaBounds.getX() + 10;
-        settingsButton.setBounds(settingsButtonX, 35, 100, 20);
-        
-        // Mode button - positioned next to settings button
-        int modeButtonX = settingsButtonX + 110; // 100px settings button + 10px gap
-        modeButton.setBounds(modeButtonX, 35, 30, 20);
-        
-        // Bank buttons - positioned as 2x2 grid in top right of top area
-        int buttonWidth = 35;
-        int buttonHeight = 20;
-        int buttonSpacing = 5;
-        int rightMargin = 10;
-        
-        int gridWidth = (2 * buttonWidth) + buttonSpacing;
-        int topAreaRight = topAreaBounds.getRight(); // Use top area bounds directly
-        int gridStartX = topAreaRight - rightMargin - gridWidth;
-        int gridStartY = 10;
-        
-        // Top row: A and B buttons
-        bankAButton.setBounds(gridStartX, gridStartY, buttonWidth, buttonHeight);
-        bankBButton.setBounds(gridStartX + buttonWidth + buttonSpacing, gridStartY, buttonWidth, buttonHeight);
-        
-        // Bottom row: C and D buttons
-        bankCButton.setBounds(gridStartX, gridStartY + buttonHeight + buttonSpacing, buttonWidth, buttonHeight);
-        bankDButton.setBounds(gridStartX + buttonWidth + buttonSpacing, gridStartY + buttonHeight + buttonSpacing, buttonWidth, buttonHeight);
-        
-        // STEP 5: Use content area bounds directly for sliders (already properly sized)
-        auto mainContentArea = contentAreaBounds;
-        
-        // STEP 6: Position settings window if visible
+        // Position settings window if visible
         if (isInSettingsMode && settingsWindow.isVisible())
         {
-            // Settings panel: fixed 350px width, from below top area to bottom
-            int settingsY = 65; // Below top area
-            int settingsHeight = area.getHeight() - settingsY; // Full height below top area
-            
-            // Position settings window at left edge of full window
-            auto settingsArea = juce::Rectangle<int>(0, settingsY, SETTINGS_PANEL_WIDTH, settingsHeight);
-            settingsWindow.setBounds(settingsArea);
+            int settingsY = topAreaHeight;
+            int settingsHeight = area.getHeight() - settingsY;
+            settingsWindow.setBounds(0, settingsY, SETTINGS_PANEL_WIDTH, settingsHeight);
         }
         
-        // STEP 7: Layout sliders within content area (always centered within content area)
-        layoutSlidersFixed(mainContentArea, visibleSliderCount);
+        // Layout sliders within content area
+        layoutSlidersFixed(contentAreaBounds, visibleSliderCount);
         
-        // STEP 8: Position tooltips at very bottom
-        auto windowBounds = getLocalBounds();
-        auto tooltipArea = windowBounds.removeFromBottom(38);
-        if (isInSettingsMode && settingsWindow.isVisible())
-        {
-            // Settings open: tooltips span full window width, offset by settings panel
-            auto adjustedTooltipArea = tooltipArea.withTrimmedLeft(SETTINGS_PANEL_WIDTH);
-            auto leftTooltip = adjustedTooltipArea.removeFromLeft(adjustedTooltipArea.getWidth() / 2);
-            movementSpeedLabel.setBounds(leftTooltip);
-            windowSizeLabel.setBounds(adjustedTooltipArea);
-        }
-        else
-        {
-            // Settings closed: tooltips positioned within content area bounds
-            int contentAreaX = (area.getWidth() - contentAreaWidth) / 2;
-            auto contentTooltipArea = tooltipArea.withX(contentAreaX).withWidth(contentAreaWidth);
-            auto leftTooltip = contentTooltipArea.removeFromLeft(contentTooltipArea.getWidth() / 2);
-            movementSpeedLabel.setBounds(leftTooltip);
-            windowSizeLabel.setBounds(contentTooltipArea);
-        }
+        // Position tooltips at bottom
+        layoutTooltips(area, contentAreaWidth, tooltipHeight);
     }
     
     bool keyPressed(const juce::KeyPress& key) override
@@ -534,7 +455,7 @@ public:
     
     void drawEurorackBackground(juce::Graphics& g, juce::Rectangle<int> contentAreaBounds)
     {
-        int railHeight = 15;
+        const int railHeight = 15;
         
         // Use passed content area bounds strictly - no recalculation
         auto rackArea = contentAreaBounds;
@@ -550,22 +471,10 @@ public:
         // Central recessed area (rack body depth) within content area
         drawRackBodyDepth(g, rackArea);
         
-        // In settings mode, draw additional visual separation
+        // In settings mode, draw visual separation with improved positioning
         if (isInSettingsMode && settingsWindow.isVisible())
         {
-            // Draw subtle vertical divider line between settings and main content
-            int dividerX = SETTINGS_PANEL_WIDTH;
-            g.setColour(juce::Colour(0xFF606060));
-            g.drawLine(dividerX, 65, dividerX, getHeight() - 35, 1.0f);
-            
-            // Add subtle shadow effect on the right side of settings panel
-            juce::ColourGradient shadow(
-                juce::Colour(0x40000000), dividerX, 0,
-                juce::Colour(0x00000000), dividerX + 10, 0,
-                false
-            );
-            g.setGradientFill(shadow);
-            g.fillRect(dividerX, 65, 10, getHeight() - 100);
+            drawSettingsPanelSeparator(g, contentAreaBounds, railHeight);
         }
     }
     
@@ -641,6 +550,114 @@ public:
         
         // No background drawing - tooltip content uses app background
     }
+    
+    void layoutTopAreaComponents(const juce::Rectangle<int>& topAreaBounds)
+    {
+        // Settings button - positioned on left within top area
+        int settingsButtonX = topAreaBounds.getX() + 10;
+        settingsButton.setBounds(settingsButtonX, 35, 100, 20);
+        
+        // Mode button - positioned next to settings button
+        int modeButtonX = settingsButtonX + 110; // 100px settings button + 10px gap
+        modeButton.setBounds(modeButtonX, 35, 30, 20);
+        
+        // Bank buttons - positioned as 2x2 grid in top right of top area
+        const int buttonWidth = 35;
+        const int buttonHeight = 20;
+        const int buttonSpacing = 5;
+        const int rightMargin = 10;
+        
+        int gridWidth = (2 * buttonWidth) + buttonSpacing;
+        int gridStartX = topAreaBounds.getRight() - rightMargin - gridWidth;
+        int gridStartY = 10;
+        
+        // Top row: A and B buttons
+        bankAButton.setBounds(gridStartX, gridStartY, buttonWidth, buttonHeight);
+        bankBButton.setBounds(gridStartX + buttonWidth + buttonSpacing, gridStartY, buttonWidth, buttonHeight);
+        
+        // Bottom row: C and D buttons
+        bankCButton.setBounds(gridStartX, gridStartY + buttonHeight + buttonSpacing, buttonWidth, buttonHeight);
+        bankDButton.setBounds(gridStartX + buttonWidth + buttonSpacing, gridStartY + buttonHeight + buttonSpacing, buttonWidth, buttonHeight);
+    }
+    
+    void layoutTooltips(const juce::Rectangle<int>& area, int contentAreaWidth, int tooltipHeight)
+    {
+        auto tooltipArea = area.withHeight(tooltipHeight).withBottomY(area.getBottom());
+        
+        if (isInSettingsMode && settingsWindow.isVisible())
+        {
+            // Settings open: tooltips span remaining width after settings panel
+            auto adjustedTooltipArea = tooltipArea.withTrimmedLeft(SETTINGS_PANEL_WIDTH);
+            auto leftTooltip = adjustedTooltipArea.removeFromLeft(adjustedTooltipArea.getWidth() / 2);
+            movementSpeedLabel.setBounds(leftTooltip);
+            windowSizeLabel.setBounds(adjustedTooltipArea);
+        }
+        else
+        {
+            // Settings closed: tooltips positioned within content area bounds
+            int contentAreaX = (area.getWidth() - contentAreaWidth) / 2;
+            auto contentTooltipArea = tooltipArea.withX(contentAreaX).withWidth(contentAreaWidth);
+            auto leftTooltip = contentTooltipArea.removeFromLeft(contentTooltipArea.getWidth() / 2);
+            movementSpeedLabel.setBounds(leftTooltip);
+            windowSizeLabel.setBounds(contentTooltipArea);
+        }
+    }
+    
+    void drawSettingsPanelSeparator(juce::Graphics& g)
+    {
+        const int dividerX = SETTINGS_PANEL_WIDTH;
+        const int topAreaHeight = 65;
+        const int tooltipHeight = 38;
+        const int railHeight = 15;
+        
+        // Draw vertical divider line between settings and main content
+        g.setColour(juce::Colour(0xFF606060));
+        g.drawLine(dividerX, topAreaHeight, dividerX, getHeight() - tooltipHeight, 1.0f);
+        
+        // Calculate shadow bounds to avoid overlapping with rails
+        int shadowStartY = topAreaHeight + railHeight;
+        int shadowHeight = getHeight() - topAreaHeight - tooltipHeight - (2 * railHeight);
+        
+        // Only draw shadow if there's space between the rails
+        if (shadowHeight > 0)
+        {
+            // Add subtle shadow effect on the right side of settings panel
+            // but only in the area between the top and bottom rails
+            juce::ColourGradient shadow(
+                juce::Colour(0x40000000), dividerX, shadowStartY,
+                juce::Colour(0x00000000), dividerX + 10, shadowStartY,
+                false
+            );
+            g.setGradientFill(shadow);
+            g.fillRect(dividerX, shadowStartY, 10, shadowHeight);
+        }
+    }
+    
+    void drawSettingsPanelSeparator(juce::Graphics& g, juce::Rectangle<int> contentAreaBounds, int railHeight)
+    {
+        // Draw subtle vertical divider line between settings and main content
+        const int dividerX = SETTINGS_PANEL_WIDTH;
+        g.setColour(juce::Colour(0xFF606060));
+        g.drawLine(dividerX, 65, dividerX, getHeight() - 35, 1.0f);
+        
+        // Add subtle shadow effect on the right side of settings panel
+        // Only draw shadow in the central area between the rails (not above or below)
+        int shadowStartY = contentAreaBounds.getY() + railHeight; // Below top rail
+        int shadowEndY = contentAreaBounds.getBottom() - railHeight; // Above bottom rail
+        int shadowHeight = shadowEndY - shadowStartY;
+        
+        if (shadowHeight > 0)
+        {
+            juce::ColourGradient shadow(
+                juce::Colour(0x30000000), dividerX, 0,
+                juce::Colour(0x00000000), dividerX + 8, 0,
+                false
+            );
+            g.setGradientFill(shadow);
+            g.fillRect(dividerX, shadowStartY, 8, shadowHeight);
+        }
+    }
+    
     
 private:
     struct KeyboardMapping

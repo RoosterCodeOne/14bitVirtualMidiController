@@ -51,7 +51,7 @@ public:
         loadPresetButton.onClick = [this]() { loadSelectedPreset(); };
         
         addAndMakeVisible(deletePresetButton);
-        deletePresetButton.setButtonText("Delete");
+        deletePresetButton.setButtonText("Del");
         deletePresetButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF404040));
         deletePresetButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFFEEEEEE));
         deletePresetButton.onClick = [this]() { deleteSelectedPreset(); };
@@ -81,8 +81,27 @@ public:
 
         updatePresetFolderDisplay();
         
+        // Column headers for slider controls
+        addAndMakeVisible(ccValueHeaderLabel);
+        ccValueHeaderLabel.setText("CC Value", juce::dontSendNotification);
+        ccValueHeaderLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+        ccValueHeaderLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
+        ccValueHeaderLabel.setJustificationType(juce::Justification::centred);
+        
+        addAndMakeVisible(rangeHeaderLabel);
+        rangeHeaderLabel.setText("Range", juce::dontSendNotification);
+        rangeHeaderLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+        rangeHeaderLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
+        rangeHeaderLabel.setJustificationType(juce::Justification::centred);
+        
+        addAndMakeVisible(colorHeaderLabel);
+        colorHeaderLabel.setText("Color", juce::dontSendNotification);
+        colorHeaderLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+        colorHeaderLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
+        colorHeaderLabel.setJustificationType(juce::Justification::centred);
+        
         addAndMakeVisible(resetToDefaultButton);
-        resetToDefaultButton.setButtonText("Reset All");
+        resetToDefaultButton.setButtonText("Reset");
         resetToDefaultButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF404040));
         resetToDefaultButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFFEEEEEE));
         resetToDefaultButton.onClick = [this]() { resetToDefaults(); };
@@ -155,11 +174,10 @@ public:
         g.setColour(juce::Colour(0xFF1A1A1A)); // Dark border
         g.drawRoundedRectangle(bounds, 8.0f, 1.0f);
         
-        // Settings title with clean modern styling
-        g.setColour(juce::Colour(0xFFEEEEEE)); // Light gray text
-        g.setFont(juce::FontOptions(16.0f, juce::Font::bold));
-        auto titleArea = bounds.removeFromTop(40);
-        g.drawText("Settings", titleArea, juce::Justification::centred);
+        // Draw section background rectangles
+        drawSectionBackgrounds(g);
+        
+        // Title removed to create more space for controls
         
         if (!controlsInitialized)
         {
@@ -174,76 +192,129 @@ public:
     {
         auto bounds = getLocalBounds().reduced(15); // Modern consistent padding
         
-        bounds.removeFromTop(35); // Space for title
+        // Calculate available height for dynamic spacing (no title space needed)
+        int availableHeight = bounds.getHeight();
+        int fixedHeight = 8 + 16 + 4 + 22 + 4 + 20 + 8 + 53 + 8 + 25 + 25 + 15; // 8px padding + preset label + gap + combo row + gap + button row + 8px padding + folder + 8px padding + MIDI + bank + controls
+        if (controlsInitialized)
+            fixedHeight += 18 + 4 + (4 * 26) + (4 * 3) + 8; // Headers + gap + 4 slider rows at 26px each + row spacing + 8px bottom padding
         
-        // Preset controls section
-        auto presetArea = bounds.removeFromTop(50); // Increased height for better spacing
-        presetLabel.setBounds(presetArea.removeFromTop(20));
+        int flexibleSpacing = juce::jmax(3, (availableHeight - fixedHeight) / 8); // Distribute remaining space
         
-        bounds.removeFromTop(5); // Small gap after label
+        // Preset controls section with 8px top padding
+        bounds.removeFromTop(8); // 8px top padding for preset section
+        presetLabel.setBounds(bounds.removeFromTop(16));
+        bounds.removeFromTop(4); // Gap between label and combo
         
-        auto presetButtonArea = bounds.removeFromTop(25);
-        presetCombo.setBounds(presetButtonArea.removeFromLeft(180));
-        presetButtonArea.removeFromLeft(10);
-        savePresetButton.setBounds(presetButtonArea.removeFromLeft(50));
-        presetButtonArea.removeFromLeft(8);
-        loadPresetButton.setBounds(presetButtonArea.removeFromLeft(50));
-        presetButtonArea.removeFromLeft(8);
-        deletePresetButton.setBounds(presetButtonArea.removeFromLeft(55));
-        presetButtonArea.removeFromLeft(10);
-        resetToDefaultButton.setBounds(presetButtonArea);
+        // Preset combo box and buttons on same row
+        auto presetRowArea = bounds.removeFromTop(22);
+        presetCombo.setBounds(presetRowArea.removeFromLeft(160));
+        presetRowArea.removeFromLeft(8); // Gap between combo and buttons
         
-        bounds.removeFromTop(20); // Section spacing
+        // 2x2 grid for preset buttons - positioned to the right of combo box
+        const int buttonWidth = 40;
+        const int buttonHeight = 20;
+        const int buttonSpacing = 6;
         
-        // Folder controls section
-        auto folderLabelArea = bounds.removeFromTop(20);
-        presetFolderLabel.setBounds(folderLabelArea);
+        // Top row: Save, Load (aligned with preset combo box)
+        savePresetButton.setBounds(presetRowArea.removeFromLeft(buttonWidth));
+        presetRowArea.removeFromLeft(buttonSpacing);
+        loadPresetButton.setBounds(presetRowArea.removeFromLeft(buttonWidth));
         
-        bounds.removeFromTop(5);
-        auto folderPathArea = bounds.removeFromTop(20);
+        bounds.removeFromTop(4); // Small gap between rows
+        
+        // Bottom row: Delete, Reset (positioned below top row)
+        auto bottomRowArea = bounds.removeFromTop(buttonHeight);
+        bottomRowArea.removeFromLeft(160 + 8); // Skip combo box width + gap to align with buttons above
+        deletePresetButton.setBounds(bottomRowArea.removeFromLeft(buttonWidth));
+        bottomRowArea.removeFromLeft(buttonSpacing);
+        resetToDefaultButton.setBounds(bottomRowArea.removeFromLeft(buttonWidth));
+        
+        bounds.removeFromTop(flexibleSpacing);
+        
+        // Folder controls section with 8px top padding
+        bounds.removeFromTop(8); // 8px top padding for folder section
+        presetFolderLabel.setBounds(bounds.removeFromTop(16));
+        bounds.removeFromTop(3);
+        
+        auto folderPathArea = bounds.removeFromTop(16);
         presetPathLabel.setBounds(folderPathArea);
         
-        bounds.removeFromTop(8);
-        auto folderButtonArea = bounds.removeFromTop(25);
-        openFolderButton.setBounds(folderButtonArea.removeFromLeft(120));
-        folderButtonArea.removeFromLeft(10);
+        bounds.removeFromTop(5);
+        auto folderButtonArea = bounds.removeFromTop(20);
+        int folderButtonWidth = (folderButtonArea.getWidth() - 8) / 2;
+        openFolderButton.setBounds(folderButtonArea.removeFromLeft(folderButtonWidth));
+        folderButtonArea.removeFromLeft(8);
         changeFolderButton.setBounds(folderButtonArea);
         
-        bounds.removeFromTop(20); // Section spacing
+        bounds.removeFromTop(flexibleSpacing);
         
-        // MIDI Channel section
-        auto channelArea = bounds.removeFromTop(25);
+        // MIDI Channel section with 8px top padding
+        bounds.removeFromTop(8); // 8px top padding for MIDI/Bank/Slider section
+        auto channelArea = bounds.removeFromTop(22);
         midiChannelLabel.setBounds(channelArea.removeFromLeft(100));
-        channelArea.removeFromLeft(10);
+        channelArea.removeFromLeft(8);
         midiChannelCombo.setBounds(channelArea);
         
-        bounds.removeFromTop(20); // Section spacing
+        bounds.removeFromTop(flexibleSpacing);
         
         if (!controlsInitialized)
             return; // Don't layout controls that don't exist yet
         
         // Bank selector section
-        auto bankSelectorArea = bounds.removeFromTop(25);
-        bankSelectorLabel.setBounds(bankSelectorArea.removeFromLeft(50));
-        bankSelectorArea.removeFromLeft(10);
-        
-        // Bank selector buttons with consistent spacing
-        bankASelector.setBounds(bankSelectorArea.removeFromLeft(28));
+        auto bankSelectorArea = bounds.removeFromTop(22);
+        bankSelectorLabel.setBounds(bankSelectorArea.removeFromLeft(40));
         bankSelectorArea.removeFromLeft(8);
-        bankBSelector.setBounds(bankSelectorArea.removeFromLeft(28));
-        bankSelectorArea.removeFromLeft(8);
-        bankCSelector.setBounds(bankSelectorArea.removeFromLeft(28));
-        bankSelectorArea.removeFromLeft(8);
-        bankDSelector.setBounds(bankSelectorArea.removeFromLeft(28));
         
-        bounds.removeFromTop(15); // Section spacing
+        // Bank selector buttons with flexible spacing
+        int bankButtonWidth = (bankSelectorArea.getWidth() - 21) / 4; // 3 gaps of 7px each
+        bankASelector.setBounds(bankSelectorArea.removeFromLeft(bankButtonWidth));
+        bankSelectorArea.removeFromLeft(7);
+        bankBSelector.setBounds(bankSelectorArea.removeFromLeft(bankButtonWidth));
+        bankSelectorArea.removeFromLeft(7);
+        bankCSelector.setBounds(bankSelectorArea.removeFromLeft(bankButtonWidth));
+        bankSelectorArea.removeFromLeft(7);
+        bankDSelector.setBounds(bankSelectorArea.removeFromLeft(bankButtonWidth));
         
-        // Controls for current bank only (4 sliders)
+        bounds.removeFromTop(flexibleSpacing);
+        
+        // Column headers for slider controls - positioned above the slider rows
+        if (controlsInitialized)
+        {
+            auto headerArea = bounds.removeFromTop(18); // Height for column headers
+            int availableWidth = headerArea.getWidth();
+            
+            // Calculate column positions to match layoutSliderRow
+            int sliderLabelWidth = juce::jmin(100, availableWidth / 5);
+            int ccInputWidth = juce::jmin(60, availableWidth / 8);
+            int rangeColumnWidth = juce::jmin(120, availableWidth / 3);
+            int colorWidth = juce::jmin(80, availableWidth / 5);
+            
+            // Skip slider label area
+            headerArea.removeFromLeft(sliderLabelWidth + 6);
+            
+            // CC Value header
+            ccValueHeaderLabel.setBounds(headerArea.removeFromLeft(ccInputWidth));
+            headerArea.removeFromLeft(8);
+            
+            // Range header
+            rangeHeaderLabel.setBounds(headerArea.removeFromLeft(rangeColumnWidth));
+            headerArea.removeFromLeft(8);
+            
+            // Color header
+            colorHeaderLabel.setBounds(headerArea.removeFromLeft(colorWidth));
+            
+            bounds.removeFromTop(4); // Small gap between headers and first row
+        }
+        
+        // Controls for current bank only (4 sliders) - more space now available
         for (int i = 0; i < 4; ++i)
         {
             int sliderIndex = selectedBank * 4 + i;
             layoutSliderRow(bounds, sliderIndex);
         }
+        
+        // Ensure 8px bottom padding for the last section
+        bounds.removeFromTop(8);
     }
 
     int getMidiChannel() const { return midiChannelCombo.getSelectedId(); }
@@ -432,6 +503,12 @@ private:
     juce::Label bankSelectorLabel;
     ClickableLabel bankASelector, bankBSelector, bankCSelector, bankDSelector;
     int selectedBank = 0;
+    
+    // Column headers for slider controls
+    juce::Label ccValueHeaderLabel;
+    juce::Label rangeHeaderLabel;
+    juce::Label colorHeaderLabel;
+    
     juce::OwnedArray<juce::Label> sliderLabels;
     juce::OwnedArray<juce::TextEditor> ccInputs;
     juce::OwnedArray<juce::Label> rangeLabels;
@@ -603,29 +680,36 @@ private:
 
     void layoutSliderRow(juce::Rectangle<int>& bounds, int sliderIndex)
     {
-        auto row = bounds.removeFromTop(30);
+        auto row = bounds.removeFromTop(26); // Reduced height since no per-row labels
+        int availableWidth = row.getWidth();
         
-        // SLIDER X:
-        sliderLabels[sliderIndex]->setBounds(row.removeFromLeft(120));
+        // Calculate column widths to align with headers
+        int sliderLabelWidth = juce::jmin(100, availableWidth / 5);
+        int ccInputWidth = juce::jmin(60, availableWidth / 8);
+        int rangeColumnWidth = juce::jmin(120, availableWidth / 3); // Space for both min and max inputs
+        int colorWidth = juce::jmin(80, availableWidth / 5);
         
-        // CC Value: [input]
-        ccInputs[sliderIndex]->setBounds(row.removeFromLeft(80));
+        // Slider X: (just the slider number label)
+        sliderLabels[sliderIndex]->setBounds(row.removeFromLeft(sliderLabelWidth));
+        row.removeFromLeft(6); // Gap
         
-        // Range:
-        rangeLabels[sliderIndex]->setBounds(row.removeFromLeft(70));
+        // CC Value input (aligned with CC Value header)
+        ccInputs[sliderIndex]->setBounds(row.removeFromLeft(ccInputWidth));
+        row.removeFromLeft(8); // Gap
         
-        // [min] - [max]
-        minRangeInputs[sliderIndex]->setBounds(row.removeFromLeft(70));
-        row.removeFromLeft(20); // Space for separator (-)
-        maxRangeInputs[sliderIndex]->setBounds(row.removeFromLeft(70));
+        // Range inputs (aligned with Range header)
+        auto rangeArea = row.removeFromLeft(rangeColumnWidth);
+        int rangeInputWidth = (rangeColumnWidth - 8) / 2; // Split range area in half with 8px gap
+        minRangeInputs[sliderIndex]->setBounds(rangeArea.removeFromLeft(rangeInputWidth));
+        rangeArea.removeFromLeft(8); // Gap between min and max
+        maxRangeInputs[sliderIndex]->setBounds(rangeArea);
         
-        row.removeFromLeft(10); // Spacing
+        row.removeFromLeft(8); // Gap
         
-        // Color: [combo]
-        colorLabels[sliderIndex]->setBounds(row.removeFromLeft(50));
-        colorCombos[sliderIndex]->setBounds(row.removeFromLeft(100));
+        // Color combo (aligned with Color header)
+        colorCombos[sliderIndex]->setBounds(row.removeFromLeft(colorWidth));
         
-        bounds.removeFromTop(5); // Row spacing
+        bounds.removeFromTop(3); // Reduced row spacing
     }
     
     void initializeSliderControls()
@@ -633,11 +717,11 @@ private:
         // Create controls for all 16 sliders
         for (int i = 0; i < 16; ++i)
         {
-            // SLIDER X: label
+            // SLIDER X: label (simplified - no "CC Value:" text)
             auto* sliderLabel = new juce::Label();
             sliderLabels.add(sliderLabel);
             addAndMakeVisible(sliderLabel);
-            sliderLabel->setText("Slider " + juce::String(i + 1) + ": CC Value:", juce::dontSendNotification);
+            sliderLabel->setText("Slider " + juce::String(i + 1) + ":", juce::dontSendNotification);
             sliderLabel->setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
             
             // CC input
@@ -653,11 +737,11 @@ private:
             ccInput->onReturnKey = [this, ccInput]() { validateCCInput(ccInput); };
             ccInput->onFocusLost = [this, ccInput]() { validateCCInput(ccInput); };
             
-            // Range: label
+            // Range: label (kept for compatibility but will be hidden)
             auto* rangeLabel = new juce::Label();
             rangeLabels.add(rangeLabel);
             addAndMakeVisible(rangeLabel);
-            rangeLabel->setText("Range:", juce::dontSendNotification);
+            rangeLabel->setText("", juce::dontSendNotification); // Empty text since header replaces it
             rangeLabel->setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
             
             // Min range input
@@ -684,11 +768,11 @@ private:
             maxInput->onReturnKey = [this, maxInput]() { validateRangeInput(maxInput); };
             maxInput->onFocusLost = [this, maxInput]() { validateRangeInput(maxInput); };
             
-            // Color: label
+            // Color: label (kept for compatibility but will be hidden)
             auto* colorLabel = new juce::Label();
             colorLabels.add(colorLabel);
             addAndMakeVisible(colorLabel);
-            colorLabel->setText("Color:", juce::dontSendNotification);
+            colorLabel->setText("", juce::dontSendNotification); // Empty text since header replaces it
             colorLabel->setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
             
             // Color selector
@@ -750,18 +834,29 @@ private:
         // Show/hide appropriate slider controls
         if (controlsInitialized)
         {
+            // Show column headers when any slider is visible
+            bool hasVisibleSliders = false;
+            
             for (int i = 0; i < 16; ++i)
             {
                 bool shouldBeVisible = (i >= selectedBank * 4) && (i < (selectedBank + 1) * 4);
                 
+                if (shouldBeVisible)
+                    hasVisibleSliders = true;
+                
                 if (i < sliderLabels.size()) sliderLabels[i]->setVisible(shouldBeVisible);
                 if (i < ccInputs.size()) ccInputs[i]->setVisible(shouldBeVisible);
-                if (i < rangeLabels.size()) rangeLabels[i]->setVisible(shouldBeVisible);
+                if (i < rangeLabels.size()) rangeLabels[i]->setVisible(false); // Always hidden - replaced by header
                 if (i < minRangeInputs.size()) minRangeInputs[i]->setVisible(shouldBeVisible);
                 if (i < maxRangeInputs.size()) maxRangeInputs[i]->setVisible(shouldBeVisible);
-                if (i < colorLabels.size()) colorLabels[i]->setVisible(shouldBeVisible);
+                if (i < colorLabels.size()) colorLabels[i]->setVisible(false); // Always hidden - replaced by header
                 if (i < colorCombos.size()) colorCombos[i]->setVisible(shouldBeVisible);
             }
+            
+            // Show/hide column headers based on whether any sliders are visible
+            ccValueHeaderLabel.setVisible(hasVisibleSliders);
+            rangeHeaderLabel.setVisible(hasVisibleSliders);
+            colorHeaderLabel.setVisible(hasVisibleSliders);
         }
         
         resized();
@@ -800,6 +895,51 @@ private:
         
         if (onSettingsChanged)
             onSettingsChanged();
+    }
+    
+    void drawSectionBackgrounds(juce::Graphics& g)
+    {
+        auto bounds = getLocalBounds().reduced(15); // Same padding as resized()
+        
+        // Calculate section bounds using same logic as resized()
+        int availableHeight = bounds.getHeight();
+        int fixedHeight = 8 + 16 + 4 + 22 + 4 + 20 + 8 + 53 + 8 + 25 + 25 + 15;
+        if (controlsInitialized)
+            fixedHeight += 18 + 4 + (4 * 26) + (4 * 3) + 8;
+        
+        int flexibleSpacing = juce::jmax(3, (availableHeight - fixedHeight) / 8);
+        
+        // Top section (Preset controls) - with 8px padding included
+        auto topSectionBounds = bounds.removeFromTop(8 + 16 + 4 + 22 + 4 + 20); // 8px padding + preset label + gap + combo row + gap + button row
+        topSectionBounds = topSectionBounds.expanded(5, 0).withTrimmedBottom(1).withBottom(topSectionBounds.getBottom() + 6); // 5px left/right margin, 1px bottom gap, extend bottom by 6px
+        
+        g.setColour(juce::Colour(0xFF33484A));
+        g.fillRoundedRectangle(topSectionBounds.toFloat(), 6.0f);
+        
+        // Skip flexible spacing
+        bounds.removeFromTop(flexibleSpacing);
+        
+        // Middle section (Preset folder controls) - top raised by 4px, bottom extended by 10px (total +4px height)
+        auto middleSectionBounds = bounds.removeFromTop(53); // Folder section height
+        middleSectionBounds = middleSectionBounds.expanded(5, 0).withTrimmedTop(1).withTrimmedBottom(1); // 5px left/right margin, 1px top/bottom gaps
+        middleSectionBounds = middleSectionBounds.withTop(middleSectionBounds.getY() - 4).withBottom(middleSectionBounds.getBottom() + 10); // Raise top by 4px, extend bottom by 10px
+        
+        g.setColour(juce::Colour(0xFF33484A));
+        g.fillRoundedRectangle(middleSectionBounds.toFloat(), 6.0f);
+        
+        // Skip flexible spacing
+        bounds.removeFromTop(flexibleSpacing);
+        
+        // Bottom section (MIDI Channel + Bank + Slider controls) - bottom extended by 3px
+        auto bottomSectionHeight = 25 + flexibleSpacing + 25; // MIDI + spacing + Bank
+        if (controlsInitialized)
+            bottomSectionHeight += flexibleSpacing + 18 + 4 + (4 * 26) + (4 * 3); // Headers + sliders
+        
+        auto bottomSectionBounds = bounds.removeFromTop(bottomSectionHeight);
+        bottomSectionBounds = bottomSectionBounds.expanded(5, 0).withTrimmedTop(1).withBottom(bottomSectionBounds.getBottom() + 3); // 5px left/right margin, 1px top gap, extend bottom by 3px
+        
+        g.setColour(juce::Colour(0xFF33484A));
+        g.fillRoundedRectangle(bottomSectionBounds.toFloat(), 6.0f);
     }
     
     
