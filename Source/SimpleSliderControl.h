@@ -26,9 +26,10 @@ class SimpleSliderControl : public juce::Component, public juce::Timer
 public:
     SimpleSliderControl(int sliderIndex, std::function<void(int, int)> midiCallback)
         : index(sliderIndex), sendMidiCallback(midiCallback), sliderColor(juce::Colours::cyan),
-          attackKnob("ATTACK", 0.0, 30.0, CustomKnob::Large), 
+          attackKnob("ATTACK", 0.0, 30.0, CustomKnob::Small), 
           delayKnob("DELAY", 0.0, 10.0, CustomKnob::Small), 
-          returnKnob("RETURN", 0.0, 30.0, CustomKnob::Small)
+          returnKnob("RETURN", 0.0, 30.0, CustomKnob::Small),
+          curveKnob("CURVE", 0.0, 2.0, CustomKnob::Small)
     {
         // Main slider with custom look
         addAndMakeVisible(mainSlider);
@@ -103,6 +104,10 @@ public:
         addAndMakeVisible(returnKnob);
         returnKnob.setValue(0.0);
         
+        // Curve knob (small) - controls automation curve shape
+        addAndMakeVisible(curveKnob);
+        curveKnob.setValue(1.0); // Default to linear
+        
         // Target value input - LED display style
         addAndMakeVisible(targetLEDInput);
         targetLEDInput.setValidatedValue(8192); // Will be converted to display range
@@ -143,7 +148,7 @@ public:
         area.removeFromTop(4); // spacing after utility bar
         
         // Main slider - invisible, positioned for mouse interaction in track area
-        int automationControlsHeight = 145; // Increased from 95 to 145 (50px more)
+        int automationControlsHeight = 155; // Increased from 145 to 155 (10px more for automation area)
         int availableSliderHeight = area.getHeight() - automationControlsHeight;
         int reducedSliderHeight = (int)(availableSliderHeight * 0.80); // 20% reduction
         auto sliderArea = area.removeFromTop(reducedSliderHeight);
@@ -188,40 +193,39 @@ public:
         // New automation layout: GO button, LED input, then knob group
         auto automationArea = area;
         
-        // GO button first - offset slightly right from center
-        auto buttonArea = automationArea.removeFromTop(30); // Height for 3D button + spacing (reduced from 35)
-        int buttonX = (buttonArea.getWidth() - 35) / 2 + 20; // Offset 15px to the right
-        goButton3D.setBounds(buttonX, buttonArea.getY() + 3, 35, 25);
+        // GO button first - moved 12px to the right for zig-zag layout
+        auto buttonArea = automationArea.removeFromTop(33); // Height for 3D button + spacing (increased by 3px)
+        int buttonX = (buttonArea.getWidth() - 35) / 2 + 12; // Moved 12px to the right
+        goButton3D.setBounds(buttonX, buttonArea.getY() + 5, 35, 25); // Increased top padding by 2px
         
-        automationArea.removeFromTop(5); // spacing after button
+        automationArea.removeFromTop(7); // spacing after button (increased by 2px)
         
         // Target LED input - centered horizontally below button
-        auto targetArea = automationArea.removeFromTop(25); // Height for LED input + spacing (reduced from 30)
+        auto targetArea = automationArea.removeFromTop(28); // Height for LED input + spacing (increased by 3px)
         int targetX = (targetArea.getWidth() - 50) / 2;
-        targetLEDInput.setBounds(targetX, targetArea.getY(), 50, 20);
+        targetLEDInput.setBounds(targetX, targetArea.getY() + 2, 50, 20); // Increased top padding by 2px
         
-        automationArea.removeFromTop(5); // spacing after target
+        automationArea.removeFromTop(7); // spacing after target (increased by 2px)
         
-        // Knob group arrangement as specified:
-        // attackKnob: large (50px), bottom-left of group
-        // delayKnob: small (35px), up and right relative to attack  
-        // returnKnob: small (35px), down and right relative to attack
-        auto knobArea = automationArea;
+        // Knob group arrangement in vertical zig-zag pattern:
+        // Pattern from top to bottom:
+        // 1. Delay: top-right position
+        // 2. Attack: middle-left position  
+        // 3. Return: middle-right position
+        // 4. Curve: bottom-left position
+        auto knobColumnArea = automationArea;
         
-        // Calculate group bounds to center the entire knob arrangement with more horizontal space for Return label
-        int groupWidth = 40 + 16 + 32; // attack width + gap + small knob width (increased gap and return knob width)
-        int groupHeight = 48 + 12 + 48; // small knob height + gap + attack height (reduced heights)
-        int groupStartX = (knobArea.getWidth() - groupWidth) / 2;
-        int groupStartY = knobArea.getY();
+        // Define column area within automation section - reduced spacing by 50%
+        int leftX = knobColumnArea.getX() + 15;       // Left column X position (moved closer to center)
+        int rightX = knobColumnArea.getRight() - 43;  // Right column X position (moved closer to center)
+        int knobSpacing = 23; // Vertical spacing between knob centers (18 + 5px)
+        int startY = knobColumnArea.getY() + 2;       // Top margin (moved up 8px from 10 to 2)
         
-        // Attack knob: large, bottom-left of group (moved up 40px total)
-        attackKnob.setBounds(groupStartX, groupStartY + 48 + 12 - 40, 40, 60); // Moved up 40px total for better layout
-        
-        // Delay knob: small, up and right relative to attack
-        delayKnob.setBounds(groupStartX + 40 + 16, groupStartY, 28, 48); // Increased gap from 12 to 16
-        
-        // Return knob: small, down and right relative to attack (moved up 10px, wider for label)
-        returnKnob.setBounds(groupStartX + 40 + 16, groupStartY + 48 + 12 + 12 - 10, 32, 48); // Increased width from 28 to 32 for label space
+        // Position knobs in zig-zag pattern:
+        delayKnob.setBounds(rightX, startY, 28, 35);                    // 1. Right - Delay
+        attackKnob.setBounds(leftX - 1, startY + knobSpacing, 31, 39);  // 2. Left - Attack (10% larger: 28*1.1=31, 35*1.1=39)
+        returnKnob.setBounds(rightX, startY + (knobSpacing * 2), 28, 35); // 3. Right - Return
+        curveKnob.setBounds(leftX, startY + (knobSpacing * 3), 28, 35);   // 4. Left - Curve
     }
     
     void paint(juce::Graphics& g) override
@@ -252,7 +256,7 @@ public:
         // Calculate the full visual track area based on current layout
         auto area = getLocalBounds();
         area.removeFromTop(20); // utility bar + spacing
-        int automationControlsHeight = 145; // Increased from 95 to 145 (50px more)
+        int automationControlsHeight = 155; // Increased from 145 to 155 (10px more for automation area)
         int availableSliderHeight = area.getHeight() - automationControlsHeight;
         int reducedSliderHeight = (int)(availableSliderHeight * 0.80); // Match resized() method
         auto sliderArea = area.removeFromTop(reducedSliderHeight);
@@ -365,10 +369,11 @@ public:
             }
             else if (elapsed < delayTime + attackTime)
             {
-                // ATTACK PHASE: Move from start to target
+                // ATTACK PHASE: Move from start to target with curve applied
                 double attackElapsed = elapsed - delayTime;
                 double progress = attackElapsed / attackTime;
-                double currentValue = startMidiValue + (targetMidiValue - startMidiValue) * progress;
+                double curvedProgress = applyCurve(progress, curveKnob.getValue());
+                double currentValue = startMidiValue + (targetMidiValue - startMidiValue) * curvedProgress;
                 
                 mainSlider.setValue(currentValue, juce::dontSendNotification);
                 updateDisplayValue();
@@ -385,7 +390,9 @@ public:
                 
                 double returnElapsed = elapsed - delayTime - attackTime;
                 double progress = returnElapsed / returnTime;
-                double currentValue = targetMidiValue + (originalValue - targetMidiValue) * progress;
+                double invertedCurve = 2.0 - curveKnob.getValue(); // Invert curve for return phase
+                double curvedProgress = applyCurve(progress, invertedCurve);
+                double currentValue = targetMidiValue + (originalValue - targetMidiValue) * curvedProgress;
                 
                 mainSlider.setValue(currentValue, juce::dontSendNotification);
                 updateDisplayValue();
@@ -459,6 +466,16 @@ public:
         return returnKnob.getValue();
     }
     
+    void setCurveValue(double curve)
+    {
+        curveKnob.setValue(curve);
+    }
+
+    double getCurveValue() const
+    {
+        return curveKnob.getValue();
+    }
+    
     // For keyboard movement - updates slider without changing target input
     void setValueFromKeyboard(double newValue)
     {
@@ -493,6 +510,22 @@ public:
     }
     
 private:
+    double applyCurve(double progress, double curveValue)
+    {
+        if (curveValue < 1.0)
+        {
+            // Exponential (0.0 to 1.0)
+            double factor = curveValue; // 0.0 = full exponential, 1.0 = linear
+            return std::pow(progress, 2.0 - factor);
+        }
+        else
+        {
+            // Logarithmic (1.0 to 2.0)  
+            double factor = curveValue - 1.0; // 0.0 = linear, 1.0 = full logarithmic
+            return std::pow(progress, 1.0 - factor);
+        }
+    }
+    
     void drawDirectionalArrow(juce::Graphics& g)
     {
         // Calculate start point: center bottom of currentValueLabel (display value) moved 15px left
@@ -659,7 +692,7 @@ private:
     juce::Label sliderNumberLabel;
     ClickableLabel lockLabel;
     juce::Label currentValueLabel;
-    CustomKnob attackKnob, delayKnob, returnKnob;
+    CustomKnob attackKnob, delayKnob, returnKnob, curveKnob;
     CustomLEDInput targetLEDInput;
     Custom3DButton goButton3D;
     

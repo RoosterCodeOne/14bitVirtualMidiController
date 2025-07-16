@@ -138,13 +138,16 @@ private:
         auto knobBounds = knobArea.toFloat();
         auto center = knobBounds.getCentre();
         
-        // Calculate angle based on current value (225 degrees total rotation)
-        // At value 0: 225 degrees (bottom-left)
-        // At max value: 90 degrees (bottom-right) - achieved by going clockwise 225 degrees
+        // Calculate angle based on current value (270 degrees total rotation)
+        // Symmetric around vertical line through center:
+        // At value 0: 135 degrees (top-left, -45° from vertical)
+        // At max value: 45 degrees (top-right, +45° from vertical)
+        // At middle value: 270 degrees (straight down, bottom)
+        // Turn direction: clockwise increases value (135° to 45° via 270°)
         double valueNormalized = (currentValue - minVal) / (maxVal - minVal);
-        double angleDegrees = 225.0 + (valueNormalized * 225.0);
+        double angleDegrees = 135.0 + (valueNormalized * 270.0);
         
-        // Handle wraparound at 360 degrees to ensure proper angle range
+        // Handle wraparound for angles > 360° (135° + 270° = 405° becomes 45°)
         if (angleDegrees >= 360.0)
             angleDegrees -= 360.0;
             
