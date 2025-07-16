@@ -240,6 +240,12 @@ public:
         // Optional: thin outline
         g.setColour(juce::Colours::black.withAlpha(0.5f));
         g.drawRect(midiIndicatorBounds, 1.0f);
+        
+        // Draw learn mode corner markers
+        if (showLearnMarkers)
+        {
+            drawLearnModeMarkers(g);
+        }
     }
     
     void paintOverChildren(juce::Graphics& g) override
@@ -509,6 +515,13 @@ public:
         juce::Component::mouseDown(event);
     }
     
+    // Set learn markers visibility
+    void setShowLearnMarkers(bool show) 
+    { 
+        showLearnMarkers = show; 
+        repaint(); 
+    }
+    
 private:
     double applyCurve(double progress, double curveValue)
     {
@@ -583,6 +596,31 @@ private:
             g.setColour(juce::Colours::darkgrey.withAlpha(0.8f)); // Match line alpha
             g.fillPath(arrowheadPath);
         }
+    }
+    
+    void drawLearnModeMarkers(juce::Graphics& g)
+    {
+        auto bounds = getLocalBounds().toFloat();
+        float markerSize = 8.0f;
+        float markerThickness = 2.0f;
+        
+        g.setColour(juce::Colours::orange);
+        
+        // Top-left corner
+        g.fillRect(bounds.getX(), bounds.getY(), markerSize, markerThickness);
+        g.fillRect(bounds.getX(), bounds.getY(), markerThickness, markerSize);
+        
+        // Top-right corner  
+        g.fillRect(bounds.getRight() - markerSize, bounds.getY(), markerSize, markerThickness);
+        g.fillRect(bounds.getRight() - markerThickness, bounds.getY(), markerThickness, markerSize);
+        
+        // Bottom-left corner
+        g.fillRect(bounds.getX(), bounds.getBottom() - markerThickness, markerSize, markerThickness);
+        g.fillRect(bounds.getX(), bounds.getBottom() - markerSize, markerThickness, markerSize);
+        
+        // Bottom-right corner
+        g.fillRect(bounds.getRight() - markerSize, bounds.getBottom() - markerThickness, markerSize, markerThickness);
+        g.fillRect(bounds.getRight() - markerThickness, bounds.getBottom() - markerSize, markerThickness, markerSize);
     }
     
     // Convert MIDI value (0-16383) to display value based on custom range
@@ -716,6 +754,9 @@ private:
     double lastMidiSendTime = 0.0;
     static constexpr double MIDI_ACTIVITY_DURATION = 100.0; // milliseconds
     juce::Rectangle<float> midiIndicatorBounds;
+    
+    // MIDI learn markers
+    bool showLearnMarkers = false;
     
     juce::Colour sliderColor;
     

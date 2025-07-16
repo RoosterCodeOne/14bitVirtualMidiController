@@ -13,6 +13,8 @@ struct SliderPreset
     bool isLocked = false;
     double delayTime = 0.0;
     double attackTime = 1.0;
+    double returnTime = 0.0;
+    double curveValue = 1.0;
     
     juce::var toVar() const
     {
@@ -25,6 +27,8 @@ struct SliderPreset
         obj->setProperty("isLocked", isLocked);
         obj->setProperty("delayTime", delayTime);
         obj->setProperty("attackTime", attackTime);
+        obj->setProperty("returnTime", returnTime);
+        obj->setProperty("curveValue", curveValue);
 
         return juce::var(obj);
     }
@@ -41,6 +45,8 @@ struct SliderPreset
             isLocked = obj->hasProperty("isLocked") ? (bool)obj->getProperty("isLocked") : false;
             delayTime = obj->hasProperty("delayTime") ? (double)obj->getProperty("delayTime") : 0.0;    
             attackTime = obj->hasProperty("attackTime") ? (double)obj->getProperty("attackTime") : 1.0;
+            returnTime = obj->hasProperty("returnTime") ? (double)obj->getProperty("returnTime") : 0.0;
+            curveValue = obj->hasProperty("curveValue") ? (double)obj->getProperty("curveValue") : 1.0;
 
         }
     }

@@ -4,6 +4,7 @@
 #include "CustomLookAndFeel.h"
 #include "SimpleSliderControl.h"
 #include "SettingsWindow.h"
+#include "MidiLearnWindow.h"
 
 //==============================================================================
 class DebugMidiController : public juce::Component, public juce::Timer, public juce::MidiInputCallback
@@ -24,7 +25,14 @@ public:
             sliderControl->onSliderClick = [this, i]() {
                 if (isLearningMode)
                 {
+                    // Clear markers from all sliders
+                    for (auto* slider : sliderControls)
+                        slider->setShowLearnMarkers(false);
+                        
+                    // Set target and show markers
                     learnTargetSlider = i;
+                    sliderControls[i]->setShowLearnMarkers(true);
+                    
                     learnButton.setButtonText("Move Controller");
                     learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red);
                 }
@@ -86,9 +94,26 @@ public:
         
         // Settings window
         addChildComponent(settingsWindow);
-        settingsWindow.onSettingsChanged = [this]() { updateSliderSettings(); };
+        settingsWindow.onSettingsChanged = [this]() { 
+            updateSliderSettings(); 
+            updateBlockedMidiInputs(); 
+        };
         settingsWindow.onPresetLoaded = [this](const ControllerPreset& preset) {
             applyPresetToSliders(preset);
+        };
+        
+        // MIDI Learn window
+        addChildComponent(midiLearnWindow);
+        midiLearnWindow.onMappingAdded = [this](int sliderIndex, int midiChannel, int ccNumber) {
+            learnedCCMappings[sliderIndex] = ccNumber;
+            // Update tooltip to show current mapping
+            updateMidiTooltip(sliderIndex, midiChannel, ccNumber, -1);
+        };
+        midiLearnWindow.onMappingCleared = [this](int sliderIndex) {
+            learnedCCMappings[sliderIndex] = -1;
+        };
+        midiLearnWindow.onAllMappingsCleared = [this]() {
+            learnedCCMappings.fill(-1);
         };
         
         // Movement speed tooltip
@@ -99,13 +124,13 @@ public:
         movementSpeedLabel.setFont(juce::FontOptions(10.0f));
         updateMovementSpeedDisplay();
         
-        // Window size tooltip
+        // MIDI tracking tooltip
         addAndMakeVisible(windowSizeLabel);
         windowSizeLabel.setJustificationType(juce::Justification::centredRight);
         windowSizeLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
         windowSizeLabel.setColour(juce::Label::backgroundColourId, juce::Colours::darkgrey);
         windowSizeLabel.setFont(juce::FontOptions(10.0f));
-        updateWindowSizeDisplay();
+        updateMidiTrackingDisplay();
         
         // Initialize MIDI input and output
         initializeMidiOutput();
@@ -121,6 +146,9 @@ public:
         
         // Apply initial settings
         updateSliderSettings();
+        
+        // Initialize blocked MIDI inputs
+        updateBlockedMidiInputs();
         
         // Initialize keyboard control system
         setWantsKeyboardFocus(true);
@@ -155,7 +183,7 @@ public:
         const int contentAreaWidth = isEightSliderMode ? 970 : 490;
         
         auto area = getLocalBounds();
-        int contentX = isInSettingsMode ? SETTINGS_PANEL_WIDTH : (area.getWidth() - contentAreaWidth) / 2;
+        int contentX = (isInSettingsMode || isInLearnMode) ? SETTINGS_PANEL_WIDTH : (area.getWidth() - contentAreaWidth) / 2;
         int contentY = topAreaHeight + verticalGap;
         int contentHeight = area.getHeight() - topAreaHeight - tooltipHeight - (2 * verticalGap);
         
@@ -208,7 +236,7 @@ public:
         
         // Calculate top area bounds for text positioning
         juce::Rectangle<int> topAreaBounds;
-        if (isInSettingsMode && settingsWindow.isVisible())
+        if ((isInSettingsMode && settingsWindow.isVisible()) || (isInLearnMode && midiLearnWindow.isVisible()))
         {
             topAreaBounds = juce::Rectangle<int>(0, 0, getWidth(), topAreaHeight);
         }
@@ -224,6 +252,18 @@ public:
                   topAreaBounds.getX() + 10, 10,
                   topAreaBounds.getWidth() - 20, 35, 
                   juce::Justification::centred);
+        
+        // Draw MIDI input indicator next to Learn button
+        // Learn button is positioned at learnButtonX, 35 with width 50, height 20
+        int learnButtonX = topAreaBounds.getX() + 10 + 110 + 35; // settings + mode + gaps
+        midiInputIndicatorBounds = juce::Rectangle<float>(learnButtonX + 55, 38, 12, 12);
+        
+        juce::Colour inputIndicatorColor = juce::Colour(0xFFCC6600); // Burnt orange
+        float inputAlpha = midiInputActivity ? 1.0f : 0.2f;
+        g.setColour(inputIndicatorColor.withAlpha(inputAlpha));
+        g.fillEllipse(midiInputIndicatorBounds);
+        g.setColour(juce::Colours::black.withAlpha(0.5f));
+        g.drawEllipse(midiInputIndicatorBounds, 1.0f);
         
         // Show MIDI status left-aligned in top area
         g.setFont(juce::FontOptions(12.0f));
@@ -246,8 +286,8 @@ public:
         // Use current slider mode (controlled by mode button)
         int visibleSliderCount = isEightSliderMode ? 8 : 4;
         
-        // Update window size display
-        updateWindowSizeDisplay();
+        // Update MIDI tracking display
+        updateMidiTrackingDisplay();
         
         // Calculate layout dimensions once
         const int topAreaHeight = 65;
@@ -256,15 +296,15 @@ public:
         const int contentAreaWidth = isEightSliderMode ? 970 : 490;
         
         // Calculate content area bounds - simplified logic
-        int contentX = isInSettingsMode ? SETTINGS_PANEL_WIDTH : (area.getWidth() - contentAreaWidth) / 2;
+        int contentX = (isInSettingsMode || isInLearnMode) ? SETTINGS_PANEL_WIDTH : (area.getWidth() - contentAreaWidth) / 2;
         int contentY = topAreaHeight + verticalGap;
         int contentHeight = area.getHeight() - topAreaHeight - tooltipHeight - (2 * verticalGap);
         
         juce::Rectangle<int> contentAreaBounds(contentX, contentY, contentAreaWidth, contentHeight);
         
-        // Calculate top area bounds based on settings state
+        // Calculate top area bounds based on settings or learn state
         juce::Rectangle<int> topAreaBounds;
-        if (isInSettingsMode && settingsWindow.isVisible())
+        if ((isInSettingsMode && settingsWindow.isVisible()) || (isInLearnMode && midiLearnWindow.isVisible()))
         {
             topAreaBounds = juce::Rectangle<int>(0, 0, getWidth(), topAreaHeight);
         }
@@ -276,12 +316,18 @@ public:
         // Position top area components
         layoutTopAreaComponents(topAreaBounds);
         
-        // Position settings window if visible
+        // Position the active window (Settings OR Learn, never both)
         if (isInSettingsMode && settingsWindow.isVisible())
         {
-            int settingsY = topAreaHeight;
-            int settingsHeight = area.getHeight() - settingsY;
-            settingsWindow.setBounds(0, settingsY, SETTINGS_PANEL_WIDTH, settingsHeight);
+            int windowY = topAreaHeight;
+            int windowHeight = area.getHeight() - windowY;
+            settingsWindow.setBounds(0, windowY, SETTINGS_PANEL_WIDTH, windowHeight);
+        }
+        else if (isInLearnMode && midiLearnWindow.isVisible())
+        {
+            int windowY = topAreaHeight;
+            int windowHeight = area.getHeight() - windowY;
+            midiLearnWindow.setBounds(0, windowY, SETTINGS_PANEL_WIDTH, windowHeight);
         }
         
         // Layout sliders within content area
@@ -404,6 +450,8 @@ public:
     
     void timerCallback() override
     {
+        double currentTime = juce::Time::getMillisecondCounterHiRes();
+        
         // Handle keyboard controls
         for (auto& mapping : keyboardMappings)
         {
@@ -459,6 +507,13 @@ public:
                     }
                 }
             }
+        }
+        
+        // Handle MIDI input activity timeout
+        if (midiInputActivity && (currentTime - lastMidiInputTime) > MIDI_INPUT_ACTIVITY_DURATION)
+        {
+            midiInputActivity = false;
+            repaint();
         }
     }
     
@@ -623,9 +678,9 @@ public:
     {
         auto tooltipArea = area.withHeight(tooltipHeight).withBottomY(area.getBottom());
         
-        if (isInSettingsMode && settingsWindow.isVisible())
+        if ((isInSettingsMode && settingsWindow.isVisible()) || (isInLearnMode && midiLearnWindow.isVisible()))
         {
-            // Settings open: tooltips span remaining width after settings panel
+            // Settings or learn open: tooltips span remaining width after panel
             auto adjustedTooltipArea = tooltipArea.withTrimmedLeft(SETTINGS_PANEL_WIDTH);
             auto leftTooltip = adjustedTooltipArea.removeFromLeft(adjustedTooltipArea.getWidth() / 2);
             movementSpeedLabel.setBounds(leftTooltip);
@@ -807,13 +862,32 @@ private:
         movementSpeedLabel.setText(speedText, juce::dontSendNotification);
     }
     
-    void updateWindowSizeDisplay()
+    void updateMidiTrackingDisplay()
     {
-        int eightSliderThreshold = (8 * SLIDER_PLATE_WIDTH) + (7 * SLIDER_GAP) + 20; // +20 for margins
-        juce::String sizeText = "Window: " + juce::String(getWidth()) + "x" + juce::String(getHeight()) + 
-                               " | Mode: " + (isEightSliderMode ? "8-slider" : "4-slider") + 
-                               " | 8-Slider Threshold: " + juce::String(eightSliderThreshold);
-        windowSizeLabel.setText(sizeText, juce::dontSendNotification);
+        juce::String midiText;
+        if (lastMidiSliderIndex >= 0 && lastMidiCC >= 0)
+        {
+            midiText = "Slider " + juce::String(lastMidiSliderIndex + 1) + 
+                      ": Channel " + juce::String(lastMidiChannel) +
+                      ", CC " + juce::String(lastMidiCC);
+            if (lastMidiValue >= 0)
+                midiText += ", Value " + juce::String(lastMidiValue);
+        }
+        else
+        {
+            midiText = "No MIDI input detected";
+        }
+        
+        windowSizeLabel.setText(midiText, juce::dontSendNotification);
+    }
+    
+    void updateMidiTooltip(int sliderIndex, int channel, int cc, int value)
+    {
+        lastMidiSliderIndex = sliderIndex;
+        lastMidiChannel = channel;  
+        lastMidiCC = cc;
+        lastMidiValue = value;
+        updateMidiTrackingDisplay();
     }
     
     bool isTextEditorFocused()
@@ -837,6 +911,9 @@ private:
             sliderControls[i]->setSliderColor(color);
         }
         
+        // Update blocked MIDI inputs when settings change
+        updateBlockedMidiInputs();
+        
         // Auto-save whenever settings change
         saveCurrentState();
     }
@@ -859,18 +936,38 @@ private:
                 else
                     sliderControls[i]->setLocked(false);
                     
-                // NEW: Apply delay and attack times
+                // Apply delay and attack times
                 sliderControls[i]->setDelayTime(sliderPreset.delayTime);
                 sliderControls[i]->setAttackTime(sliderPreset.attackTime);
+                sliderControls[i]->setReturnTime(sliderPreset.returnTime);
+                sliderControls[i]->setCurveValue(sliderPreset.curveValue);
             }
         }
         
         // Update settings to reflect the new configuration
         updateSliderSettings();
+        
+        // Update blocked MIDI inputs since CC assignments may have changed
+        updateBlockedMidiInputs();
     }
     
     void toggleSettingsMode()
     {
+        // Close learn mode if it's open
+        if (isInLearnMode)
+        {
+            isInLearnMode = false;
+            isLearningMode = false;
+            learnTargetSlider = -1;
+            learnButton.setButtonText("Learn");
+            learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkblue);
+            midiLearnWindow.setVisible(false);
+            
+            // Clear any learn markers
+            for (auto* slider : sliderControls)
+                slider->setShowLearnMarkers(false);
+        }
+        
         isInSettingsMode = !isInSettingsMode;
         
         // Update button appearance
@@ -945,9 +1042,9 @@ private:
                     // Fixed window widths based on mode
                     int fixedWidth = isEightSliderMode ? 970 : 490;
                     
-                    if (isInSettingsMode)
+                    if (isInSettingsMode || isInLearnMode)
                     {
-                        // Add settings panel width to fixed width
+                        // Add panel width to fixed width (same width for both settings and learn)
                         fixedWidth += SETTINGS_PANEL_WIDTH;
                     }
                     
@@ -981,6 +1078,9 @@ private:
         
         // Apply to sliders (values, lock states, delay/attack times)
         applyPresetToSliders(preset);
+        
+        // Update blocked MIDI inputs since preset may have changed CC assignments
+        updateBlockedMidiInputs();
     }
     
     ControllerPreset getCurrentControllerState()
@@ -994,8 +1094,10 @@ private:
             {
                 preset.sliders.getReference(i).currentValue = sliderControls[i]->getValue();
                 preset.sliders.getReference(i).isLocked = sliderControls[i]->isLocked();
-                preset.sliders.getReference(i).delayTime = sliderControls[i]->getDelayTime();    // NEW
-                preset.sliders.getReference(i).attackTime = sliderControls[i]->getAttackTime();  // NEW
+                preset.sliders.getReference(i).delayTime = sliderControls[i]->getDelayTime();
+                preset.sliders.getReference(i).attackTime = sliderControls[i]->getAttackTime();
+                preset.sliders.getReference(i).returnTime = sliderControls[i]->getReturnTime();
+                preset.sliders.getReference(i).curveValue = sliderControls[i]->getCurveValue();
             }
         }
         
@@ -1096,15 +1198,34 @@ private:
             int ccNumber = message.getControllerNumber();
             int ccValue = message.getControllerValue();
             
-            // Check if this message is for our MIDI channel
+            // Check if this is internal feedback that should be ignored
+            bool isInternalFeedback = isInternalMidiFeedback(channel, ccNumber);
+            
+            // Always trigger MIDI input indicator for external MIDI only
+            if (!isInternalFeedback)
+            {
+                juce::MessageManager::callAsync([this]() {
+                    midiInputActivity = true;
+                    lastMidiInputTime = juce::Time::getMillisecondCounterHiRes();
+                    if (!isTimerRunning())
+                        startTimer(16);
+                    repaint();
+                });
+            }
+            
+            // Check if this message is for our MIDI channel (for processing)
             if (channel == settingsWindow.getMidiChannel())
             {
                 if (isLearningMode)
                 {
-                    handleLearnMode(ccNumber, ccValue);
+                    // Learn mode: respond to ANY CC on our channel (even internal ones)
+                    juce::MessageManager::callAsync([this, ccNumber, ccValue]() {
+                        handleLearnMode(ccNumber, ccValue);
+                    });
                 }
-                else
+                else if (!isInternalFeedback)
                 {
+                    // Normal mode: only process external MIDI
                     process7BitControl(ccNumber, ccValue);
                 }
             }
@@ -1116,6 +1237,9 @@ private:
         // Find which slider this CC number maps to
         int sliderIndex = findSliderIndexForCC(ccNumber);
         if (sliderIndex == -1) return;
+        
+        // Update MIDI tracking display
+        updateMidiTooltip(sliderIndex, settingsWindow.getMidiChannel(), ccNumber, ccValue);
         
         // Check if slider is locked
         if (sliderIndex < sliderControls.size() && sliderControls[sliderIndex]->isLocked())
@@ -1279,41 +1403,108 @@ private:
             // Map this CC to the target slider
             learnedCCMappings[learnTargetSlider] = ccNumber;
             
-            // Exit learn mode
-            isLearningMode = false;
-            learnTargetSlider = -1;
+            // Add mapping to learn window (use current MIDI channel from settings)
+            int midiChannel = settingsWindow.getMidiChannel();
+            midiLearnWindow.addMapping(learnTargetSlider, midiChannel, ccNumber);
             
-            // Update learn button appearance
-            learnButton.setButtonText("Learn");
-            learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkblue);
+            // Clear markers
+            sliderControls[learnTargetSlider]->setShowLearnMarkers(false);
+            
+            // Store the slider index for the success message (before resetting)
+            int mappedSliderIndex = learnTargetSlider;
+            
+            // Reset learn state but keep window open
+            learnTargetSlider = -1;
+            learnButton.setButtonText("Select Slider");
+            learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::orange);
             
             // Show success feedback
-            juce::String message = "Learned CC " + juce::String(ccNumber) + " for slider " + juce::String(learnTargetSlider + 1);
+            juce::String message = "Mapped CC " + juce::String(ccNumber) + " to Slider " + juce::String(mappedSliderIndex + 1);
             juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "MIDI Learn", message);
         }
     }
     
     void toggleLearnMode()
     {
-        if (isLearningMode)
+        // Close settings mode if it's open
+        if (isInSettingsMode)
+        {
+            isInSettingsMode = false;
+            settingsButton.setColour(juce::TextButton::buttonColourId, juce::Colours::grey);
+            settingsWindow.setVisible(false);
+        }
+        
+        isInLearnMode = !isInLearnMode;
+        
+        if (isInLearnMode)
+        {
+            // Enter learn mode - show MIDI learn window
+            isLearningMode = true;
+            learnButton.setButtonText("Exit Learn");
+            learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::orange);
+            
+            // Show learn window
+            updateWindowConstraints();
+            
+            if (auto* topLevel = getTopLevelComponent())
+            {
+                int contentAreaWidth = isEightSliderMode ? 970 : 490;
+                int targetWidth = contentAreaWidth + SETTINGS_PANEL_WIDTH;
+                topLevel->setSize(targetWidth, topLevel->getHeight());
+                
+                addAndMakeVisible(midiLearnWindow);
+                midiLearnWindow.toFront(true);
+            }
+        }
+        else
         {
             // Exit learn mode
             isLearningMode = false;
             learnTargetSlider = -1;
             learnButton.setButtonText("Learn");
             learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkblue);
-        }
-        else
-        {
-            // Enter learn mode - wait for user to select a slider
-            isLearningMode = true;
-            learnButton.setButtonText("Select Slider");
-            learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::orange);
             
-            // Show instruction
-            juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "MIDI Learn Mode", 
-                "Click on a slider, then move a controller to map it.");
+            midiLearnWindow.setVisible(false);
+            
+            // Clear any learn markers
+            for (auto* slider : sliderControls)
+                slider->setShowLearnMarkers(false);
+            
+            // Resize window back
+            updateWindowConstraints();
+            if (auto* topLevel = getTopLevelComponent())
+            {
+                int contentAreaWidth = isEightSliderMode ? 970 : 490;
+                topLevel->setSize(contentAreaWidth, topLevel->getHeight());
+            }
         }
+        
+        resized();
+    }
+    
+    void updateBlockedMidiInputs()
+    {
+        blockedMidiChannel = settingsWindow.getMidiChannel();
+        for (int i = 0; i < 16; ++i)
+        {
+            blockedCCNumbers[i] = settingsWindow.getCCNumber(i);
+        }
+    }
+    
+    bool isInternalMidiFeedback(int channel, int ccNumber) const
+    {
+        // Check if this matches our output configuration
+        if (channel != blockedMidiChannel)
+            return false;
+            
+        // Check if this CC is used by any of our sliders
+        for (int i = 0; i < 16; ++i)
+        {
+            if (blockedCCNumbers[i] == ccNumber)
+                return true;
+        }
+        
+        return false;
     }
     
     void processContinuousMovement()
@@ -1377,6 +1568,7 @@ private:
     juce::TextButton learnButton;
     juce::TextButton bankAButton, bankBButton, bankCButton, bankDButton;
     SettingsWindow settingsWindow;
+    MidiLearnWindow midiLearnWindow;
     juce::Label movementSpeedLabel;
     juce::Label windowSizeLabel;
     std::unique_ptr<juce::MidiOutput> midiOutput;
@@ -1384,6 +1576,7 @@ private:
     int currentBank = 0;
     bool isEightSliderMode = false;
     bool isInSettingsMode = false;
+    bool isInLearnMode = false;
     
     static constexpr int SLIDER_PLATE_WIDTH = 110; // Fixed slider plate width
     static constexpr int SLIDER_GAP = 10; // Gap between sliders
@@ -1448,6 +1641,22 @@ private:
     };
     
     ContinuousMovementTimer continuousMovementTimer;
+    
+    // MIDI input activity indicator
+    bool midiInputActivity = false;
+    double lastMidiInputTime = 0.0;
+    juce::Rectangle<float> midiInputIndicatorBounds;
+    static constexpr double MIDI_INPUT_ACTIVITY_DURATION = 150.0; // milliseconds
+    
+    // MIDI input tracking for tooltip display
+    int lastMidiSliderIndex = -1;
+    int lastMidiChannel = -1;
+    int lastMidiCC = -1;
+    int lastMidiValue = -1;
+    
+    // MIDI feedback filtering
+    int blockedMidiChannel = 1;
+    std::array<int, 16> blockedCCNumbers;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DebugMidiController)
 };

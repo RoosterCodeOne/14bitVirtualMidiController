@@ -24,6 +24,10 @@ public:
         midiChannelCombo.setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xFF404040));
         midiChannelCombo.setColour(juce::ComboBox::textColourId, juce::Colour(0xFFEEEEEE));
         midiChannelCombo.setColour(juce::ComboBox::outlineColourId, juce::Colour(0xFF1A1A1A));
+        midiChannelCombo.onChange = [this]() {
+            if (onSettingsChanged)
+                onSettingsChanged();
+        };
         
         // Preset controls
         addAndMakeVisible(presetLabel);
