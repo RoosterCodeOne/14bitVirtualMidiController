@@ -468,6 +468,30 @@ public:
             sendMidiCallback(index, (int)newValue);
     }
     
+    // For MIDI input - updates slider without triggering output (prevents feedback loops)
+    void setValueFromMIDI(double newValue)
+    {
+        mainSlider.setValue(newValue, juce::dontSendNotification);
+        updateDisplayValue();
+        // Note: No sendMidiCallback to prevent feedback loops
+        
+        // Trigger activity indicator to show MIDI input activity
+        triggerMidiActivity();
+    }
+    
+    // Callback for slider click (used for learn mode)
+    std::function<void()> onSliderClick;
+    
+    void mouseDown(const juce::MouseEvent& event) override
+    {
+        // Handle learn mode (only if callback is set)
+        if (onSliderClick)
+            onSliderClick();
+        
+        // Pass to base class for normal handling
+        juce::Component::mouseDown(event);
+    }
+    
 private:
     void drawDirectionalArrow(juce::Graphics& g)
     {

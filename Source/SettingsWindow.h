@@ -194,16 +194,16 @@ public:
         
         // Calculate available height for dynamic spacing (no title space needed)
         int availableHeight = bounds.getHeight();
-        int fixedHeight = 8 + 16 + 4 + 22 + 4 + 20 + 8 + 53 + 8 + 25 + 25 + 15; // 8px padding + preset label + gap + combo row + gap + button row + 8px padding + folder + 8px padding + MIDI + bank + controls
+        int fixedHeight = 10 + 16 + 6 + 22 + 6 + 20 + 10 + 16 + 5 + 16 + 7 + 20 + 10 + 22 + 8 + 22 + 8; // Updated padding values
         if (controlsInitialized)
             fixedHeight += 18 + 4 + (4 * 26) + (4 * 3) + 8; // Headers + gap + 4 slider rows at 26px each + row spacing + 8px bottom padding
         
         int flexibleSpacing = juce::jmax(3, (availableHeight - fixedHeight) / 8); // Distribute remaining space
         
-        // Preset controls section with 8px top padding
-        bounds.removeFromTop(8); // 8px top padding for preset section
+        // Preset controls section with better padding alignment
+        bounds.removeFromTop(10); // Increased top padding for preset section
         presetLabel.setBounds(bounds.removeFromTop(16));
-        bounds.removeFromTop(4); // Gap between label and combo
+        bounds.removeFromTop(6); // Increased gap between label and combo
         
         // Preset combo box and buttons on same row
         auto presetRowArea = bounds.removeFromTop(22);
@@ -220,7 +220,7 @@ public:
         presetRowArea.removeFromLeft(buttonSpacing);
         loadPresetButton.setBounds(presetRowArea.removeFromLeft(buttonWidth));
         
-        bounds.removeFromTop(4); // Small gap between rows
+        bounds.removeFromTop(6); // Increased gap between rows
         
         // Bottom row: Delete, Reset (positioned below top row)
         auto bottomRowArea = bounds.removeFromTop(buttonHeight);
@@ -231,15 +231,15 @@ public:
         
         bounds.removeFromTop(flexibleSpacing);
         
-        // Folder controls section with 8px top padding
-        bounds.removeFromTop(8); // 8px top padding for folder section
+        // Folder controls section with better padding alignment
+        bounds.removeFromTop(10); // Increased top padding for folder section
         presetFolderLabel.setBounds(bounds.removeFromTop(16));
-        bounds.removeFromTop(3);
+        bounds.removeFromTop(5); // Increased gap
         
         auto folderPathArea = bounds.removeFromTop(16);
         presetPathLabel.setBounds(folderPathArea);
         
-        bounds.removeFromTop(5);
+        bounds.removeFromTop(7); // Increased gap
         auto folderButtonArea = bounds.removeFromTop(20);
         int folderButtonWidth = (folderButtonArea.getWidth() - 8) / 2;
         openFolderButton.setBounds(folderButtonArea.removeFromLeft(folderButtonWidth));
@@ -248,14 +248,14 @@ public:
         
         bounds.removeFromTop(flexibleSpacing);
         
-        // MIDI Channel section with 8px top padding
-        bounds.removeFromTop(8); // 8px top padding for MIDI/Bank/Slider section
+        // MIDI Channel section with better padding alignment
+        bounds.removeFromTop(10); // Increased top padding for MIDI/Bank/Slider section
         auto channelArea = bounds.removeFromTop(22);
         midiChannelLabel.setBounds(channelArea.removeFromLeft(100));
         channelArea.removeFromLeft(8);
         midiChannelCombo.setBounds(channelArea);
         
-        bounds.removeFromTop(flexibleSpacing);
+        bounds.removeFromTop(8); // Reduced spacing
         
         if (!controlsInitialized)
             return; // Don't layout controls that don't exist yet
@@ -275,7 +275,7 @@ public:
         bankSelectorArea.removeFromLeft(7);
         bankDSelector.setBounds(bankSelectorArea.removeFromLeft(bankButtonWidth));
         
-        bounds.removeFromTop(flexibleSpacing);
+        bounds.removeFromTop(8); // Reduced spacing
         
         // Column headers for slider controls - positioned above the slider rows
         if (controlsInitialized)
@@ -903,15 +903,15 @@ private:
         
         // Calculate section bounds using same logic as resized()
         int availableHeight = bounds.getHeight();
-        int fixedHeight = 8 + 16 + 4 + 22 + 4 + 20 + 8 + 53 + 8 + 25 + 25 + 15;
+        int fixedHeight = 10 + 16 + 6 + 22 + 6 + 20 + 10 + 16 + 5 + 16 + 7 + 20 + 10 + 22 + 8 + 22 + 8; // Updated padding values
         if (controlsInitialized)
             fixedHeight += 18 + 4 + (4 * 26) + (4 * 3) + 8;
         
         int flexibleSpacing = juce::jmax(3, (availableHeight - fixedHeight) / 8);
         
-        // Top section (Preset controls) - with 8px padding included
-        auto topSectionBounds = bounds.removeFromTop(8 + 16 + 4 + 22 + 4 + 20); // 8px padding + preset label + gap + combo row + gap + button row
-        topSectionBounds = topSectionBounds.expanded(5, 0).withTrimmedBottom(1).withBottom(topSectionBounds.getBottom() + 6); // 5px left/right margin, 1px bottom gap, extend bottom by 6px
+        // Top section (Preset controls) - with updated padding
+        auto topSectionBounds = bounds.removeFromTop(10 + 16 + 6 + 22 + 6 + 20); // Updated padding values
+        topSectionBounds = topSectionBounds.expanded(5, 0).withTrimmedBottom(1).withBottom(topSectionBounds.getBottom() + 4); // 5px left/right margin, 1px bottom gap, extend bottom by 4px
         
         g.setColour(juce::Colour(0xFF33484A));
         g.fillRoundedRectangle(topSectionBounds.toFloat(), 6.0f);
@@ -919,10 +919,10 @@ private:
         // Skip flexible spacing
         bounds.removeFromTop(flexibleSpacing);
         
-        // Middle section (Preset folder controls) - top raised by 4px, bottom extended by 10px (total +4px height)
-        auto middleSectionBounds = bounds.removeFromTop(53); // Folder section height
+        // Middle section (Preset folder controls) - updated dimensions
+        auto middleSectionBounds = bounds.removeFromTop(10 + 16 + 5 + 16 + 7 + 20); // Updated folder section height
         middleSectionBounds = middleSectionBounds.expanded(5, 0).withTrimmedTop(1).withTrimmedBottom(1); // 5px left/right margin, 1px top/bottom gaps
-        middleSectionBounds = middleSectionBounds.withTop(middleSectionBounds.getY() - 4).withBottom(middleSectionBounds.getBottom() + 10); // Raise top by 4px, extend bottom by 10px
+        middleSectionBounds = middleSectionBounds.withTop(middleSectionBounds.getY() - 2).withBottom(middleSectionBounds.getBottom() + 6); // Raise top by 2px, extend bottom by 6px
         
         g.setColour(juce::Colour(0xFF33484A));
         g.fillRoundedRectangle(middleSectionBounds.toFloat(), 6.0f);
@@ -930,13 +930,13 @@ private:
         // Skip flexible spacing
         bounds.removeFromTop(flexibleSpacing);
         
-        // Bottom section (MIDI Channel + Bank + Slider controls) - bottom extended by 3px
-        auto bottomSectionHeight = 25 + flexibleSpacing + 25; // MIDI + spacing + Bank
+        // Bottom section (MIDI Channel + Bank + Slider controls) - updated dimensions
+        auto bottomSectionHeight = 10 + 22 + 8 + 22 + 8; // Updated MIDI + spacing + Bank
         if (controlsInitialized)
-            bottomSectionHeight += flexibleSpacing + 18 + 4 + (4 * 26) + (4 * 3); // Headers + sliders
+            bottomSectionHeight += 18 + 4 + (4 * 26) + (4 * 3) + 8; // Headers + sliders
         
         auto bottomSectionBounds = bounds.removeFromTop(bottomSectionHeight);
-        bottomSectionBounds = bottomSectionBounds.expanded(5, 0).withTrimmedTop(1).withBottom(bottomSectionBounds.getBottom() + 3); // 5px left/right margin, 1px top gap, extend bottom by 3px
+        bottomSectionBounds = bottomSectionBounds.expanded(5, 0).withTrimmedTop(1).withBottom(bottomSectionBounds.getBottom() + 5); // 5px left/right margin, 1px top gap, extend bottom by 5px
         
         g.setColour(juce::Colour(0xFF33484A));
         g.fillRoundedRectangle(bottomSectionBounds.toFloat(), 6.0f);
