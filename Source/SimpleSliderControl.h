@@ -28,10 +28,10 @@ class SimpleSliderControl : public juce::Component, public juce::Timer
 public:
     SimpleSliderControl(int sliderIndex, std::function<void(int, int)> midiCallback)
         : index(sliderIndex), sendMidiCallback(midiCallback), sliderColor(juce::Colours::cyan),
-          attackKnob("ATTACK", 0.0, 30.0, CustomKnob::Small), 
-          delayKnob("DELAY", 0.0, 10.0, CustomKnob::Small), 
-          returnKnob("RETURN", 0.0, 30.0, CustomKnob::Small),
-          curveKnob("CURVE", 0.0, 2.0, CustomKnob::Small)
+          attackKnob("ATTACK", 0.0, 30.0, CustomKnob::Medium), 
+          delayKnob("DELAY", 0.0, 10.0, CustomKnob::Smaller), 
+          returnKnob("RETURN", 0.0, 30.0, CustomKnob::Smaller),
+          curveKnob("CURVE", 0.0, 2.0, CustomKnob::Smaller)
     {
         // Main slider with custom look
         addAndMakeVisible(mainSlider);
@@ -150,9 +150,9 @@ public:
         area.removeFromTop(4); // spacing after utility bar
         
         // Main slider - invisible, positioned for mouse interaction in track area
-        int automationControlsHeight = 155; // Increased from 145 to 155 (10px more for automation area)
+        int automationControlsHeight = 200; // Increased to accommodate taller knobs and increased spacing
         int availableSliderHeight = area.getHeight() - automationControlsHeight;
-        int reducedSliderHeight = (int)(availableSliderHeight * 0.80); // 20% reduction
+        int reducedSliderHeight = (int)(availableSliderHeight * 0.70); // Reduced from 80% to 70% (10% further reduction)
         auto sliderArea = area.removeFromTop(reducedSliderHeight);
         auto trackBounds = sliderArea.withWidth(20).withCentre(sliderArea.getCentre()); // Reduced from 30px to 20px
         
@@ -179,9 +179,10 @@ public:
         
         area.removeFromTop(4); // spacing before value label
         
-        // Current value label
+        // Current value label - reduced width by 8px (4px each side)
         auto labelArea = area.removeFromTop(20);
-        currentValueLabel.setBounds(labelArea);
+        auto reducedLabelArea = labelArea.reduced(4, 0); // Reduce width by 4px on each side
+        currentValueLabel.setBounds(reducedLabelArea);
         
         // MIDI activity indicator - positioned above currentValueLabel on left side
         midiIndicatorBounds = juce::Rectangle<float>(5, labelArea.getY() - 15, 10, 10);
@@ -217,17 +218,17 @@ public:
         // 4. Curve: bottom-left position
         auto knobColumnArea = automationArea;
         
-        // Define column area within automation section - reduced spacing by 50%
+        // Define column area within automation section - improved spacing for better visibility
         int leftX = knobColumnArea.getX() + 15;       // Left column X position (moved closer to center)
-        int rightX = knobColumnArea.getRight() - 43;  // Right column X position (moved closer to center)
-        int knobSpacing = 23; // Vertical spacing between knob centers (18 + 5px)
-        int startY = knobColumnArea.getY() + 2;       // Top margin (moved up 8px from 10 to 2)
+        int rightX = knobColumnArea.getRight() - 55;  // Right column X position (moved closer to center)
+        int knobSpacing = 35; // Vertical spacing between knob centers (increased to accommodate taller knobs)
+        int startY = knobColumnArea.getY() + 8;       // Top margin (increased to 8px to accommodate bezel expansion)
         
-        // Position knobs in zig-zag pattern:
-        delayKnob.setBounds(rightX, startY, 28, 35);                    // 1. Right - Delay
-        attackKnob.setBounds(leftX - 1, startY + knobSpacing, 31, 39);  // 2. Left - Attack (10% larger: 28*1.1=31, 35*1.1=39)
-        returnKnob.setBounds(rightX, startY + (knobSpacing * 2), 28, 35); // 3. Right - Return
-        curveKnob.setBounds(leftX, startY + (knobSpacing * 3), 28, 35);   // 4. Left - Curve
+        // Position knobs in zig-zag pattern (updated with differentiated sizes and bezel accommodation):
+        delayKnob.setBounds(rightX - 2, startY, 42, 57);                    // 1. Right - Delay (moved closer to center)
+        attackKnob.setBounds(leftX - 3, startY + knobSpacing, 49, 64);      // 2. Left - Attack (35 + 14 width, 35 + 29 height)
+        returnKnob.setBounds(rightX - 2, startY + (knobSpacing * 2), 42, 57); // 3. Right - Return (moved closer to center)
+        curveKnob.setBounds(leftX + 2, startY + (knobSpacing * 3), 42, 57);   // 4. Left - Curve (28 + 14 width, 28 + 29 height)
     }
     
     void paint(juce::Graphics& g) override
@@ -264,9 +265,9 @@ public:
         // Calculate the full visual track area based on current layout
         auto area = getLocalBounds();
         area.removeFromTop(20); // utility bar + spacing
-        int automationControlsHeight = 155; // Increased from 145 to 155 (10px more for automation area)
+        int automationControlsHeight = 200; // Increased to accommodate taller knobs and increased spacing
         int availableSliderHeight = area.getHeight() - automationControlsHeight;
-        int reducedSliderHeight = (int)(availableSliderHeight * 0.80); // Match resized() method
+        int reducedSliderHeight = (int)(availableSliderHeight * 0.70); // Match resized() method
         auto sliderArea = area.removeFromTop(reducedSliderHeight);
         return sliderArea.withWidth(20).withCentre(sliderArea.getCentre()); // Updated to 20px width
     }

@@ -8,14 +8,16 @@ class CustomKnob : public juce::Component
 public:
     enum KnobSize
     {
-        Large = 40,
-        Small = 28
+        Large = 42,
+        Medium = 35,  // 10% larger than Small (32 * 1.1 = 35.2, rounded to 35)
+        Small = 32,
+        Smaller = 28  // 10% smaller than Small (32 * 0.9 = 28.8, rounded to 28)
     };
     
     CustomKnob(const juce::String& labelText, double minValue = 0.0, double maxValue = 10.0, KnobSize size = Small)
         : label(labelText), minVal(minValue), maxVal(maxValue), knobSize(size), currentValue(minValue)
     {
-        setSize(knobSize + 10, knobSize + 25); // Extra space for label
+        setSize(knobSize + 14, knobSize + 29); // Extra space for label and 2px bezel on each side (4px total + 4px more for height)
     }
     
     ~CustomKnob() = default;
@@ -46,13 +48,29 @@ public:
     
     std::function<void(double)> onValueChanged;
     
+    void mouseEnter(const juce::MouseEvent& event) override
+    {
+        isHovered = true;
+        repaint();
+    }
+    
+    void mouseExit(const juce::MouseEvent& event) override
+    {
+        isHovered = false;
+        repaint();
+    }
+    
     void paint(juce::Graphics& g) override
     {
         auto bounds = getLocalBounds();
-        auto knobArea = bounds.removeFromTop(knobSize).withSizeKeepingCentre(knobSize, knobSize);
+        // Allocate enough space for knob + bezel (knobSize + 4 pixels)
+        auto knobAreaHeight = knobSize + 4;
+        auto knobAreaBounds = bounds.removeFromTop(knobAreaHeight);
+        auto knobArea = knobAreaBounds.withSizeKeepingCentre(knobSize, knobSize);
         auto labelArea = bounds;
         
         drawKnobShadow(g, knobArea);
+        drawKnobBezel(g, knobArea);
         drawKnobBody(g, knobArea);
         drawKnobIndicator(g, knobArea);
         drawLabel(g, labelArea);
@@ -80,6 +98,7 @@ private:
     int knobSize;
     double dragStartValue = 0.0;
     float dragStartY = 0.0f;
+    bool isHovered = false;
     
     void drawKnobShadow(juce::Graphics& g, juce::Rectangle<int> knobArea)
     {
@@ -87,6 +106,37 @@ private:
         auto shadowArea = knobArea.translated(2, 2).toFloat();
         g.setColour(juce::Colour(0x4D000000)); // Alpha 0.3 (77/255)
         g.fillEllipse(shadowArea);
+    }
+    
+    void drawKnobBezel(juce::Graphics& g, juce::Rectangle<int> knobArea)
+    {
+        // Dark metallic bezel ring around knob perimeter
+        // Now that we've allocated proper space, we can safely expand by 2px
+        auto bezelBounds = knobArea.toFloat().expanded(2.0f);
+        
+        // Ensure bezel is perfectly square for a perfect circle
+        auto bezelSize = juce::jmin(bezelBounds.getWidth(), bezelBounds.getHeight());
+        bezelBounds = juce::Rectangle<float>(bezelSize, bezelSize).withCentre(bezelBounds.getCentre());
+        
+        // Outer bezel ring - dark gunmetal
+        juce::ColourGradient bezelGradient(
+            juce::Colour(0xFF303030), bezelBounds.getTopLeft(),
+            juce::Colour(0xFF404040), bezelBounds.getBottomRight(),
+            false
+        );
+        bezelGradient.addColour(0.5f, juce::Colour(0xFF353535));
+        
+        g.setGradientFill(bezelGradient);
+        g.fillEllipse(bezelBounds);
+        
+        // Inner bezel shadow to create recessed effect
+        auto innerBezel = bezelBounds.reduced(1.0f);
+        g.setColour(juce::Colour(0xFF202020));
+        g.drawEllipse(innerBezel, 1.0f);
+        
+        // Outer bezel highlight
+        g.setColour(juce::Colour(0xFF505050));
+        g.drawEllipse(bezelBounds, 0.5f);
     }
     
     void drawKnobBody(juce::Graphics& g, juce::Rectangle<int> knobArea)
@@ -153,8 +203,8 @@ private:
             
         double angleRadians = angleDegrees * juce::MathConstants<double>::pi / 180.0;
         
-        // Indicator line from center to 80% of radius
-        float radius = knobBounds.getWidth() * 0.4f; // 80% of radius (knob radius is 50%)
+        // Indicator line from center to edge of knob
+        float radius = knobBounds.getWidth() * 0.48f; // Extended to reach very edge of knob
         float lineEndX = center.x + std::cos(angleRadians) * radius;
         float lineEndY = center.y + std::sin(angleRadians) * radius;
         
@@ -166,23 +216,26 @@ private:
     
     void drawLabel(juce::Graphics& g, juce::Rectangle<int> labelArea)
     {
-        // Text label underneath the knob, centered (9pt font) - moved down 1px
+        // Text label underneath the knob, centered (standardized 10pt font) - moved down 1px
         g.setColour(juce::Colours::white);
-        g.setFont(juce::FontOptions(9.0f));
+        g.setFont(juce::FontOptions(10.0f));
         auto adjustedLabelArea = labelArea.translated(0, 1); // Move down 1px
-        g.drawText(label, adjustedLabelArea, juce::Justification::centredTop);
         
-        // Draw current value below label
-        juce::String valueText;
-        if (std::abs(currentValue - std::round(currentValue)) < 0.01)
-            valueText = juce::String((int)std::round(currentValue));
+        if (isHovered)
+        {
+            // Show current value when hovered
+            juce::String valueText;
+            if (std::abs(currentValue - std::round(currentValue)) < 0.01)
+                valueText = juce::String((int)std::round(currentValue));
+            else
+                valueText = juce::String(currentValue, 1);
+            g.drawText(valueText, adjustedLabelArea, juce::Justification::centredTop);
+        }
         else
-            valueText = juce::String(currentValue, 1);
-            
-        g.setFont(juce::FontOptions(9.0f));
-        g.setColour(juce::Colour(0xFF404040)); // Dark gray for better readability
-        auto valueArea = labelArea.removeFromBottom(12);
-        g.drawText(valueText, valueArea, juce::Justification::centred);
+        {
+            // Show label when not hovered
+            g.drawText(label, adjustedLabelArea, juce::Justification::centredTop);
+        }
     }
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CustomKnob)

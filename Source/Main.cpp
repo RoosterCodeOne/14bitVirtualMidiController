@@ -17,24 +17,24 @@ public:
         setContentOwned(controller, true);
         
         // Calculate dimensions
-        int optimalHeight = 685; // Reduced by 15px (removed 25px gap, added 10px to tooltip)
-        int minWidth = 490; // 4×110 + 3×10 + 50 = 490px
-        int maxWidth = 1320; // 8×110 + 7×10 + 50 + 350 = 1320px
+        int optimalHeight = 660; // Further reduced for compact layout (685 - 25px from topAreaHeight reduction)
+        int defaultWidth = 490; // 4-slider mode by default
         
         // Set resizable before setting any constraints
         setResizable(true, true);
         
-        // Set up constrainer with proper limits
-        constrainer.setMinimumWidth(minWidth);
-        constrainer.setMaximumWidth(maxWidth);
+        // Set up constrainer with initial fixed constraints
+        // Note: DebugMidiController will update these constraints after initialization
+        constrainer.setMinimumWidth(defaultWidth);
+        constrainer.setMaximumWidth(defaultWidth);
         constrainer.setMinimumHeight(optimalHeight);
         constrainer.setMaximumHeight(optimalHeight);
         
         // Apply constrainer
         setConstrainer(&constrainer);
         
-        // Start with minimum width to show 4-slider mode by default
-        centreWithSize(minWidth, optimalHeight);
+        // Start with default width to show 4-slider mode by default
+        centreWithSize(defaultWidth, optimalHeight);
         setVisible(true);
     }
     

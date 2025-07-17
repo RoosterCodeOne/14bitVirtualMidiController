@@ -38,6 +38,7 @@ public:
     // Activity indicator support
     bool getMidiInputActivity() const { return midiInputActivity; }
     double getLastMidiInputTime() const { return lastMidiInputTime; }
+    void resetMidiInputActivity() { midiInputActivity = false; }
     
 private:
     // MidiInputCallback implementation

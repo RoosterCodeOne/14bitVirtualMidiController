@@ -24,11 +24,14 @@ public:
             drawButtonShadow(g, bounds);
         }
         
+        // Draw rectangular bezel border (similar to knob bezels)
+        drawRectangularBezel(g, bounds);
+        
         // Adjust bounds for pressed state
-        auto buttonBounds = bounds;
+        auto buttonBounds = bounds.reduced(2.0f); // Account for bezel border
         if (shouldDrawButtonAsDown)
         {
-            buttonBounds = bounds.translated(1.0f, 1.0f).reduced(1.0f); // Inset and offset for pressed look
+            buttonBounds = buttonBounds.translated(1.0f, 1.0f).reduced(1.0f); // Inset and offset for pressed look
         }
         
         // Draw main button body
@@ -42,6 +45,32 @@ public:
     }
     
 private:
+    void drawRectangularBezel(juce::Graphics& g, juce::Rectangle<float> bounds)
+    {
+        // Dark metallic bezel ring around button perimeter (rectangular version of knob bezel)
+        auto bezelBounds = bounds; // Use same bounds as button for perfect alignment
+        
+        // Outer bezel ring - dark gunmetal
+        juce::ColourGradient bezelGradient(
+            juce::Colour(0xFF303030), bezelBounds.getTopLeft(),
+            juce::Colour(0xFF404040), bezelBounds.getBottomRight(),
+            false
+        );
+        bezelGradient.addColour(0.5f, juce::Colour(0xFF353535));
+        
+        g.setGradientFill(bezelGradient);
+        g.fillRoundedRectangle(bezelBounds, 4.0f);
+        
+        // Inner bezel shadow to create recessed effect
+        auto innerBezel = bezelBounds.reduced(1.0f);
+        g.setColour(juce::Colour(0xFF202020));
+        g.drawRoundedRectangle(innerBezel, 4.0f, 1.0f);
+        
+        // Outer bezel highlight
+        g.setColour(juce::Colour(0xFF505050));
+        g.drawRoundedRectangle(bezelBounds, 4.0f, 0.5f);
+    }
+
     void drawButtonShadow(juce::Graphics& g, juce::Rectangle<float> bounds)
     {
         // Drop shadow for raised appearance

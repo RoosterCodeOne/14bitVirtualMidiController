@@ -98,6 +98,13 @@ public:
             toggleSliderMode();
         };
         
+        // Showing label for mode button
+        addAndMakeVisible(showingLabel);
+        showingLabel.setText("Showing:", juce::dontSendNotification);
+        showingLabel.setJustificationType(juce::Justification::centredRight);
+        showingLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+        showingLabel.setFont(juce::FontOptions(11.0f));
+        
         // Learn button for MIDI mapping
         addAndMakeVisible(learnButton);
         learnButton.setButtonText("Learn");
@@ -170,6 +177,10 @@ public:
         
         // Initialize 7-bit MIDI controller
         setupMidi7BitController();
+        
+        // Apply initial window constraints to prevent manual resizing
+        updateWindowConstraints();
+        
     }
     
     ~DebugMidiController()
@@ -190,15 +201,15 @@ public:
         g.fillAll(juce::Colour(0xFF5E5E5E));
         
         // Calculate content area bounds using same logic as resized()
-        const int topAreaHeight = 65;
-        const int tooltipHeight = 38;
-        const int verticalGap = 15;
+        const int topAreaHeight = 50;
+        const int tooltipHeight = 25;
+        const int verticalGap = 10;
         const int contentAreaWidth = bankManager.isEightSliderMode() ? 970 : 490;
         
         auto area = getLocalBounds();
         int contentX = (isInSettingsMode || isInLearnMode) ? SETTINGS_PANEL_WIDTH : (area.getWidth() - contentAreaWidth) / 2;
         int contentY = topAreaHeight + verticalGap;
-        int contentHeight = area.getHeight() - topAreaHeight - tooltipHeight - (2 * verticalGap);
+        int contentHeight = area.getHeight() - topAreaHeight - tooltipHeight - (2 * verticalGap) + 8; // Allow 8px overlap into tooltip area
         
         juce::Rectangle<int> contentAreaBounds(contentX, contentY, contentAreaWidth, contentHeight);
         
@@ -231,8 +242,9 @@ public:
                 // Set slider color
                 lookAndFeel.setSliderColor(sliderControl->getSliderColor());
                 
-                // Draw the track
-                lookAndFeel.drawSliderTrack(g, trackBounds.toFloat(), sliderControl->getSliderColor());
+                // Draw the track with current slider value for progressive fill
+                lookAndFeel.drawSliderTrack(g, trackBounds.toFloat(), sliderControl->getSliderColor(), 
+                                          sliderControl->getValue(), 0.0, 16383.0);
                 
                 // Draw tick marks
                 lookAndFeel.drawTickMarks(g, trackBounds.toFloat());
@@ -258,27 +270,21 @@ public:
             topAreaBounds = juce::Rectangle<int>(contentX, 0, contentAreaWidth, topAreaHeight);
         }
         
-        g.setColour(juce::Colours::white);
-        g.setFont(juce::FontOptions(20.0f));
-        // Title centered in top area
-        g.drawText("VMC14",
-                  topAreaBounds.getX() + 10, 10,
-                  topAreaBounds.getWidth() - 20, 35, 
-                  juce::Justification::centred);
         
         // Draw MIDI input indicator next to Learn button
-        // Learn button is positioned at learnButtonX, 35 with width 50, height 20
-        int learnButtonX = topAreaBounds.getX() + 10 + 110 + 35; // settings + mode + gaps
-        midiInputIndicatorBounds = juce::Rectangle<float>(learnButtonX + 55, 38, 12, 12);
+        // Learn button is positioned at learnButtonX, 25 with width 50, height 20
+        int learnButtonX = topAreaBounds.getX() + 10 + 105; // settings + reduced gap
+        midiInputIndicatorBounds = juce::Rectangle<float>(learnButtonX + 55, 28, 12, 12);
         
         juce::Colour inputIndicatorColor = juce::Colour(0xFFCC6600); // Burnt orange
         float inputAlpha = midiManager.getMidiInputActivity() ? 1.0f : 0.2f;
         g.setColour(inputIndicatorColor.withAlpha(inputAlpha));
-        g.fillEllipse(midiInputIndicatorBounds);
+        g.fillRect(midiInputIndicatorBounds); // Changed from fillEllipse to fillRect for square shape
         g.setColour(juce::Colours::black.withAlpha(0.5f));
-        g.drawEllipse(midiInputIndicatorBounds, 1.0f);
+        g.drawRect(midiInputIndicatorBounds, 1.0f); // Changed from drawEllipse to drawRect
         
         // Show MIDI status left-aligned in top area
+        g.setColour(juce::Colours::white);
         g.setFont(juce::FontOptions(12.0f));
         juce::String status = "MIDI: ";
         if (midiManager.isOutputConnected() && midiManager.isInputConnected())
@@ -289,7 +295,7 @@ public:
             status += "IN Connected";
         else
             status += "Disconnected";
-        g.drawText(status, topAreaBounds.getX() + 10, 10, 200, 20, juce::Justification::left);
+        g.drawText(status, topAreaBounds.getX() + 10, 5, 200, 20, juce::Justification::left);
     }
     
     void resized() override
@@ -303,15 +309,15 @@ public:
         updateMidiTrackingDisplay();
         
         // Calculate layout dimensions once
-        const int topAreaHeight = 65;
-        const int tooltipHeight = 38;
-        const int verticalGap = 15;
+        const int topAreaHeight = 50;
+        const int tooltipHeight = 25;
+        const int verticalGap = 10;
         const int contentAreaWidth = bankManager.isEightSliderMode() ? 970 : 490;
         
         // Calculate content area bounds - simplified logic
         int contentX = (isInSettingsMode || isInLearnMode) ? SETTINGS_PANEL_WIDTH : (area.getWidth() - contentAreaWidth) / 2;
         int contentY = topAreaHeight + verticalGap;
-        int contentHeight = area.getHeight() - topAreaHeight - tooltipHeight - (2 * verticalGap);
+        int contentHeight = area.getHeight() - topAreaHeight - tooltipHeight - (2 * verticalGap) + 8; // Allow 8px overlap into tooltip area
         
         juce::Rectangle<int> contentAreaBounds(contentX, contentY, contentAreaWidth, contentHeight);
         
@@ -367,7 +373,7 @@ public:
         // Handle MIDI input activity timeout
         if (midiManager.getMidiInputActivity() && (currentTime - midiManager.getLastMidiInputTime()) > MIDI_INPUT_ACTIVITY_DURATION)
         {
-            // Activity timeout is now handled in MidiManager
+            midiManager.resetMidiInputActivity();
             repaint();
         }
     }
@@ -500,15 +506,11 @@ public:
     {
         // Settings button - positioned on left within top area
         int settingsButtonX = topAreaBounds.getX() + 10;
-        settingsButton.setBounds(settingsButtonX, 35, 100, 20);
+        settingsButton.setBounds(settingsButtonX, 25, 100, 20);
         
-        // Mode button - positioned next to settings button
-        int modeButtonX = settingsButtonX + 110; // 100px settings button + 10px gap
-        modeButton.setBounds(modeButtonX, 35, 30, 20);
-        
-        // Learn button - positioned next to mode button
-        int learnButtonX = modeButtonX + 35; // 30px mode button + 5px gap
-        learnButton.setBounds(learnButtonX, 35, 50, 20);
+        // Learn button - positioned closer to settings button
+        int learnButtonX = settingsButtonX + 105; // 100px settings button + 5px gap (reduced from 10px)
+        learnButton.setBounds(learnButtonX, 25, 50, 20);
         
         // Bank buttons - positioned as 2x2 grid in top right of top area
         const int buttonWidth = 35;
@@ -518,7 +520,7 @@ public:
         
         int gridWidth = (2 * buttonWidth) + buttonSpacing;
         int gridStartX = topAreaBounds.getRight() - rightMargin - gridWidth;
-        int gridStartY = 10;
+        int gridStartY = 5;
         
         // Top row: A and B buttons
         bankAButton.setBounds(gridStartX, gridStartY, buttonWidth, buttonHeight);
@@ -527,6 +529,12 @@ public:
         // Bottom row: C and D buttons
         bankCButton.setBounds(gridStartX, gridStartY + buttonHeight + buttonSpacing, buttonWidth, buttonHeight);
         bankDButton.setBounds(gridStartX + buttonWidth + buttonSpacing, gridStartY + buttonHeight + buttonSpacing, buttonWidth, buttonHeight);
+        
+        // Mode button - positioned to the left of C bank button with "Showing:" label
+        int showingLabelX = gridStartX - 85; // Position for "Showing:" label
+        int modeButtonX = gridStartX - 40; // Position for mode button (left of C button)
+        showingLabel.setBounds(showingLabelX, gridStartY + buttonHeight + buttonSpacing, 40, 20);
+        modeButton.setBounds(modeButtonX, gridStartY + buttonHeight + buttonSpacing, 30, 20);
     }
     
     void layoutTooltips(const juce::Rectangle<int>& area, int contentAreaWidth, int tooltipHeight)
@@ -555,8 +563,8 @@ public:
     void drawSettingsPanelSeparator(juce::Graphics& g)
     {
         const int dividerX = SETTINGS_PANEL_WIDTH;
-        const int topAreaHeight = 65;
-        const int tooltipHeight = 38;
+        const int topAreaHeight = 50;
+        const int tooltipHeight = 25;
         const int railHeight = 15;
         
         // Draw vertical divider line between settings and main content
@@ -1220,6 +1228,7 @@ private:
     juce::TextButton modeButton;
     juce::TextButton learnButton;
     juce::TextButton bankAButton, bankBButton, bankCButton, bankDButton;
+    juce::Label showingLabel;
     SettingsWindow settingsWindow;
     MidiLearnWindow midiLearnWindow;
     juce::Label movementSpeedLabel;
@@ -1260,6 +1269,7 @@ private:
     int lastMidiChannel = -1;
     int lastMidiCC = -1;
     int lastMidiValue = -1;
+    
     
     // Note: Simple channel-based MIDI filtering - no complex tracking needed
     
