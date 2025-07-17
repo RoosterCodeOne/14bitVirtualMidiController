@@ -15,6 +15,40 @@ public:
         titleLabel.setJustificationType(juce::Justification::centred);
         titleLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
         
+        // MIDI Input Device Selection Section
+        addAndMakeVisible(inputDeviceLabel);
+        inputDeviceLabel.setText("MIDI Input Device:", juce::dontSendNotification);
+        inputDeviceLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        inputDeviceLabel.setJustificationType(juce::Justification::centredLeft);
+        inputDeviceLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
+        
+        addAndMakeVisible(inputDeviceCombo);
+        inputDeviceCombo.setTextWhenNothingSelected("Select MIDI Input Device...");
+        inputDeviceCombo.setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xFF404040));
+        inputDeviceCombo.setColour(juce::ComboBox::textColourId, juce::Colour(0xFFEEEEEE));
+        inputDeviceCombo.setColour(juce::ComboBox::outlineColourId, juce::Colour(0xFF33484A));
+        inputDeviceCombo.onChange = [this]() {
+            if (onMidiDeviceSelected)
+                onMidiDeviceSelected(inputDeviceCombo.getText());
+        };
+        
+        addAndMakeVisible(refreshDevicesButton);
+        refreshDevicesButton.setButtonText("Refresh");
+        refreshDevicesButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF404040));
+        refreshDevicesButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFFEEEEEE));
+        refreshDevicesButton.onClick = [this]() {
+            refreshMidiDevices();
+        };
+        
+        addAndMakeVisible(connectionStatusLabel);
+        connectionStatusLabel.setText("No device selected", juce::dontSendNotification);
+        connectionStatusLabel.setFont(juce::FontOptions(11.0f));
+        connectionStatusLabel.setJustificationType(juce::Justification::centredLeft);
+        connectionStatusLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFCCCCCC));
+        
+        // Initialize device list
+        refreshMidiDevices();
+        
         // Table headers
         addAndMakeVisible(sliderHeaderLabel);
         sliderHeaderLabel.setText("Slider", juce::dontSendNotification);
@@ -110,6 +144,19 @@ public:
         titleLabel.setBounds(area.removeFromTop(30));
         area.removeFromTop(10);
         
+        // MIDI Input Device Selection Section
+        inputDeviceLabel.setBounds(area.removeFromTop(20));
+        area.removeFromTop(5);
+        
+        auto deviceRow = area.removeFromTop(25);
+        inputDeviceCombo.setBounds(deviceRow.removeFromLeft(200));
+        deviceRow.removeFromLeft(10);
+        refreshDevicesButton.setBounds(deviceRow.removeFromLeft(70));
+        
+        area.removeFromTop(5);
+        connectionStatusLabel.setBounds(area.removeFromTop(20));
+        area.removeFromTop(15);
+        
         // Table headers
         auto headerBounds = getHeaderBounds();
         int colWidth = headerBounds.getWidth() / 4;
@@ -181,10 +228,45 @@ public:
             onAllMappingsCleared();
     }
     
+    void setConnectionStatus(const juce::String& deviceName, bool isConnected)
+    {
+        if (deviceName == "None")
+        {
+            connectionStatusLabel.setText("MIDI input disabled", juce::dontSendNotification);
+            connectionStatusLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFCCCCCC));
+        }
+        else if (isConnected)
+        {
+            connectionStatusLabel.setText(deviceName + " (Connected)", juce::dontSendNotification);
+            connectionStatusLabel.setColour(juce::Label::textColourId, juce::Colour(0xFF66FF66));
+        }
+        else
+        {
+            connectionStatusLabel.setText(deviceName + " (Disconnected)", juce::dontSendNotification);
+            connectionStatusLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFFF6666));
+        }
+    }
+    
+    void setSelectedDevice(const juce::String& deviceName)
+    {
+        for (int i = 0; i < inputDeviceCombo.getNumItems(); ++i)
+        {
+            if (inputDeviceCombo.getItemText(i) == deviceName)
+            {
+                inputDeviceCombo.setSelectedId(inputDeviceCombo.getItemId(i), juce::dontSendNotification);
+                break;
+            }
+        }
+    }
+    
     // Callbacks
     std::function<void(int sliderIndex, int midiChannel, int ccNumber)> onMappingAdded;
     std::function<void(int sliderIndex)> onMappingCleared;
     std::function<void()> onAllMappingsCleared;
+    
+    // MIDI device callbacks
+    std::function<void(const juce::String& deviceName)> onMidiDeviceSelected;
+    std::function<void()> onMidiDevicesRefreshed;
     
 private:
     // Mapping row component
@@ -257,6 +339,7 @@ private:
         auto area = getLocalBounds();
         area.reduce(10, 10);
         area.removeFromTop(40); // Title + gap
+        area.removeFromTop(85); // MIDI device selection area (20+5+25+5+20+10)
         return area.removeFromTop(25);
     }
     
@@ -265,6 +348,7 @@ private:
         auto area = getLocalBounds();
         area.reduce(10, 10);
         area.removeFromTop(40); // Title + gap
+        area.removeFromTop(85); // MIDI device selection area
         area.removeFromBottom(60); // Bottom area
         return area;
     }
@@ -289,6 +373,48 @@ private:
         juce::String text = juce::String(count) + " mapping" + (count == 1 ? "" : "s");
         statusLabel.setText(text, juce::dontSendNotification);
     }
+    
+    void refreshMidiDevices()
+    {
+        inputDeviceCombo.clear();
+        
+        // Add "None" option
+        inputDeviceCombo.addItem("None (Disable MIDI Input)", 1);
+        inputDeviceCombo.addSeparator();
+        
+        // Get available MIDI input devices
+        auto midiInputs = juce::MidiInput::getAvailableDevices();
+        
+        if (midiInputs.isEmpty())
+        {
+            inputDeviceCombo.addItem("No MIDI devices found", 2);
+            connectionStatusLabel.setText("No MIDI devices available", juce::dontSendNotification);
+            connectionStatusLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFFF6666));
+        }
+        else
+        {
+            for (int i = 0; i < midiInputs.size(); ++i)
+            {
+                auto deviceInfo = midiInputs[i];
+                inputDeviceCombo.addItem(deviceInfo.name, i + 10); // Start IDs from 10
+            }
+            
+            // Update status
+            connectionStatusLabel.setText(juce::String(midiInputs.size()) + " device(s) found", 
+                                        juce::dontSendNotification);
+            connectionStatusLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFCCCCCC));
+        }
+        
+        // Trigger callback to notify parent
+        if (onMidiDevicesRefreshed)
+            onMidiDevicesRefreshed();
+    }
+    
+    // MIDI device selection UI components
+    juce::Label inputDeviceLabel;
+    juce::ComboBox inputDeviceCombo;
+    juce::TextButton refreshDevicesButton;
+    juce::Label connectionStatusLabel;
     
     // UI components
     juce::Label titleLabel;

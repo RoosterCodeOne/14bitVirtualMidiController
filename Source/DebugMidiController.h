@@ -23,8 +23,10 @@ public:
             
             // Add click handler for learn mode
             sliderControl->onSliderClick = [this, i]() {
+                DBG("Slider " << i << " clicked. isLearningMode=" << (int)isLearningMode);
                 if (isLearningMode)
                 {
+                    DBG("Setting up learn for slider " << i);
                     // Clear markers from all sliders
                     for (auto* slider : sliderControls)
                         slider->setShowLearnMarkers(false);
@@ -32,9 +34,14 @@ public:
                     // Set target and show markers
                     learnTargetSlider = i;
                     sliderControls[i]->setShowLearnMarkers(true);
+                    DBG("Set learnTargetSlider=" << learnTargetSlider << ", showing markers");
                     
                     learnButton.setButtonText("Move Controller");
                     learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red);
+                }
+                else
+                {
+                    DBG("Slider clicked but not in learn mode");
                 }
             };
             
@@ -96,7 +103,6 @@ public:
         addChildComponent(settingsWindow);
         settingsWindow.onSettingsChanged = [this]() { 
             updateSliderSettings(); 
-            updateBlockedMidiInputs(); 
         };
         settingsWindow.onPresetLoaded = [this](const ControllerPreset& preset) {
             applyPresetToSliders(preset);
@@ -114,6 +120,19 @@ public:
         };
         midiLearnWindow.onAllMappingsCleared = [this]() {
             learnedCCMappings.fill(-1);
+        };
+        
+        // MIDI device selection callbacks
+        midiLearnWindow.onMidiDeviceSelected = [this](const juce::String& deviceName) {
+            selectMidiInputDevice(deviceName);
+        };
+        midiLearnWindow.onMidiDevicesRefreshed = [this]() {
+            // Restore previously selected device after refresh
+            if (!selectedMidiDeviceName.isEmpty())
+            {
+                midiLearnWindow.setSelectedDevice(selectedMidiDeviceName);
+                midiLearnWindow.setConnectionStatus(selectedMidiDeviceName, midiInput != nullptr);
+            }
         };
         
         // Movement speed tooltip
@@ -136,6 +155,9 @@ public:
         initializeMidiOutput();
         initializeMidiInput();
         
+        // Load saved MIDI device preference
+        loadMidiDevicePreference();
+        
         // Set initial bank and slider visibility
         setBank(0);
         updateSliderVisibility();
@@ -147,8 +169,7 @@ public:
         // Apply initial settings
         updateSliderSettings();
         
-        // Initialize blocked MIDI inputs
-        updateBlockedMidiInputs();
+        // Note: Using simple channel-based MIDI filtering
         
         // Initialize keyboard control system
         setWantsKeyboardFocus(true);
@@ -911,8 +932,7 @@ private:
             sliderControls[i]->setSliderColor(color);
         }
         
-        // Update blocked MIDI inputs when settings change
-        updateBlockedMidiInputs();
+        // Note: Using simple channel-based MIDI filtering
         
         // Auto-save whenever settings change
         saveCurrentState();
@@ -947,8 +967,7 @@ private:
         // Update settings to reflect the new configuration
         updateSliderSettings();
         
-        // Update blocked MIDI inputs since CC assignments may have changed
-        updateBlockedMidiInputs();
+        // Note: Using simple channel-based MIDI filtering
     }
     
     void toggleSettingsMode()
@@ -1079,8 +1098,7 @@ private:
         // Apply to sliders (values, lock states, delay/attack times)
         applyPresetToSliders(preset);
         
-        // Update blocked MIDI inputs since preset may have changed CC assignments
-        updateBlockedMidiInputs();
+        // Note: Using simple channel-based MIDI filtering
     }
     
     ControllerPreset getCurrentControllerState()
@@ -1145,20 +1163,115 @@ private:
     
     void initializeMidiInput()
     {
-        auto midiDevices = juce::MidiInput::getAvailableDevices();
+        // Initialize MIDI input system
+        // Actual device connection is handled by selectMidiInputDevice()
+        DBG("MIDI Input system initialized. Use device selection to connect.");
+    }
+    
+    void selectMidiInputDevice(const juce::String& deviceName)
+    {
+        DBG("Selecting MIDI input device: " << deviceName);
         
-        if (!midiDevices.isEmpty())
+        // Disconnect current device
+        if (midiInput)
         {
-            midiInput = juce::MidiInput::openDevice(midiDevices[0].identifier, this);
+            midiInput->stop();
+            midiInput.reset();
+            DBG("Disconnected previous MIDI input device");
+        }
+        
+        // Handle "None" selection
+        if (deviceName == "None (Disable MIDI Input)" || deviceName == "None")
+        {
+            selectedMidiDeviceName = "None";
+            midiLearnWindow.setConnectionStatus("None", true);
+            saveMidiDevicePreference();
+            DBG("MIDI input disabled");
+            return;
+        }
+        
+        // Find and connect to selected device
+        auto midiDevices = juce::MidiInput::getAvailableDevices();
+        bool deviceFound = false;
+        
+        for (const auto& device : midiDevices)
+        {
+            if (device.name == deviceName)
+            {
+                try
+                {
+                    midiInput = juce::MidiInput::openDevice(device.identifier, this);
+                    
+                    if (midiInput)
+                    {
+                        midiInput->start();
+                        selectedMidiDeviceName = deviceName;
+                        midiLearnWindow.setConnectionStatus(deviceName, true);
+                        saveMidiDevicePreference();
+                        deviceFound = true;
+                        DBG("Successfully connected to MIDI device: " << deviceName);
+                    }
+                    else
+                    {
+                        midiLearnWindow.setConnectionStatus(deviceName, false);
+                        DBG("Failed to open MIDI device: " << deviceName);
+                    }
+                }
+                catch (const std::exception& e)
+                {
+                    DBG("Exception opening MIDI device " << deviceName << ": " << e.what());
+                    midiLearnWindow.setConnectionStatus(deviceName, false);
+                }
+                break;
+            }
+        }
+        
+        if (!deviceFound)
+        {
+            DBG("MIDI device not found: " << deviceName);
+            midiLearnWindow.setConnectionStatus(deviceName + " (Not Found)", false);
+        }
+    }
+    
+    void saveMidiDevicePreference()
+    {
+        // Save to preferences using the same PresetManager system
+        auto presetDir = settingsWindow.getPresetManager().getPresetDirectory();
+        auto prefFile = presetDir.getChildFile("midi_device_preference.txt");
+        
+        try
+        {
+            prefFile.replaceWithText(selectedMidiDeviceName);
+            DBG("Saved MIDI device preference: " << selectedMidiDeviceName);
+        }
+        catch (const std::exception& e)
+        {
+            DBG("Failed to save MIDI device preference: " << e.what());
+        }
+    }
+    
+    void loadMidiDevicePreference()
+    {
+        auto presetDir = settingsWindow.getPresetManager().getPresetDirectory();
+        auto prefFile = presetDir.getChildFile("midi_device_preference.txt");
+        
+        if (prefFile.exists())
+        {
+            auto savedDevice = prefFile.loadFileAsString().trim();
+            if (savedDevice.isNotEmpty())
+            {
+                selectedMidiDeviceName = savedDevice;
+                DBG("Loaded MIDI device preference: " << savedDevice);
+                
+                // Restore device selection in UI and connect
+                midiLearnWindow.setSelectedDevice(savedDevice);
+                selectMidiInputDevice(savedDevice);
+            }
         }
         else
         {
-            // Create virtual MIDI input
-            midiInput = juce::MidiInput::createNewDevice("JUCE Virtual Controller Input", this);
+            DBG("No saved MIDI device preference found");
         }
-        
-        if (midiInput)
-            midiInput->start();
     }
     
     void sendMidiCC(int sliderIndex, int value14bit)
@@ -1197,12 +1310,30 @@ private:
             int channel = message.getChannel();
             int ccNumber = message.getControllerNumber();
             int ccValue = message.getControllerValue();
+            int ourOutputChannel = settingsWindow.getMidiChannel();
             
-            // Check if this is internal feedback that should be ignored
-            bool isInternalFeedback = isInternalMidiFeedback(channel, ccNumber);
+            // DEBUG: Log all incoming MIDI messages
+            DBG("MIDI IN: Ch=" << channel << " CC=" << ccNumber << " Val=" << ccValue 
+                << " (ourCh=" << ourOutputChannel << " learn=" << (int)isLearningMode 
+                << " target=" << learnTargetSlider << ")");
             
-            // Always trigger MIDI input indicator for external MIDI only
-            if (!isInternalFeedback)
+            // === MIDI FEEDBACK PREVENTION ===
+            // The app outputs MIDI on 'ourOutputChannel', so we must prevent processing
+            // incoming MIDI on the same channel to avoid feedback loops where:
+            // Slider A sends CC -> MIDI loopback -> Slider B receives same CC -> moves Slider B
+            
+            // LEARN MODE: Process on ANY channel (hardware controllers use different channels)
+            if (isLearningMode && learnTargetSlider != -1)
+            {
+                DBG("LEARN MODE: Processing CC " << ccNumber << " from channel " << channel);
+                juce::MessageManager::callAsync([this, ccNumber, ccValue, channel]() {
+                    handleLearnMode(ccNumber, ccValue, channel);
+                });
+                return; // Early return - learn mode takes priority
+            }
+            
+            // 1. Activity Indicator: Only flash for external channels (not our output channel)
+            if (channel != ourOutputChannel)
             {
                 juce::MessageManager::callAsync([this]() {
                     midiInputActivity = true;
@@ -1211,82 +1342,74 @@ private:
                         startTimer(16);
                     repaint();
                 });
+                
+                // 2. External Channel Processing: Process MIDI from external channels normally
+                process7BitControl(ccNumber, ccValue);
             }
             
-            // Check if this message is for our MIDI channel (for processing)
-            if (channel == settingsWindow.getMidiChannel())
-            {
-                if (isLearningMode)
-                {
-                    // Learn mode: respond to ANY CC on our channel (even internal ones)
-                    juce::MessageManager::callAsync([this, ccNumber, ccValue]() {
-                        handleLearnMode(ccNumber, ccValue);
-                    });
-                }
-                else if (!isInternalFeedback)
-                {
-                    // Normal mode: only process external MIDI
-                    process7BitControl(ccNumber, ccValue);
-                }
-            }
+            // 3. Our Channel: Block all normal slider control to prevent feedback loops
+            // (Learn mode was already handled above)
         }
     }
     
     void process7BitControl(int ccNumber, int ccValue)
     {
+        DBG("process7BitControl: CC=" << ccNumber << " Val=" << ccValue << " (learn mode: " << (int)isLearningMode << ")");
+        
         // Find which slider this CC number maps to
         int sliderIndex = findSliderIndexForCC(ccNumber);
-        if (sliderIndex == -1) return;
-        
-        // Update MIDI tracking display
-        updateMidiTooltip(sliderIndex, settingsWindow.getMidiChannel(), ccNumber, ccValue);
-        
-        // Check if slider is locked
-        if (sliderIndex < sliderControls.size() && sliderControls[sliderIndex]->isLocked())
+        if (sliderIndex == -1) 
+        {
+            DBG("No slider mapped to CC " << ccNumber);
             return;
-        
-        auto& controlState = midi7BitStates[sliderIndex];
-        controlState.lastCCValue = ccValue;
-        controlState.lastUpdateTime = juce::Time::getMillisecondCounterHiRes();
-        controlState.isActive = true;
-        
-        // Check if we're in the deadzone (58-68)
-        if (ccValue >= 58 && ccValue <= 68)
-        {
-            // Stop continuous movement
-            controlState.isMoving = false;
-            controlState.movementSpeed = 0.0;
         }
-        else
-        {
-            // Calculate movement speed based on distance from center
-            double distanceFromCenter = calculateDistanceFromCenter(ccValue);
-            controlState.movementSpeed = calculateExponentialSpeed(distanceFromCenter);
-            controlState.movementDirection = (ccValue > 68) ? 1.0 : -1.0;
-            controlState.isMoving = true;
+        
+        DBG("Found slider " << sliderIndex << " for CC " << ccNumber);
+        
+        // Move all UI-related processing to the message thread
+        juce::MessageManager::callAsync([this, sliderIndex, ccNumber, ccValue]() {
+            // Update MIDI tracking display
+            updateMidiTooltip(sliderIndex, settingsWindow.getMidiChannel(), ccNumber, ccValue);
             
-            // Start continuous movement timer if not already running (thread-safe)
-            if (!continuousMovementTimer.isTimerRunning())
+            // Check if slider is locked
+            if (sliderIndex < sliderControls.size() && sliderControls[sliderIndex]->isLocked())
+                return;
+            
+            auto& controlState = midi7BitStates[sliderIndex];
+            controlState.lastCCValue = ccValue;
+            controlState.lastUpdateTime = juce::Time::getMillisecondCounterHiRes();
+            controlState.isActive = true;
+            
+            // Check if we're in the deadzone (58-68)
+            if (ccValue >= 58 && ccValue <= 68)
             {
-                juce::MessageManager::callAsync([this]() {
-                    if (!continuousMovementTimer.isTimerRunning())
-                        continuousMovementTimer.startTimer(16); // ~60fps
-                });
+                // Stop continuous movement
+                controlState.isMoving = false;
+                controlState.movementSpeed = 0.0;
             }
-        }
-        
-        // Trigger activity indicator (thread-safe)
-        if (sliderIndex < sliderControls.size())
-        {
-            juce::MessageManager::callAsync([this, sliderIndex]() {
-                if (sliderIndex < sliderControls.size())
-                    sliderControls[sliderIndex]->triggerMidiActivity();
-            });
-        }
+            else
+            {
+                // Calculate movement speed based on distance from center
+                double distanceFromCenter = calculateDistanceFromCenter(ccValue);
+                controlState.movementSpeed = calculateExponentialSpeed(distanceFromCenter);
+                controlState.movementDirection = (ccValue > 68) ? 1.0 : -1.0;
+                controlState.isMoving = true;
+                
+                // Start continuous movement timer if not already running
+                if (!continuousMovementTimer.isTimerRunning())
+                    continuousMovementTimer.startTimer(16); // ~60fps
+            }
+            
+            // Trigger activity indicator
+            if (sliderIndex < sliderControls.size())
+                sliderControls[sliderIndex]->triggerMidiActivity();
+        });
     }
     
     void processMidiMSB(int sliderIndex, int ccNumber, int msbValue)
     {
+        // NOTE: This method processes 14-bit MIDI MSB values from external sources only
+        // It should only be called from process7BitControl() which already has feedback prevention
         // Store MSB value and timestamp
         auto& state = midiCCStates[sliderIndex];
         state.msbValue = msbValue;
@@ -1313,6 +1436,8 @@ private:
     
     void processMidiLSB(int sliderIndex, int baseCCNumber, int lsbValue)
     {
+        // NOTE: This method processes 14-bit MIDI LSB values from external sources only
+        // It should only be called from process7BitControl() which already has feedback prevention
         // Only process LSB if the base CC is < 96 (supports 14-bit)
         if (baseCCNumber >= 96) return;
         
@@ -1336,22 +1461,25 @@ private:
     
     void updateSliderFromMidiInput(int sliderIndex, int value14bit)
     {
+        // CRITICAL: This method moves sliders based on MIDI input
+        // It should ONLY be called for external MIDI (never from our own output)
+        // Feedback prevention is handled at handleIncomingMidiMessage() level
         if (sliderIndex < sliderControls.size())
         {
-            auto* slider = sliderControls[sliderIndex];
-            
-            // Check if slider is locked
-            if (slider->isLocked())
-                return;
-            
             // Clamp value to valid range
             int clampedValue = juce::jlimit(0, 16383, value14bit);
             
-            // Thread-safe update to UI thread
+            // Thread-safe update to UI thread - check lock status on message thread
             juce::MessageManager::callAsync([this, sliderIndex, clampedValue]() {
                 if (sliderIndex < sliderControls.size())
                 {
-                    sliderControls[sliderIndex]->setValueFromMIDI(clampedValue);
+                    auto* slider = sliderControls[sliderIndex];
+                    
+                    // Check if slider is locked (now on message thread)
+                    if (slider->isLocked())
+                        return;
+                        
+                    slider->setValueFromMIDI(clampedValue);
                 }
             });
         }
@@ -1359,13 +1487,27 @@ private:
     
     int findSliderIndexForCC(int ccNumber)
     {
+        // DEBUG: Show current mappings
+        DBG("Looking for CC " << ccNumber << " in learned mappings:");
+        for (int i = 0; i < 16; ++i)
+        {
+            if (learnedCCMappings[i] != -1)
+            {
+                DBG("  Slider " << i << " -> CC " << learnedCCMappings[i]);
+            }
+        }
+        
         // Only check learned 7-bit mappings for now (simplified)
         for (int i = 0; i < 16; ++i)
         {
             if (learnedCCMappings[i] == ccNumber)
+            {
+                DBG("Found match: CC " << ccNumber << " -> Slider " << i);
                 return i;
+            }
         }
         
+        DBG("No mapping found for CC " << ccNumber);
         return -1; // Not found
     }
     
@@ -1396,31 +1538,52 @@ private:
         return baseSpeed + (normalizedSpeed * (maxSpeed - baseSpeed));
     }
     
-    void handleLearnMode(int ccNumber, int ccValue)
+    void handleLearnMode(int ccNumber, int ccValue, int channel)
     {
+        DBG("handleLearnMode called: CC=" << ccNumber << " Val=" << ccValue 
+            << " Ch=" << channel << " targetSlider=" << learnTargetSlider);
+            
         if (learnTargetSlider != -1)
         {
+            DBG("Creating mapping: Slider " << learnTargetSlider << " -> CC " << ccNumber);
+            
             // Map this CC to the target slider
             learnedCCMappings[learnTargetSlider] = ccNumber;
-            
-            // Add mapping to learn window (use current MIDI channel from settings)
-            int midiChannel = settingsWindow.getMidiChannel();
-            midiLearnWindow.addMapping(learnTargetSlider, midiChannel, ccNumber);
-            
-            // Clear markers
-            sliderControls[learnTargetSlider]->setShowLearnMarkers(false);
+            DBG("Updated learnedCCMappings[" << learnTargetSlider << "] = " << ccNumber);
             
             // Store the slider index for the success message (before resetting)
             int mappedSliderIndex = learnTargetSlider;
             
             // Reset learn state but keep window open
             learnTargetSlider = -1;
-            learnButton.setButtonText("Select Slider");
-            learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::orange);
             
-            // Show success feedback
-            juce::String message = "Mapped CC " + juce::String(ccNumber) + " to Slider " + juce::String(mappedSliderIndex + 1);
-            juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "MIDI Learn", message);
+            // All UI updates must be on the message thread
+            juce::MessageManager::callAsync([this, mappedSliderIndex, channel, ccNumber]() {
+                // Clear markers
+                if (mappedSliderIndex < sliderControls.size())
+                {
+                    sliderControls[mappedSliderIndex]->setShowLearnMarkers(false);
+                    DBG("Cleared learn markers for slider " << mappedSliderIndex);
+                }
+                
+                // Add mapping to learn window (use the actual channel from hardware)
+                midiLearnWindow.addMapping(mappedSliderIndex, channel, ccNumber);
+                DBG("Called midiLearnWindow.addMapping(" << mappedSliderIndex << ", " << channel << ", " << ccNumber << ")");
+                
+                // Reset learn button state
+                learnButton.setButtonText("Select Slider");
+                learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::orange);
+                DBG("Reset learn state");
+                
+                // Show success feedback
+                juce::String message = "Mapped CC " + juce::String(ccNumber) + " (Ch " + juce::String(channel) + ") to Slider " + juce::String(mappedSliderIndex + 1);
+                juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "MIDI Learn", message);
+                DBG("Showing success message: " << message);
+            });
+        }
+        else
+        {
+            DBG("handleLearnMode called but learnTargetSlider is -1 (no slider selected)");
         }
     }
     
@@ -1440,6 +1603,7 @@ private:
         {
             // Enter learn mode - show MIDI learn window
             isLearningMode = true;
+            DBG("Entered learn mode: isLearningMode=" << (int)isLearningMode);
             learnButton.setButtonText("Exit Learn");
             learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::orange);
             
@@ -1461,6 +1625,7 @@ private:
             // Exit learn mode
             isLearningMode = false;
             learnTargetSlider = -1;
+            DBG("Exited learn mode: isLearningMode=" << (int)isLearningMode);
             learnButton.setButtonText("Learn");
             learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkblue);
             
@@ -1482,30 +1647,7 @@ private:
         resized();
     }
     
-    void updateBlockedMidiInputs()
-    {
-        blockedMidiChannel = settingsWindow.getMidiChannel();
-        for (int i = 0; i < 16; ++i)
-        {
-            blockedCCNumbers[i] = settingsWindow.getCCNumber(i);
-        }
-    }
-    
-    bool isInternalMidiFeedback(int channel, int ccNumber) const
-    {
-        // Check if this matches our output configuration
-        if (channel != blockedMidiChannel)
-            return false;
-            
-        // Check if this CC is used by any of our sliders
-        for (int i = 0; i < 16; ++i)
-        {
-            if (blockedCCNumbers[i] == ccNumber)
-                return true;
-        }
-        
-        return false;
-    }
+    // Note: Complex CC-based filtering removed in favor of simple channel-based approach
     
     void processContinuousMovement()
     {
@@ -1573,6 +1715,7 @@ private:
     juce::Label windowSizeLabel;
     std::unique_ptr<juce::MidiOutput> midiOutput;
     std::unique_ptr<juce::MidiInput> midiInput;
+    juce::String selectedMidiDeviceName;
     int currentBank = 0;
     bool isEightSliderMode = false;
     bool isInSettingsMode = false;
@@ -1654,9 +1797,7 @@ private:
     int lastMidiCC = -1;
     int lastMidiValue = -1;
     
-    // MIDI feedback filtering
-    int blockedMidiChannel = 1;
-    std::array<int, 16> blockedCCNumbers;
+    // Note: Simple channel-based MIDI filtering - no complex tracking needed
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DebugMidiController)
 };
