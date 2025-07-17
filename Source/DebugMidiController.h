@@ -5,26 +5,34 @@
 #include "SimpleSliderControl.h"
 #include "SettingsWindow.h"
 #include "MidiLearnWindow.h"
+#include "Core/MidiManager.h"
+#include "Core/KeyboardController.h"
+#include "Core/BankManager.h"
+#include "Core/Midi7BitController.h"
 
 //==============================================================================
-class DebugMidiController : public juce::Component, public juce::Timer, public juce::MidiInputCallback
+class DebugMidiController : public juce::Component, public juce::Timer
 {
 public:
-    DebugMidiController() : continuousMovementTimer(*this)
+    DebugMidiController()
     {
-        // Initialize learned CC mappings to -1 (not mapped)
-        learnedCCMappings.fill(-1);
         // Create 16 slider controls with MIDI callback
         for (int i = 0; i < 16; ++i)
         {
             auto* sliderControl = new SimpleSliderControl(i, [this](int sliderIndex, int value) {
-                sendMidiCC(sliderIndex, value);
+                int midiChannel = settingsWindow.getMidiChannel();
+                int ccNumber = settingsWindow.getCCNumber(sliderIndex);
+                midiManager.sendCC14Bit(midiChannel, ccNumber, value);
+                
+                // Trigger MIDI activity indicator AFTER successful MIDI send
+                if (sliderIndex < sliderControls.size())
+                    sliderControls[sliderIndex]->triggerMidiActivity();
             });
             
             // Add click handler for learn mode
             sliderControl->onSliderClick = [this, i]() {
-                DBG("Slider " << i << " clicked. isLearningMode=" << (int)isLearningMode);
-                if (isLearningMode)
+                DBG("Slider " << i << " clicked. isLearningMode=" << (int)midi7BitController.isInLearnMode());
+                if (midi7BitController.isInLearnMode())
                 {
                     DBG("Setting up learn for slider " << i);
                     // Clear markers from all sliders
@@ -32,9 +40,9 @@ public:
                         slider->setShowLearnMarkers(false);
                         
                     // Set target and show markers
-                    learnTargetSlider = i;
+                    midi7BitController.setLearnTarget(i);
                     sliderControls[i]->setShowLearnMarkers(true);
-                    DBG("Set learnTargetSlider=" << learnTargetSlider << ", showing markers");
+                    DBG("Set learnTargetSlider=" << i << ", showing markers");
                     
                     learnButton.setButtonText("Move Controller");
                     learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red);
@@ -54,25 +62,25 @@ public:
         bankAButton.setButtonText("A");
         bankAButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red);
         bankAButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-        bankAButton.onClick = [this]() { setBank(0); };
+        bankAButton.onClick = [this]() { bankManager.setActiveBank(0); };
         
         addAndMakeVisible(bankBButton);
         bankBButton.setButtonText("B");
         bankBButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
         bankBButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-        bankBButton.onClick = [this]() { setBank(1); };
+        bankBButton.onClick = [this]() { bankManager.setActiveBank(1); };
         
         addAndMakeVisible(bankCButton);
         bankCButton.setButtonText("C");
         bankCButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
         bankCButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-        bankCButton.onClick = [this]() { setBank(2); };
+        bankCButton.onClick = [this]() { bankManager.setActiveBank(2); };
         
         addAndMakeVisible(bankDButton);
         bankDButton.setButtonText("D");
         bankDButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
         bankDButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-        bankDButton.onClick = [this]() { setBank(3); };
+        bankDButton.onClick = [this]() { bankManager.setActiveBank(3); };
         
         // Settings button
         addAndMakeVisible(settingsButton);
@@ -83,7 +91,7 @@ public:
         
         // Mode toggle button
         addAndMakeVisible(modeButton);
-        modeButton.setButtonText(isEightSliderMode ? "8" : "4");
+        modeButton.setButtonText(bankManager.isEightSliderMode() ? "8" : "4");
         modeButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkblue);
         modeButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
         modeButton.onClick = [this]() {
@@ -111,29 +119,18 @@ public:
         // MIDI Learn window
         addChildComponent(midiLearnWindow);
         midiLearnWindow.onMappingAdded = [this](int sliderIndex, int midiChannel, int ccNumber) {
-            learnedCCMappings[sliderIndex] = ccNumber;
+            // The mapping is already handled by Midi7BitController
             // Update tooltip to show current mapping
             updateMidiTooltip(sliderIndex, midiChannel, ccNumber, -1);
         };
         midiLearnWindow.onMappingCleared = [this](int sliderIndex) {
-            learnedCCMappings[sliderIndex] = -1;
+            midi7BitController.clearMapping(sliderIndex);
         };
         midiLearnWindow.onAllMappingsCleared = [this]() {
-            learnedCCMappings.fill(-1);
+            midi7BitController.clearAllMappings();
         };
         
-        // MIDI device selection callbacks
-        midiLearnWindow.onMidiDeviceSelected = [this](const juce::String& deviceName) {
-            selectMidiInputDevice(deviceName);
-        };
-        midiLearnWindow.onMidiDevicesRefreshed = [this]() {
-            // Restore previously selected device after refresh
-            if (!selectedMidiDeviceName.isEmpty())
-            {
-                midiLearnWindow.setSelectedDevice(selectedMidiDeviceName);
-                midiLearnWindow.setConnectionStatus(selectedMidiDeviceName, midiInput != nullptr);
-            }
-        };
+        // MIDI device selection callbacks will be set up in setupMidiManager()
         
         // Movement speed tooltip
         addAndMakeVisible(movementSpeedLabel);
@@ -141,7 +138,6 @@ public:
         movementSpeedLabel.setColour(juce::Label::textColourId, juce::Colours::white);
         movementSpeedLabel.setColour(juce::Label::backgroundColourId, juce::Colours::darkgrey);
         movementSpeedLabel.setFont(juce::FontOptions(10.0f));
-        updateMovementSpeedDisplay();
         
         // MIDI tracking tooltip
         addAndMakeVisible(windowSizeLabel);
@@ -151,17 +147,14 @@ public:
         windowSizeLabel.setFont(juce::FontOptions(10.0f));
         updateMidiTrackingDisplay();
         
-        // Initialize MIDI input and output
-        initializeMidiOutput();
-        initializeMidiInput();
+        // Initialize MIDI Manager and set up callbacks
+        setupMidiManager();
         
-        // Load saved MIDI device preference
-        loadMidiDevicePreference();
+        // Initialize bank manager and set up callbacks
+        setupBankManager();
         
-        // Set initial bank and slider visibility
-        setBank(0);
-        updateSliderVisibility();
-        updateBankButtonStates();
+        // Set initial bank
+        bankManager.setActiveBank(0);
         
         // Load auto-saved state
         loadAutoSavedState();
@@ -173,23 +166,22 @@ public:
         
         // Initialize keyboard control system
         setWantsKeyboardFocus(true);
-        initializeKeyboardControls();
+        setupKeyboardController();
+        
+        // Initialize 7-bit MIDI controller
+        setupMidi7BitController();
     }
     
     ~DebugMidiController()
     {
         // CRITICAL: Stop all timers before destruction
         stopTimer();
-        continuousMovementTimer.stopTimer();
+        midi7BitController.stopTimer();
         
         // Auto-save current state before destruction
         saveCurrentState();
         
-        if (midiOutput)
-            midiOutput->stopBackgroundThread();
-        
-        if (midiInput)
-            midiInput->stop();
+        // MIDI cleanup is handled by MidiManager destructor
     }
     
     void paint(juce::Graphics& g) override
@@ -201,7 +193,7 @@ public:
         const int topAreaHeight = 65;
         const int tooltipHeight = 38;
         const int verticalGap = 15;
-        const int contentAreaWidth = isEightSliderMode ? 970 : 490;
+        const int contentAreaWidth = bankManager.isEightSliderMode() ? 970 : 490;
         
         auto area = getLocalBounds();
         int contentX = (isInSettingsMode || isInLearnMode) ? SETTINGS_PANEL_WIDTH : (area.getWidth() - contentAreaWidth) / 2;
@@ -219,10 +211,10 @@ public:
         CustomSliderLookAndFeel lookAndFeel;
         
         // Draw plates and visual tracks for each visible slider
-        int visibleSliderCount = isEightSliderMode ? 8 : 4;
+        int visibleSliderCount = bankManager.getVisibleSliderCount();
         for (int i = 0; i < visibleSliderCount; ++i)
         {
-            int sliderIndex = getVisibleSliderIndex(i);
+            int sliderIndex = bankManager.getVisibleSliderIndex(i);
             if (sliderIndex < sliderControls.size())
             {
                 auto* sliderControl = sliderControls[sliderIndex];
@@ -280,7 +272,7 @@ public:
         midiInputIndicatorBounds = juce::Rectangle<float>(learnButtonX + 55, 38, 12, 12);
         
         juce::Colour inputIndicatorColor = juce::Colour(0xFFCC6600); // Burnt orange
-        float inputAlpha = midiInputActivity ? 1.0f : 0.2f;
+        float inputAlpha = midiManager.getMidiInputActivity() ? 1.0f : 0.2f;
         g.setColour(inputIndicatorColor.withAlpha(inputAlpha));
         g.fillEllipse(midiInputIndicatorBounds);
         g.setColour(juce::Colours::black.withAlpha(0.5f));
@@ -289,11 +281,11 @@ public:
         // Show MIDI status left-aligned in top area
         g.setFont(juce::FontOptions(12.0f));
         juce::String status = "MIDI: ";
-        if (midiOutput && midiInput)
+        if (midiManager.isOutputConnected() && midiManager.isInputConnected())
             status += "IN/OUT Connected";
-        else if (midiOutput)
+        else if (midiManager.isOutputConnected())
             status += "OUT Connected";
-        else if (midiInput)
+        else if (midiManager.isInputConnected())
             status += "IN Connected";
         else
             status += "Disconnected";
@@ -305,7 +297,7 @@ public:
         auto area = getLocalBounds();
         
         // Use current slider mode (controlled by mode button)
-        int visibleSliderCount = isEightSliderMode ? 8 : 4;
+        int visibleSliderCount = bankManager.getVisibleSliderCount();
         
         // Update MIDI tracking display
         updateMidiTrackingDisplay();
@@ -314,7 +306,7 @@ public:
         const int topAreaHeight = 65;
         const int tooltipHeight = 38;
         const int verticalGap = 15;
-        const int contentAreaWidth = isEightSliderMode ? 970 : 490;
+        const int contentAreaWidth = bankManager.isEightSliderMode() ? 970 : 490;
         
         // Calculate content area bounds - simplified logic
         int contentX = (isInSettingsMode || isInLearnMode) ? SETTINGS_PANEL_WIDTH : (area.getWidth() - contentAreaWidth) / 2;
@@ -360,180 +352,22 @@ public:
     
     bool keyPressed(const juce::KeyPress& key) override
     {
-        // Allow system shortcuts when modifier keys are held
-        if (key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown() || 
-            key.getModifiers().isAltDown())
-        {
-            return false; // Let the system handle Command+Q, Ctrl+C, etc.
-        }
-        
-        // Don't interfere when any text editor has focus
-        if (isTextEditorFocused())
-        {
-            return false;
-        }
-        
-        auto keyChar = key.getKeyCode();
-        
-        // Handle movement rate adjustment (Z/X keys) - discrete rates
-        if (keyChar == 'Z' || keyChar == 'z')
-        {
-            if (currentRateIndex > 0)
-            {
-                currentRateIndex--;
-                keyboardMovementRate = movementRates[currentRateIndex];
-                updateMovementSpeedDisplay();
-            }
-            return true;
-        }
-        if (keyChar == 'X' || keyChar == 'x')
-        {
-            if (currentRateIndex < movementRates.size() - 1)
-            {
-                currentRateIndex++;
-                keyboardMovementRate = movementRates[currentRateIndex];
-                updateMovementSpeedDisplay();
-            }
-            return true;
-        }
-        
-        // Handle slider control keys - map to currently visible sliders
-        int maxMappings = isEightSliderMode ? 8 : 4;
-        for (int i = 0; i < keyboardMappings.size() && i < maxMappings; ++i)
-        {
-            auto& mapping = keyboardMappings[i];
-            if (keyChar == mapping.upKey || keyChar == mapping.downKey)
-            {
-                if (!mapping.isPressed)
-                {
-                    mapping.isPressed = true;
-                    mapping.isUpDirection = (keyChar == mapping.upKey);
-                    mapping.accumulatedMovement = 0.0; // Reset accumulator
-                    mapping.currentSliderIndex = getVisibleSliderIndex(i); // Map to visible slider
-                    
-                    // Start timer for smooth movement if not already running
-                    if (!isTimerRunning())
-                        startTimer(16); // ~60fps
-                }
-                return true;
-            }
-        }
-        
-        return false;
+        return keyboardController.handleKeyPressed(key);
     }
     
     bool keyStateChanged(bool isKeyDown) override
     {
-        // Don't interfere when modifier keys are held or text editor has focus
-        if (juce::ModifierKeys::getCurrentModifiers().isCommandDown() || 
-            juce::ModifierKeys::getCurrentModifiers().isCtrlDown() ||
-            juce::ModifierKeys::getCurrentModifiers().isAltDown() ||
-            isTextEditorFocused())
-        {
-            return false;
-        }
-        
-        if (!isKeyDown)
-        {
-            // Key released - check if any of our keys were released
-            for (auto& mapping : keyboardMappings)
-            {
-                if (mapping.isPressed)
-                {
-                    // Check if this key is still pressed
-                    bool upStillPressed = juce::KeyPress::isKeyCurrentlyDown(mapping.upKey);
-                    bool downStillPressed = juce::KeyPress::isKeyCurrentlyDown(mapping.downKey);
-                    
-                    if (!upStillPressed && !downStillPressed)
-                    {
-                        mapping.isPressed = false;
-                    }
-                }
-            }
-            
-            // Stop timer if no keys are pressed
-            bool anyKeyPressed = false;
-            for (const auto& mapping : keyboardMappings)
-            {
-                if (mapping.isPressed)
-                {
-                    anyKeyPressed = true;
-                    break;
-                }
-            }
-            
-            if (!anyKeyPressed && isTimerRunning())
-                stopTimer();
-        }
-        
-        return false;
+        return keyboardController.handleKeyStateChanged(isKeyDown);
     }
     
     void timerCallback() override
     {
         double currentTime = juce::Time::getMillisecondCounterHiRes();
         
-        // Handle keyboard controls
-        for (auto& mapping : keyboardMappings)
-        {
-            if (mapping.isPressed && mapping.currentSliderIndex < sliderControls.size())
-            {
-                auto* slider = sliderControls[mapping.currentSliderIndex];
-                
-                // Check if slider is locked
-                if (slider && !slider->isLocked())
-                {
-                    double currentValue = slider->getValue();
-                    double newValue = currentValue;
-                    
-                    // Handle instant movement (100%)
-                    if (keyboardMovementRate == -1)
-                    {
-                        if (mapping.isUpDirection)
-                            newValue = 16383.0; // Go to max instantly
-                        else
-                            newValue = 0.0; // Go to min instantly
-                    }
-                    else
-                    {
-                        // Calculate movement delta based on rate (MIDI units per second)
-                        double deltaTime = 1.0 / 60.0; // Assuming 60fps timer
-                        double movementDelta = keyboardMovementRate * deltaTime;
-                        
-                        // Accumulate fractional movement
-                        double direction = mapping.isUpDirection ? 1.0 : -1.0;
-                        mapping.accumulatedMovement += movementDelta * direction;
-                        
-                        // Only move when we've accumulated at least 1 unit
-                        if (std::abs(mapping.accumulatedMovement) >= 1.0)
-                        {
-                            double wholeUnitsToMove = std::floor(std::abs(mapping.accumulatedMovement));
-                            
-                            if (mapping.accumulatedMovement > 0)
-                            {
-                                newValue = juce::jmin(16383.0, currentValue + wholeUnitsToMove);
-                                mapping.accumulatedMovement -= wholeUnitsToMove;
-                            }
-                            else
-                            {
-                                newValue = juce::jmax(0.0, currentValue - wholeUnitsToMove);
-                                mapping.accumulatedMovement += wholeUnitsToMove;
-                            }
-                        }
-                    }
-                    
-                    if (newValue != currentValue)
-                    {
-                        slider->setValueFromKeyboard(newValue);
-                    }
-                }
-            }
-        }
-        
         // Handle MIDI input activity timeout
-        if (midiInputActivity && (currentTime - lastMidiInputTime) > MIDI_INPUT_ACTIVITY_DURATION)
+        if (midiManager.getMidiInputActivity() && (currentTime - midiManager.getLastMidiInputTime()) > MIDI_INPUT_ACTIVITY_DURATION)
         {
-            midiInputActivity = false;
+            // Activity timeout is now handled in MidiManager
             repaint();
         }
     }
@@ -551,7 +385,7 @@ public:
         // Set bounds for each visible slider - complete recalculation
         for (int i = 0; i < visibleSliderCount; ++i)
         {
-            int sliderIndex = getVisibleSliderIndex(i);
+            int sliderIndex = bankManager.getVisibleSliderIndex(i);
             if (sliderIndex < sliderControls.size())
             {
                 int xPos = startX + (i * (SLIDER_PLATE_WIDTH + SLIDER_GAP));
@@ -773,54 +607,227 @@ public:
         }
     }
     
+    void setupMidiManager()
+    {
+        // Initialize MIDI devices
+        midiManager.initializeDevices();
+        
+        // Set up MIDI device selection callbacks
+        midiLearnWindow.onMidiDeviceSelected = [this](const juce::String& deviceName) {
+            midiManager.selectInputDevice(deviceName);
+        };
+        
+        midiLearnWindow.onMidiDevicesRefreshed = [this]() {
+            // Restore previously selected device after refresh
+            if (!midiManager.getSelectedDeviceName().isEmpty())
+            {
+                midiLearnWindow.setSelectedDevice(midiManager.getSelectedDeviceName());
+                midiLearnWindow.setConnectionStatus(midiManager.getSelectedDeviceName(), midiManager.isInputConnected());
+            }
+        };
+        
+        // Set up MIDI input callback
+        midiManager.onMidiReceived = [this](int channel, int ccNumber, int ccValue) {
+            int ourOutputChannel = settingsWindow.getMidiChannel();
+            
+            // DEBUG: Log all incoming MIDI messages
+            DBG("MIDI IN: Ch=" << channel << " CC=" << ccNumber << " Val=" << ccValue 
+                << " (ourCh=" << ourOutputChannel << " learn=" << (int)midi7BitController.isInLearnMode() 
+                << " target=" << midi7BitController.getLearnTarget() << ")");
+            
+            // === MIDI FEEDBACK PREVENTION ===
+            // The app outputs MIDI on 'ourOutputChannel', so we must prevent processing
+            // incoming MIDI on the same channel to avoid feedback loops where:
+            // Slider A sends CC -> MIDI loopback -> Slider B receives same CC -> moves Slider B
+            
+            // 1. Activity Indicator: Only flash for external channels (not our output channel)
+            if (channel != ourOutputChannel)
+            {
+                if (!isTimerRunning())
+                    startTimer(16);
+                repaint();
+                
+                // 2. External Channel Processing: Process MIDI from external channels normally
+                midi7BitController.processIncomingCC(ccNumber, ccValue, channel);
+            }
+            
+            // 3. Our Channel: Block all normal slider control to prevent feedback loops
+        };
+        
+        // Set up connection status callback
+        midiManager.onConnectionStatusChanged = [this](const juce::String& deviceName, bool connected) {
+            midiLearnWindow.setConnectionStatus(deviceName, connected);
+        };
+        
+        // Set up preset directory callback
+        midiManager.getPresetDirectory = [this]() -> juce::File {
+            return settingsWindow.getPresetManager().getPresetDirectory();
+        };
+        
+        // Load saved MIDI device preference
+        midiManager.loadDevicePreference();
+        
+        // Update UI with current device selection
+        if (!midiManager.getSelectedDeviceName().isEmpty())
+        {
+            midiLearnWindow.setSelectedDevice(midiManager.getSelectedDeviceName());
+            midiLearnWindow.setConnectionStatus(midiManager.getSelectedDeviceName(), midiManager.isInputConnected());
+        }
+    }
+    
+    void setupBankManager()
+    {
+        // Set up bank manager callbacks
+        bankManager.onBankChanged = [this]() {
+            updateSliderVisibility();
+            keyboardController.setCurrentBank(bankManager.getActiveBank());
+            resized(); // Re-layout
+        };
+        
+        bankManager.onModeChanged = [this]() {
+            updateSliderVisibility();
+            keyboardController.setSliderMode(bankManager.isEightSliderMode());
+            
+            // Update window size for mode change
+            int contentWidth = bankManager.isEightSliderMode() ? 970 : 490;
+            int settingsWidth = (isInSettingsMode || isInLearnMode) ? 350 : 0;
+            int targetWidth = contentWidth + settingsWidth;
+            
+            updateWindowConstraints();
+            
+            if (auto* topLevel = getTopLevelComponent())
+            {
+                topLevel->setSize(targetWidth, topLevel->getHeight());
+            }
+            
+            resized();
+        };
+        
+        bankManager.onBankColorsChanged = [this](const BankManager::BankColors& colors) {
+            updateBankButtonStates();
+        };
+    }
+    
+    void setupKeyboardController()
+    {
+        // Initialize the keyboard controller
+        keyboardController.initialize();
+        
+        // Set initial configuration
+        keyboardController.setSliderMode(bankManager.isEightSliderMode());
+        keyboardController.setCurrentBank(bankManager.getActiveBank());
+        
+        // Set up callbacks
+        keyboardController.onSliderValueChanged = [this](int sliderIndex, double newValue) {
+            if (sliderIndex < sliderControls.size())
+            {
+                auto* slider = sliderControls[sliderIndex];
+                if (slider)
+                {
+                    slider->setValueFromKeyboard(newValue);
+                }
+            }
+        };
+        
+        keyboardController.onSpeedDisplayChanged = [this](const juce::String& speedText) {
+            movementSpeedLabel.setText(speedText, juce::dontSendNotification);
+        };
+        
+        keyboardController.isSliderLocked = [this](int sliderIndex) -> bool {
+            if (sliderIndex < sliderControls.size())
+            {
+                auto* slider = sliderControls[sliderIndex];
+                return slider ? slider->isLocked() : false;
+            }
+            return false;
+        };
+        
+        keyboardController.getSliderValue = [this](int sliderIndex) -> double {
+            if (sliderIndex < sliderControls.size())
+            {
+                auto* slider = sliderControls[sliderIndex];
+                return slider ? slider->getValue() : 0.0;
+            }
+            return 0.0;
+        };
+        
+        keyboardController.getVisibleSliderIndex = [this](int keyboardPosition) -> int {
+            return bankManager.getVisibleSliderIndex(keyboardPosition);
+        };
+    }
+    
+    void setupMidi7BitController()
+    {
+        // Set up slider value update callback
+        midi7BitController.onSliderValueChanged = [this](int sliderIndex, double newValue) {
+            if (sliderIndex < sliderControls.size())
+            {
+                auto* slider = sliderControls[sliderIndex];
+                if (slider)
+                {
+                    slider->setValueFromKeyboard(newValue);
+                }
+            }
+        };
+        
+        // Set up mapping learned callback
+        midi7BitController.onMappingLearned = [this](int sliderIndex, int ccNumber, int channel) {
+            // Clear markers
+            if (sliderIndex < sliderControls.size())
+            {
+                sliderControls[sliderIndex]->setShowLearnMarkers(false);
+                DBG("Cleared learn markers for slider " << sliderIndex);
+            }
+            
+            // Add mapping to learn window
+            midiLearnWindow.addMapping(sliderIndex, channel, ccNumber);
+            DBG("Called midiLearnWindow.addMapping(" << sliderIndex << ", " << channel << ", " << ccNumber << ")");
+            
+            // Reset learn button state
+            learnButton.setButtonText("Select Slider");
+            learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::orange);
+            DBG("Reset learn state");
+            
+            // Show success feedback
+            juce::String message = "Mapped CC " + juce::String(ccNumber) + " (Ch " + juce::String(channel) + ") to Slider " + juce::String(sliderIndex + 1);
+            juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "MIDI Learn", message);
+            DBG("Showing success message: " << message);
+        };
+        
+        // Set up MIDI tooltip update callback
+        midi7BitController.onMidiTooltipUpdate = [this](int sliderIndex, int channel, int ccNumber, int ccValue) {
+            updateMidiTooltip(sliderIndex, channel, ccNumber, ccValue);
+        };
+        
+        // Set up slider activity trigger callback
+        midi7BitController.onSliderActivityTrigger = [this](int sliderIndex) {
+            if (sliderIndex < sliderControls.size())
+                sliderControls[sliderIndex]->triggerMidiActivity();
+        };
+        
+        // Set up slider locked check callback
+        midi7BitController.isSliderLocked = [this](int sliderIndex) -> bool {
+            if (sliderIndex < sliderControls.size())
+            {
+                auto* slider = sliderControls[sliderIndex];
+                return slider ? slider->isLocked() : false;
+            }
+            return false;
+        };
+        
+        // Set up get slider value callback
+        midi7BitController.getSliderValue = [this](int sliderIndex) -> double {
+            if (sliderIndex < sliderControls.size())
+            {
+                auto* slider = sliderControls[sliderIndex];
+                return slider ? slider->getValue() : 0.0;
+            }
+            return 0.0;
+        };
+    }
     
 private:
-    struct KeyboardMapping
-    {
-        int upKey;
-        int downKey;
-        bool isPressed = false;
-        bool isUpDirection = false;
-        double accumulatedMovement = 0.0; // For fractional movement accumulation
-        int currentSliderIndex = 0; // Maps to currently visible slider
-    };
     
-    void initializeKeyboardControls()
-    {
-        keyboardMappings.clear();
-        
-        // Q/A for visible slider 1, W/S for visible slider 2, E/D for visible slider 3, R/F for visible slider 4
-        keyboardMappings.push_back({'Q', 'A'});
-        keyboardMappings.push_back({'W', 'S'});
-        keyboardMappings.push_back({'E', 'D'});
-        keyboardMappings.push_back({'R', 'F'});
-        
-        // Keep the other mappings for future use when 8 sliders are visible
-        keyboardMappings.push_back({'U', 'J'});
-        keyboardMappings.push_back({'I', 'K'});
-        keyboardMappings.push_back({'O', 'L'});
-        keyboardMappings.push_back({'P', ';'});
-        
-        // Initialize discrete movement rates (last one is special: -1 = instant/100%)
-        movementRates = {1, 5, 50, 100, 250, 500, 1000, 2500, 5000, 10000, -1};
-        currentRateIndex = 2; // Start with 50 units/sec
-        keyboardMovementRate = movementRates[currentRateIndex];
-    }
-    
-    int getVisibleSliderIndex(int visiblePosition) const
-    {
-        if (isEightSliderMode)
-        {
-            // In 8-slider mode, show bank pairs: A+B (0-7) or C+D (8-15)
-            int bankPair = currentBank >= 2 ? 1 : 0; // 0 for A+B, 1 for C+D
-            return (bankPair * 8) + visiblePosition;
-        }
-        else
-        {
-            // In 4-slider mode, show single bank
-            return (currentBank * 4) + visiblePosition;
-        }
-    }
     
     void updateSliderVisibility()
     {
@@ -829,10 +836,10 @@ private:
             slider->setVisible(false);
         
         // Show appropriate sliders based on mode
-        int visibleCount = isEightSliderMode ? 8 : 4;
+        int visibleCount = bankManager.getVisibleSliderCount();
         for (int i = 0; i < visibleCount; ++i)
         {
-            int sliderIndex = getVisibleSliderIndex(i);
+            int sliderIndex = bankManager.getVisibleSliderIndex(i);
             if (sliderIndex < sliderControls.size())
                 sliderControls[sliderIndex]->setVisible(true);
         }
@@ -840,48 +847,14 @@ private:
     
     void updateBankButtonStates()
     {
-        // Reset all buttons to dark grey first
-        bankAButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
-        bankBButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
-        bankCButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
-        bankDButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
+        auto colors = bankManager.getCurrentBankColors();
         
-        if (isEightSliderMode)
-        {
-            // In 8-slider mode, light up both banks in the pair
-            if (currentBank <= 1) // A+B pair
-            {
-                bankAButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red);
-                bankBButton.setColour(juce::TextButton::buttonColourId, juce::Colours::blue);
-            }
-            else // C+D pair
-            {
-                bankCButton.setColour(juce::TextButton::buttonColourId, juce::Colours::green);
-                bankDButton.setColour(juce::TextButton::buttonColourId, juce::Colours::yellow);
-            }
-        }
-        else
-        {
-            // In 4-slider mode, light up only the active bank
-            switch (currentBank)
-            {
-                case 0: bankAButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red); break;
-                case 1: bankBButton.setColour(juce::TextButton::buttonColourId, juce::Colours::blue); break;
-                case 2: bankCButton.setColour(juce::TextButton::buttonColourId, juce::Colours::green); break;
-                case 3: bankDButton.setColour(juce::TextButton::buttonColourId, juce::Colours::yellow); break;
-            }
-        }
+        bankAButton.setColour(juce::TextButton::buttonColourId, colors.bankA);
+        bankBButton.setColour(juce::TextButton::buttonColourId, colors.bankB);
+        bankCButton.setColour(juce::TextButton::buttonColourId, colors.bankC);
+        bankDButton.setColour(juce::TextButton::buttonColourId, colors.bankD);
     }
     
-    void updateMovementSpeedDisplay()
-    {
-        juce::String speedText;
-        if (keyboardMovementRate == -1)
-            speedText = "Keyboard Speed: 100% (instant) (Z/X to adjust)";
-        else
-            speedText = "Keyboard Speed: " + juce::String((int)keyboardMovementRate) + " units/sec (Z/X to adjust)";
-        movementSpeedLabel.setText(speedText, juce::dontSendNotification);
-    }
     
     void updateMidiTrackingDisplay()
     {
@@ -911,13 +884,6 @@ private:
         updateMidiTrackingDisplay();
     }
     
-    bool isTextEditorFocused()
-    {
-        // Check if any text editor in the application currently has focus
-        auto* focusedComponent = juce::Component::getCurrentlyFocusedComponent();
-        return (focusedComponent != nullptr && 
-                dynamic_cast<juce::TextEditor*>(focusedComponent) != nullptr);
-    }
     
     void updateSliderSettings()
     {
@@ -976,8 +942,7 @@ private:
         if (isInLearnMode)
         {
             isInLearnMode = false;
-            isLearningMode = false;
-            learnTargetSlider = -1;
+            midi7BitController.stopLearnMode();
             learnButton.setButtonText("Learn");
             learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkblue);
             midiLearnWindow.setVisible(false);
@@ -999,7 +964,7 @@ private:
         if (auto* topLevel = getTopLevelComponent())
         {
             // Calculate target window width: content area + settings panel (if open)
-            int contentAreaWidth = isEightSliderMode ? 970 : 490;
+            int contentAreaWidth = bankManager.isEightSliderMode() ? 970 : 490;
             int targetWidth = isInSettingsMode ? (contentAreaWidth + SETTINGS_PANEL_WIDTH) : contentAreaWidth;
             
             // Resize window instantly
@@ -1023,30 +988,11 @@ private:
     
     void toggleSliderMode()
     {
-        // Toggle mode state first
-        isEightSliderMode = !isEightSliderMode;
+        // Toggle mode state through bank manager
+        bankManager.setSliderMode(!bankManager.isEightSliderMode());
         
         // Update button text
-        modeButton.setButtonText(isEightSliderMode ? "8" : "4");
-        
-        // Calculate target window width BEFORE updating layout
-        int contentWidth = isEightSliderMode ? 970 : 490;
-        int settingsWidth = isInSettingsMode ? 350 : 0;
-        int targetWidth = contentWidth + settingsWidth;
-        
-        // Update constrainer limits BEFORE resizing window
-        updateWindowConstraints();
-        
-        // Force window resize immediately
-        if (auto* topLevel = getTopLevelComponent())
-        {
-            topLevel->setSize(targetWidth, topLevel->getHeight());
-        }
-        
-        // Update slider visibility and layout after window resize
-        updateSliderVisibility();
-        updateBankButtonStates();
-        resized();
+        modeButton.setButtonText(bankManager.isEightSliderMode() ? "8" : "4");
     }
     
     
@@ -1059,7 +1005,7 @@ private:
                 if (auto* constrainer = documentWindow->getConstrainer())
                 {
                     // Fixed window widths based on mode
-                    int fixedWidth = isEightSliderMode ? 970 : 490;
+                    int fixedWidth = bankManager.isEightSliderMode() ? 970 : 490;
                     
                     if (isInSettingsMode || isInLearnMode)
                     {
@@ -1122,289 +1068,8 @@ private:
         return preset;
     }
     
-    void setBank(int bank)
-    {
-        if (isEightSliderMode)
-        {
-            // In 8-slider mode, clicking a bank switches to its pair
-            if (bank <= 1)
-                currentBank = 0; // Clicking A or B shows A+B pair
-            else
-                currentBank = 2; // Clicking C or D shows C+D pair
-        }
-        else
-        {
-            // In 4-slider mode, show the individual bank
-            currentBank = bank;
-        }
-        
-        updateSliderVisibility();
-        updateBankButtonStates();
-        resized(); // Re-layout
-    }
     
-    void initializeMidiOutput()
-    {
-        auto midiDevices = juce::MidiOutput::getAvailableDevices();
-        
-        if (!midiDevices.isEmpty())
-        {
-            midiOutput = juce::MidiOutput::openDevice(midiDevices[0].identifier);
-        }
-        else
-        {
-            // Create virtual MIDI output
-            midiOutput = juce::MidiOutput::createNewDevice("JUCE Virtual Controller");
-        }
-        
-        if (midiOutput)
-            midiOutput->startBackgroundThread();
-    }
     
-    void initializeMidiInput()
-    {
-        // Initialize MIDI input system
-        // Actual device connection is handled by selectMidiInputDevice()
-        DBG("MIDI Input system initialized. Use device selection to connect.");
-    }
-    
-    void selectMidiInputDevice(const juce::String& deviceName)
-    {
-        DBG("Selecting MIDI input device: " << deviceName);
-        
-        // Disconnect current device
-        if (midiInput)
-        {
-            midiInput->stop();
-            midiInput.reset();
-            DBG("Disconnected previous MIDI input device");
-        }
-        
-        // Handle "None" selection
-        if (deviceName == "None (Disable MIDI Input)" || deviceName == "None")
-        {
-            selectedMidiDeviceName = "None";
-            midiLearnWindow.setConnectionStatus("None", true);
-            saveMidiDevicePreference();
-            DBG("MIDI input disabled");
-            return;
-        }
-        
-        // Find and connect to selected device
-        auto midiDevices = juce::MidiInput::getAvailableDevices();
-        bool deviceFound = false;
-        
-        for (const auto& device : midiDevices)
-        {
-            if (device.name == deviceName)
-            {
-                try
-                {
-                    midiInput = juce::MidiInput::openDevice(device.identifier, this);
-                    
-                    if (midiInput)
-                    {
-                        midiInput->start();
-                        selectedMidiDeviceName = deviceName;
-                        midiLearnWindow.setConnectionStatus(deviceName, true);
-                        saveMidiDevicePreference();
-                        deviceFound = true;
-                        DBG("Successfully connected to MIDI device: " << deviceName);
-                    }
-                    else
-                    {
-                        midiLearnWindow.setConnectionStatus(deviceName, false);
-                        DBG("Failed to open MIDI device: " << deviceName);
-                    }
-                }
-                catch (const std::exception& e)
-                {
-                    DBG("Exception opening MIDI device " << deviceName << ": " << e.what());
-                    midiLearnWindow.setConnectionStatus(deviceName, false);
-                }
-                break;
-            }
-        }
-        
-        if (!deviceFound)
-        {
-            DBG("MIDI device not found: " << deviceName);
-            midiLearnWindow.setConnectionStatus(deviceName + " (Not Found)", false);
-        }
-    }
-    
-    void saveMidiDevicePreference()
-    {
-        // Save to preferences using the same PresetManager system
-        auto presetDir = settingsWindow.getPresetManager().getPresetDirectory();
-        auto prefFile = presetDir.getChildFile("midi_device_preference.txt");
-        
-        try
-        {
-            prefFile.replaceWithText(selectedMidiDeviceName);
-            DBG("Saved MIDI device preference: " << selectedMidiDeviceName);
-        }
-        catch (const std::exception& e)
-        {
-            DBG("Failed to save MIDI device preference: " << e.what());
-        }
-    }
-    
-    void loadMidiDevicePreference()
-    {
-        auto presetDir = settingsWindow.getPresetManager().getPresetDirectory();
-        auto prefFile = presetDir.getChildFile("midi_device_preference.txt");
-        
-        if (prefFile.exists())
-        {
-            auto savedDevice = prefFile.loadFileAsString().trim();
-            if (savedDevice.isNotEmpty())
-            {
-                selectedMidiDeviceName = savedDevice;
-                DBG("Loaded MIDI device preference: " << savedDevice);
-                
-                // Restore device selection in UI and connect
-                midiLearnWindow.setSelectedDevice(savedDevice);
-                selectMidiInputDevice(savedDevice);
-            }
-        }
-        else
-        {
-            DBG("No saved MIDI device preference found");
-        }
-    }
-    
-    void sendMidiCC(int sliderIndex, int value14bit)
-    {
-        if (!midiOutput) return;
-        
-        // Use settings from settings window
-        int midiChannel = settingsWindow.getMidiChannel();
-        int ccNumber = settingsWindow.getCCNumber(sliderIndex);
-        
-        // Convert 14-bit value to MSB and LSB
-        int msb = (value14bit >> 7) & 0x7F;
-        int lsb = value14bit & 0x7F;
-        
-        // Send MSB
-        juce::MidiMessage msbMessage = juce::MidiMessage::controllerEvent(midiChannel, ccNumber, msb);
-        midiOutput->sendMessageNow(msbMessage);
-        
-        // Send LSB
-        if (ccNumber < 96)
-        {
-            juce::MidiMessage lsbMessage = juce::MidiMessage::controllerEvent(midiChannel, ccNumber + 32, lsb);
-            midiOutput->sendMessageNow(lsbMessage);
-        }
-        
-        // Trigger MIDI activity indicator AFTER successful MIDI send
-        if (sliderIndex < sliderControls.size())
-            sliderControls[sliderIndex]->triggerMidiActivity();
-    }
-    
-    // MidiInputCallback implementation for 7-bit to 14-bit control
-    void handleIncomingMidiMessage(juce::MidiInput* source, const juce::MidiMessage& message) override
-    {
-        if (message.isController())
-        {
-            int channel = message.getChannel();
-            int ccNumber = message.getControllerNumber();
-            int ccValue = message.getControllerValue();
-            int ourOutputChannel = settingsWindow.getMidiChannel();
-            
-            // DEBUG: Log all incoming MIDI messages
-            DBG("MIDI IN: Ch=" << channel << " CC=" << ccNumber << " Val=" << ccValue 
-                << " (ourCh=" << ourOutputChannel << " learn=" << (int)isLearningMode 
-                << " target=" << learnTargetSlider << ")");
-            
-            // === MIDI FEEDBACK PREVENTION ===
-            // The app outputs MIDI on 'ourOutputChannel', so we must prevent processing
-            // incoming MIDI on the same channel to avoid feedback loops where:
-            // Slider A sends CC -> MIDI loopback -> Slider B receives same CC -> moves Slider B
-            
-            // LEARN MODE: Process on ANY channel (hardware controllers use different channels)
-            if (isLearningMode && learnTargetSlider != -1)
-            {
-                DBG("LEARN MODE: Processing CC " << ccNumber << " from channel " << channel);
-                juce::MessageManager::callAsync([this, ccNumber, ccValue, channel]() {
-                    handleLearnMode(ccNumber, ccValue, channel);
-                });
-                return; // Early return - learn mode takes priority
-            }
-            
-            // 1. Activity Indicator: Only flash for external channels (not our output channel)
-            if (channel != ourOutputChannel)
-            {
-                juce::MessageManager::callAsync([this]() {
-                    midiInputActivity = true;
-                    lastMidiInputTime = juce::Time::getMillisecondCounterHiRes();
-                    if (!isTimerRunning())
-                        startTimer(16);
-                    repaint();
-                });
-                
-                // 2. External Channel Processing: Process MIDI from external channels normally
-                process7BitControl(ccNumber, ccValue);
-            }
-            
-            // 3. Our Channel: Block all normal slider control to prevent feedback loops
-            // (Learn mode was already handled above)
-        }
-    }
-    
-    void process7BitControl(int ccNumber, int ccValue)
-    {
-        DBG("process7BitControl: CC=" << ccNumber << " Val=" << ccValue << " (learn mode: " << (int)isLearningMode << ")");
-        
-        // Find which slider this CC number maps to
-        int sliderIndex = findSliderIndexForCC(ccNumber);
-        if (sliderIndex == -1) 
-        {
-            DBG("No slider mapped to CC " << ccNumber);
-            return;
-        }
-        
-        DBG("Found slider " << sliderIndex << " for CC " << ccNumber);
-        
-        // Move all UI-related processing to the message thread
-        juce::MessageManager::callAsync([this, sliderIndex, ccNumber, ccValue]() {
-            // Update MIDI tracking display
-            updateMidiTooltip(sliderIndex, settingsWindow.getMidiChannel(), ccNumber, ccValue);
-            
-            // Check if slider is locked
-            if (sliderIndex < sliderControls.size() && sliderControls[sliderIndex]->isLocked())
-                return;
-            
-            auto& controlState = midi7BitStates[sliderIndex];
-            controlState.lastCCValue = ccValue;
-            controlState.lastUpdateTime = juce::Time::getMillisecondCounterHiRes();
-            controlState.isActive = true;
-            
-            // Check if we're in the deadzone (58-68)
-            if (ccValue >= 58 && ccValue <= 68)
-            {
-                // Stop continuous movement
-                controlState.isMoving = false;
-                controlState.movementSpeed = 0.0;
-            }
-            else
-            {
-                // Calculate movement speed based on distance from center
-                double distanceFromCenter = calculateDistanceFromCenter(ccValue);
-                controlState.movementSpeed = calculateExponentialSpeed(distanceFromCenter);
-                controlState.movementDirection = (ccValue > 68) ? 1.0 : -1.0;
-                controlState.isMoving = true;
-                
-                // Start continuous movement timer if not already running
-                if (!continuousMovementTimer.isTimerRunning())
-                    continuousMovementTimer.startTimer(16); // ~60fps
-            }
-            
-            // Trigger activity indicator
-            if (sliderIndex < sliderControls.size())
-                sliderControls[sliderIndex]->triggerMidiActivity();
-        });
-    }
     
     void processMidiMSB(int sliderIndex, int ccNumber, int msbValue)
     {
@@ -1485,107 +1150,8 @@ private:
         }
     }
     
-    int findSliderIndexForCC(int ccNumber)
-    {
-        // DEBUG: Show current mappings
-        DBG("Looking for CC " << ccNumber << " in learned mappings:");
-        for (int i = 0; i < 16; ++i)
-        {
-            if (learnedCCMappings[i] != -1)
-            {
-                DBG("  Slider " << i << " -> CC " << learnedCCMappings[i]);
-            }
-        }
-        
-        // Only check learned 7-bit mappings for now (simplified)
-        for (int i = 0; i < 16; ++i)
-        {
-            if (learnedCCMappings[i] == ccNumber)
-            {
-                DBG("Found match: CC " << ccNumber << " -> Slider " << i);
-                return i;
-            }
-        }
-        
-        DBG("No mapping found for CC " << ccNumber);
-        return -1; // Not found
-    }
     
-    // 7-bit to 14-bit control helper methods
-    double calculateDistanceFromCenter(int ccValue)
-    {
-        // Center of deadzone is 63 (middle of 58-68)
-        const int deadzoneCenter = 63;
-        
-        if (ccValue >= 58 && ccValue <= 68)
-            return 0.0; // In deadzone
-        
-        if (ccValue > 68)
-            return (ccValue - 68) / 59.0; // Distance from upper deadzone edge (normalized 0-1)
-        else
-            return (58 - ccValue) / 58.0; // Distance from lower deadzone edge (normalized 0-1)
-    }
     
-    double calculateExponentialSpeed(double distance)
-    {
-        // Exponential speed curve: slow near deadzone, fast at extremes
-        // Base speed is 50 units/second, max speed is 8000 units/second
-        const double baseSpeed = 50.0;
-        const double maxSpeed = 8000.0;
-        const double exponent = 3.0; // Cubic curve for smooth acceleration
-        
-        double normalizedSpeed = std::pow(distance, exponent);
-        return baseSpeed + (normalizedSpeed * (maxSpeed - baseSpeed));
-    }
-    
-    void handleLearnMode(int ccNumber, int ccValue, int channel)
-    {
-        DBG("handleLearnMode called: CC=" << ccNumber << " Val=" << ccValue 
-            << " Ch=" << channel << " targetSlider=" << learnTargetSlider);
-            
-        if (learnTargetSlider != -1)
-        {
-            DBG("Creating mapping: Slider " << learnTargetSlider << " -> CC " << ccNumber);
-            
-            // Map this CC to the target slider
-            learnedCCMappings[learnTargetSlider] = ccNumber;
-            DBG("Updated learnedCCMappings[" << learnTargetSlider << "] = " << ccNumber);
-            
-            // Store the slider index for the success message (before resetting)
-            int mappedSliderIndex = learnTargetSlider;
-            
-            // Reset learn state but keep window open
-            learnTargetSlider = -1;
-            
-            // All UI updates must be on the message thread
-            juce::MessageManager::callAsync([this, mappedSliderIndex, channel, ccNumber]() {
-                // Clear markers
-                if (mappedSliderIndex < sliderControls.size())
-                {
-                    sliderControls[mappedSliderIndex]->setShowLearnMarkers(false);
-                    DBG("Cleared learn markers for slider " << mappedSliderIndex);
-                }
-                
-                // Add mapping to learn window (use the actual channel from hardware)
-                midiLearnWindow.addMapping(mappedSliderIndex, channel, ccNumber);
-                DBG("Called midiLearnWindow.addMapping(" << mappedSliderIndex << ", " << channel << ", " << ccNumber << ")");
-                
-                // Reset learn button state
-                learnButton.setButtonText("Select Slider");
-                learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::orange);
-                DBG("Reset learn state");
-                
-                // Show success feedback
-                juce::String message = "Mapped CC " + juce::String(ccNumber) + " (Ch " + juce::String(channel) + ") to Slider " + juce::String(mappedSliderIndex + 1);
-                juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "MIDI Learn", message);
-                DBG("Showing success message: " << message);
-            });
-        }
-        else
-        {
-            DBG("handleLearnMode called but learnTargetSlider is -1 (no slider selected)");
-        }
-    }
     
     void toggleLearnMode()
     {
@@ -1602,8 +1168,8 @@ private:
         if (isInLearnMode)
         {
             // Enter learn mode - show MIDI learn window
-            isLearningMode = true;
-            DBG("Entered learn mode: isLearningMode=" << (int)isLearningMode);
+            midi7BitController.startLearnMode();
+            DBG("Entered learn mode: isLearningMode=" << (int)midi7BitController.isInLearnMode());
             learnButton.setButtonText("Exit Learn");
             learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::orange);
             
@@ -1612,7 +1178,7 @@ private:
             
             if (auto* topLevel = getTopLevelComponent())
             {
-                int contentAreaWidth = isEightSliderMode ? 970 : 490;
+                int contentAreaWidth = bankManager.isEightSliderMode() ? 970 : 490;
                 int targetWidth = contentAreaWidth + SETTINGS_PANEL_WIDTH;
                 topLevel->setSize(targetWidth, topLevel->getHeight());
                 
@@ -1623,9 +1189,8 @@ private:
         else
         {
             // Exit learn mode
-            isLearningMode = false;
-            learnTargetSlider = -1;
-            DBG("Exited learn mode: isLearningMode=" << (int)isLearningMode);
+            midi7BitController.stopLearnMode();
+            DBG("Exited learn mode: isLearningMode=" << (int)midi7BitController.isInLearnMode());
             learnButton.setButtonText("Learn");
             learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkblue);
             
@@ -1639,7 +1204,7 @@ private:
             updateWindowConstraints();
             if (auto* topLevel = getTopLevelComponent())
             {
-                int contentAreaWidth = isEightSliderMode ? 970 : 490;
+                int contentAreaWidth = bankManager.isEightSliderMode() ? 970 : 490;
                 topLevel->setSize(contentAreaWidth, topLevel->getHeight());
             }
         }
@@ -1649,60 +1214,6 @@ private:
     
     // Note: Complex CC-based filtering removed in favor of simple channel-based approach
     
-    void processContinuousMovement()
-    {
-        // Safety check: don't process if component is being destroyed
-        if (sliderControls.size() == 0)
-            return;
-            
-        bool anySliderMoving = false;
-        double currentTime = juce::Time::getMillisecondCounterHiRes();
-        
-        for (int i = 0; i < 16; ++i)
-        {
-            auto& state = midi7BitStates[i];
-            
-            if (state.isMoving && state.isActive)
-            {
-                // Check if we've timed out (no new CC messages)
-                if (currentTime - state.lastUpdateTime > 100.0) // 100ms timeout
-                {
-                    state.isMoving = false;
-                    state.isActive = false;
-                    continue;
-                }
-                
-                // Check if slider is locked
-                if (i < sliderControls.size() && sliderControls[i]->isLocked())
-                    continue;
-                
-                anySliderMoving = true;
-                
-                // Calculate movement delta (speed is in units per second)
-                double deltaTime = 1.0 / 60.0; // 60fps
-                double movementDelta = state.movementSpeed * deltaTime * state.movementDirection;
-                
-                // Get current slider value and apply movement
-                if (i < sliderControls.size())
-                {
-                    auto* slider = sliderControls[i];
-                    double currentValue = slider->getValue();
-                    double newValue = juce::jlimit(0.0, 16383.0, currentValue + movementDelta);
-                    
-                    // Update slider value and trigger MIDI output (like keyboard control)
-                    slider->setValueFromKeyboard(newValue);
-                }
-            }
-        }
-        
-        // Stop timer if no sliders are moving (thread-safe)
-        if (!anySliderMoving)
-        {
-            juce::MessageManager::callAsync([this]() {
-                continuousMovementTimer.stopTimer();
-            });
-        }
-    }
     
     juce::OwnedArray<SimpleSliderControl> sliderControls;
     juce::TextButton settingsButton;
@@ -1713,11 +1224,10 @@ private:
     MidiLearnWindow midiLearnWindow;
     juce::Label movementSpeedLabel;
     juce::Label windowSizeLabel;
-    std::unique_ptr<juce::MidiOutput> midiOutput;
-    std::unique_ptr<juce::MidiInput> midiInput;
-    juce::String selectedMidiDeviceName;
-    int currentBank = 0;
-    bool isEightSliderMode = false;
+    MidiManager midiManager;
+    KeyboardController keyboardController;
+    BankManager bankManager;
+    Midi7BitController midi7BitController;
     bool isInSettingsMode = false;
     bool isInLearnMode = false;
     
@@ -1725,11 +1235,6 @@ private:
     static constexpr int SLIDER_GAP = 10; // Gap between sliders
     static constexpr int SETTINGS_PANEL_WIDTH = 350; // Width of settings panel
     
-    // Keyboard control members
-    std::vector<KeyboardMapping> keyboardMappings;
-    std::vector<int> movementRates;
-    int currentRateIndex = 2;
-    double keyboardMovementRate = 50.0; // MIDI units per second
     
     // MIDI Input handling
     struct MidiCCState
@@ -1745,49 +1250,8 @@ private:
     std::array<MidiCCState, 16> midiCCStates; // State for each slider
     static constexpr double MIDI_PAIR_TIMEOUT = 50.0; // milliseconds
     
-    // 7-bit to 14-bit control system
-    struct Midi7BitControlState
-    {
-        int lastCCValue = 63; // Default to deadzone center
-        double lastUpdateTime = 0.0;
-        double movementSpeed = 0.0;
-        double movementDirection = 0.0;
-        bool isMoving = false;
-        bool isActive = false;
-    };
-    
-    std::array<Midi7BitControlState, 16> midi7BitStates;
-    std::array<int, 16> learnedCCMappings; // CC mappings for each slider (-1 = not mapped)
-    bool isLearningMode = false;
-    int learnTargetSlider = -1;
-    
-    // Continuous movement timer
-    class ContinuousMovementTimer : public juce::Timer
-    {
-    public:
-        ContinuousMovementTimer(DebugMidiController& owner) : owner(owner) {}
-        
-        ~ContinuousMovementTimer()
-        {
-            stopTimer();
-        }
-        
-        void timerCallback() override
-        {
-            // Safety check: verify owner is still valid
-            if (&owner != nullptr)
-                owner.processContinuousMovement();
-        }
-        
-    private:
-        DebugMidiController& owner;
-    };
-    
-    ContinuousMovementTimer continuousMovementTimer;
     
     // MIDI input activity indicator
-    bool midiInputActivity = false;
-    double lastMidiInputTime = 0.0;
     juce::Rectangle<float> midiInputIndicatorBounds;
     static constexpr double MIDI_INPUT_ACTIVITY_DURATION = 150.0; // milliseconds
     

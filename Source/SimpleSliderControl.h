@@ -5,6 +5,7 @@
 #include "CustomKnob.h"
 #include "CustomLEDInput.h"
 #include "Custom3DButton.h"
+#include "Core/AutomationEngine.h"
 
 //==============================================================================
 // Custom clickable label for lock functionality
@@ -43,7 +44,7 @@ public:
         
         // Safe callback - update label and send MIDI
         mainSlider.onValueChange = [this]() {
-            if (!isAutomating) // Only update if not currently automating
+            if (!automationEngine.isSliderAutomating(index)) // Only update if not currently automating
             {
                 int value = (int)mainSlider.getValue();
                 updateDisplayValue();
@@ -60,12 +61,9 @@ public:
             // Check if locked - prevent manual dragging
             if (lockState) return;
             
-            if (isAutomating)
+            if (automationEngine.isSliderAutomating(index))
             {
-                stopTimer();
-                isAutomating = false;
-                isReturning = false; // Reset return phase flag
-                goButton3D.setButtonText("GO");
+                automationEngine.handleManualOverride(index);
             }
         };
         
@@ -115,8 +113,8 @@ public:
         // 3D GO button with automation functionality
         addAndMakeVisible(goButton3D);
         goButton3D.onClick = [this]() { 
-            if (isAutomating)
-                stopAutomation();
+            if (automationEngine.isSliderAutomating(index))
+                automationEngine.stopAutomation(index);
             else
                 startAutomation();
         };
@@ -124,11 +122,15 @@ public:
         // Initialize display with default range
         updateDisplayValue();
         updateTargetDisplayValue();
+        
+        // Set up automation engine callbacks
+        setupAutomationEngine();
     }
     
     ~SimpleSliderControl()
     {
-        // CRITICAL: Stop timer before destruction
+        // CRITICAL: Stop automation and timer before destruction
+        automationEngine.stopAutomation(index);
         stopTimer();
         
         // CRITICAL: Remove look and feel before destruction
@@ -358,69 +360,10 @@ public:
         repaint(); // Immediate visual feedback
     }
     
-    // Timer callback for automation and MIDI activity timeout
+    // Timer callback for MIDI activity timeout only
     void timerCallback() override
     {
         double currentTime = juce::Time::getMillisecondCounterHiRes();
-        
-        // Handle automation with three phases: delay, attack, return
-        if (isAutomating)
-        {
-            double elapsed = (currentTime - automationStartTime) / 1000.0;
-            
-            if (elapsed < delayTime)
-            {
-                // DELAY PHASE: Still waiting
-                // Button shows "STOP" throughout automation
-            }
-            else if (elapsed < delayTime + attackTime)
-            {
-                // ATTACK PHASE: Move from start to target with curve applied
-                double attackElapsed = elapsed - delayTime;
-                double progress = attackElapsed / attackTime;
-                double curvedProgress = applyCurve(progress, curveKnob.getValue());
-                double currentValue = startMidiValue + (targetMidiValue - startMidiValue) * curvedProgress;
-                
-                mainSlider.setValue(currentValue, juce::dontSendNotification);
-                updateDisplayValue();
-                if (sendMidiCallback)
-                    sendMidiCallback(index, (int)currentValue);
-            }
-            else if (returnTime > 0.0 && elapsed < delayTime + attackTime + returnTime)
-            {
-                // RETURN PHASE: Move from target back to original
-                if (!isReturning)
-                {
-                    isReturning = true;
-                }
-                
-                double returnElapsed = elapsed - delayTime - attackTime;
-                double progress = returnElapsed / returnTime;
-                double invertedCurve = 2.0 - curveKnob.getValue(); // Invert curve for return phase
-                double curvedProgress = applyCurve(progress, invertedCurve);
-                double currentValue = targetMidiValue + (originalValue - targetMidiValue) * curvedProgress;
-                
-                mainSlider.setValue(currentValue, juce::dontSendNotification);
-                updateDisplayValue();
-                if (sendMidiCallback)
-                    sendMidiCallback(index, (int)currentValue);
-            }
-            else
-            {
-                // AUTOMATION COMPLETE
-                // If we had a return phase, end at original value; otherwise end at target
-                double finalValue = (returnTime > 0.0) ? originalValue : targetMidiValue;
-                
-                mainSlider.setValue(finalValue, juce::dontSendNotification);
-                updateDisplayValue();
-                if (sendMidiCallback)
-                    sendMidiCallback(index, (int)finalValue);
-                
-                isAutomating = false;
-                isReturning = false;
-                goButton3D.setButtonText("GO");
-            }
-        }
         
         // Handle MIDI activity timeout
         if (midiActivityState && (currentTime - lastMidiSendTime) > MIDI_ACTIVITY_DURATION)
@@ -430,7 +373,7 @@ public:
         }
         
         // Stop timer if no longer needed
-        if (!isAutomating && !midiActivityState)
+        if (!midiActivityState)
         {
             stopTimer();
         }
@@ -523,20 +466,26 @@ public:
     }
     
 private:
-    double applyCurve(double progress, double curveValue)
+    void setupAutomationEngine()
     {
-        if (curveValue < 1.0)
-        {
-            // Exponential (0.0 to 1.0)
-            double factor = curveValue; // 0.0 = full exponential, 1.0 = linear
-            return std::pow(progress, 2.0 - factor);
-        }
-        else
-        {
-            // Logarithmic (1.0 to 2.0)  
-            double factor = curveValue - 1.0; // 0.0 = linear, 1.0 = full logarithmic
-            return std::pow(progress, 1.0 - factor);
-        }
+        // Set up automation value update callback
+        automationEngine.onValueUpdate = [this](int sliderIndex, double newValue) {
+            if (sliderIndex == index)
+            {
+                mainSlider.setValue(newValue, juce::dontSendNotification);
+                updateDisplayValue();
+                if (sendMidiCallback)
+                    sendMidiCallback(index, (int)newValue);
+            }
+        };
+        
+        // Set up automation state change callback
+        automationEngine.onAutomationStateChanged = [this](int sliderIndex, bool isAutomating) {
+            if (sliderIndex == index)
+            {
+                goButton3D.setButtonText(isAutomating ? "STOP" : "GO");
+            }
+        };
     }
     
     void drawDirectionalArrow(juce::Graphics& g)
@@ -672,56 +621,26 @@ private:
     
     void startAutomation()
     {
-        if (isAutomating) return;
+        if (automationEngine.isSliderAutomating(index)) return;
         
         validateTargetValue();
         double targetDisplayValue = targetLEDInput.getValidatedValue();
-        targetMidiValue = displayToMidiValue(targetDisplayValue);
+        double targetMidiValue = displayToMidiValue(targetDisplayValue);
+        double startMidiValue = mainSlider.getValue();
         
-        startMidiValue = mainSlider.getValue();
-        originalValue = startMidiValue; // Store original value for return phase
+        // Set up automation parameters
+        AutomationEngine::AutomationParams params;
+        params.delayTime = delayKnob.getValue();
+        params.attackTime = attackKnob.getValue();
+        params.returnTime = returnKnob.getValue();
+        params.curveValue = curveKnob.getValue();
+        params.startValue = startMidiValue;
+        params.targetValue = targetMidiValue;
         
-        if (std::abs(targetMidiValue - startMidiValue) < 1.0)
-        {
-            return; // Already at target
-        }
-        
-        delayTime = delayKnob.getValue();
-        attackTime = attackKnob.getValue();
-        returnTime = returnKnob.getValue();
-        isReturning = false; // Reset return phase flag
-        
-        if (attackTime <= 0.0)
-        {
-            // Instant change
-            mainSlider.setValue(targetMidiValue, juce::dontSendNotification);
-            updateDisplayValue();
-            if (sendMidiCallback)
-                sendMidiCallback(index, (int)targetMidiValue);
-            return;
-        }
-        
-        isAutomating = true;
-        automationStartTime = juce::Time::getMillisecondCounterHiRes();
-        
-        // Set button text to STOP during automation
-        goButton3D.setButtonText("STOP");
-        
-        startTimer(16); // ~60fps updates
+        // Start automation through engine
+        automationEngine.startAutomation(index, params);
     }
     
-    void stopAutomation()
-    {
-        if (!isAutomating) return;
-        
-        isAutomating = false;
-        isReturning = false; // Reset return phase flag
-        goButton3D.setButtonText("GO");
-        
-        // Stop the timer if not needed for MIDI activity
-        if (!midiActivityState)
-            stopTimer();
-    }
     
     int index;
     std::function<void(int, int)> sendMidiCallback;
@@ -733,17 +652,9 @@ private:
     CustomKnob attackKnob, delayKnob, returnKnob, curveKnob;
     CustomLEDInput targetLEDInput;
     Custom3DButton goButton3D;
+    AutomationEngine automationEngine;
     
-    bool isAutomating = false;
     bool lockState = false; // Lock state for manual controls
-    double automationStartTime = 0.0;
-    double startMidiValue = 0.0;
-    double targetMidiValue = 0.0;
-    double originalValue = 0.0; // Value at start of automation (for return phase)
-    double delayTime = 0.0;
-    double attackTime = 0.0;
-    double returnTime = 0.0;
-    bool isReturning = false; // Flag for return phase
     
     // Display mapping variables
     double displayMin = 0.0;
