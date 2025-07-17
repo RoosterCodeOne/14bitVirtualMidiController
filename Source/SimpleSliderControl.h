@@ -6,6 +6,7 @@
 #include "CustomLEDInput.h"
 #include "Custom3DButton.h"
 #include "Core/AutomationEngine.h"
+#include "Core/SliderDisplayManager.h"
 
 //==============================================================================
 // Custom clickable label for lock functionality
@@ -47,7 +48,7 @@ public:
             if (!automationEngine.isSliderAutomating(index)) // Only update if not currently automating
             {
                 int value = (int)mainSlider.getValue();
-                updateDisplayValue();
+                displayManager.setMidiValue(value);
                 if (sendMidiCallback)
                     sendMidiCallback(index, value);
                 // Trigger parent repaint to update visual thumb position
@@ -119,9 +120,8 @@ public:
                 startAutomation();
         };
         
-        // Initialize display with default range
-        updateDisplayValue();
-        updateTargetDisplayValue();
+        // Set up display manager callbacks
+        setupDisplayManager();
         
         // Set up automation engine callbacks
         setupAutomationEngine();
@@ -293,8 +293,8 @@ public:
     void setValue(double newValue)
     {
         mainSlider.setValue(newValue, juce::dontSendNotification);
-        updateDisplayValue();
-        updateTargetDisplayValue();
+        displayManager.setMidiValue(newValue);
+        targetLEDInput.setValidatedValue(displayManager.getDisplayValue());
     }
     
     bool isLocked() const { return lockState; }
@@ -318,11 +318,9 @@ public:
     // Set custom display range - this is the key method for display mapping
     void setDisplayRange(double minVal, double maxVal)
     {
-        displayMin = minVal;
-        displayMax = maxVal;
+        displayManager.setDisplayRange(minVal, maxVal);
         targetLEDInput.setValidRange(minVal, maxVal);
-        updateDisplayValue();
-        updateTargetDisplayValue();
+        targetLEDInput.setValidatedValue(displayManager.getDisplayValue());
     }
     
     // Set slider color
@@ -353,29 +351,26 @@ public:
         midiActivityState = true;
         lastMidiSendTime = juce::Time::getMillisecondCounterHiRes();
         
-        // Start timer if not already running (for activity timeout)
-        if (!isTimerRunning())
-            startTimer(16); // ~60fps for smooth timeout
-            
+        // Always restart timer for clean timeout behavior
+        startTimer(16); // ~60fps for smooth timeout
+        
         repaint(); // Immediate visual feedback
     }
     
     // Timer callback for MIDI activity timeout only
     void timerCallback() override
     {
-        double currentTime = juce::Time::getMillisecondCounterHiRes();
+        if (!midiActivityState) return;
         
-        // Handle MIDI activity timeout
-        if (midiActivityState && (currentTime - lastMidiSendTime) > MIDI_ACTIVITY_DURATION)
+        double currentTime = juce::Time::getMillisecondCounterHiRes();
+        double elapsed = currentTime - lastMidiSendTime;
+        
+        // Check for timeout
+        if (elapsed > MIDI_ACTIVITY_DURATION)
         {
             midiActivityState = false;
-            repaint(); // Redraw to show inactive state
-        }
-        
-        // Stop timer if no longer needed
-        if (!midiActivityState)
-        {
             stopTimer();
+            repaint(); // Redraw to show inactive state
         }
     }
     
@@ -429,7 +424,7 @@ public:
     void setValueFromKeyboard(double newValue)
     {
         mainSlider.setValue(newValue, juce::dontSendNotification);
-        updateDisplayValue();
+        displayManager.setMidiValue(newValue);
         if (sendMidiCallback)
             sendMidiCallback(index, (int)newValue);
     }
@@ -438,7 +433,7 @@ public:
     void setValueFromMIDI(double newValue)
     {
         mainSlider.setValue(newValue, juce::dontSendNotification);
-        updateDisplayValue();
+        displayManager.setMidiValue(newValue);
         // Note: No sendMidiCallback to prevent feedback loops
         
         // Trigger activity indicator to show MIDI input activity
@@ -466,6 +461,20 @@ public:
     }
     
 private:
+    void setupDisplayManager()
+    {
+        // Set up display manager callbacks
+        displayManager.onDisplayTextChanged = [this](const juce::String& text) {
+            currentValueLabel.setText(text, juce::dontSendNotification);
+        };
+        
+        // Initialize display with current slider value
+        displayManager.setMidiValue(mainSlider.getValue());
+        
+        // Initialize target LED input with current display value
+        targetLEDInput.setValidatedValue(displayManager.getDisplayValue());
+    }
+    
     void setupAutomationEngine()
     {
         // Set up automation value update callback
@@ -473,7 +482,7 @@ private:
             if (sliderIndex == index)
             {
                 mainSlider.setValue(newValue, juce::dontSendNotification);
-                updateDisplayValue();
+                displayManager.setMidiValue(newValue);
                 if (sendMidiCallback)
                     sendMidiCallback(index, (int)newValue);
             }
@@ -572,45 +581,6 @@ private:
         g.fillRect(bounds.getRight() - markerThickness, bounds.getBottom() - markerSize, markerThickness, markerSize);
     }
     
-    // Convert MIDI value (0-16383) to display value based on custom range
-    double midiToDisplayValue(double midiValue) const
-    {
-        double normalized = midiValue / 16383.0;
-        return displayMin + (normalized * (displayMax - displayMin));
-    }
-    
-    // Convert display value to MIDI value (0-16383)
-    double displayToMidiValue(double displayValue) const
-    {
-        double normalized = (displayValue - displayMin) / (displayMax - displayMin);
-        return juce::jlimit(0.0, 16383.0, normalized * 16383.0);
-    }
-    
-    void updateDisplayValue()
-    {
-        double midiValue = mainSlider.getValue();
-        double displayValue = midiToDisplayValue(midiValue);
-        
-        // Format the display value nicely
-        juce::String displayText;
-        if (std::abs(displayValue) < 0.01)
-            displayText = "0";
-        else if (std::abs(displayValue - std::round(displayValue)) < 0.01)
-            displayText = juce::String((int)std::round(displayValue));
-        else
-            displayText = juce::String(displayValue, 2);
-            
-        currentValueLabel.setText(displayText, juce::dontSendNotification);
-    }
-    
-    void updateTargetDisplayValue()
-    {
-        // Update the target input to show the current value in display range
-        double midiValue = mainSlider.getValue();
-        double displayValue = midiToDisplayValue(midiValue);
-        
-        targetLEDInput.setValidatedValue(displayValue);
-    }
     
     void validateTargetValue()
     {
@@ -625,7 +595,8 @@ private:
         
         validateTargetValue();
         double targetDisplayValue = targetLEDInput.getValidatedValue();
-        double targetMidiValue = displayToMidiValue(targetDisplayValue);
+        displayManager.setTargetDisplayValue(targetDisplayValue);
+        double targetMidiValue = displayManager.getTargetMidiValue();
         double startMidiValue = mainSlider.getValue();
         
         // Set up automation parameters
@@ -653,12 +624,9 @@ private:
     CustomLEDInput targetLEDInput;
     Custom3DButton goButton3D;
     AutomationEngine automationEngine;
+    SliderDisplayManager displayManager;
     
     bool lockState = false; // Lock state for manual controls
-    
-    // Display mapping variables
-    double displayMin = 0.0;
-    double displayMax = 16383.0;
     
     // MIDI activity indicator variables
     bool midiActivityState = false;
