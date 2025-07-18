@@ -95,8 +95,8 @@ private:
         }
         setFont(ledFont);
         
-        // Vintage LED colors - bright green text on dark green/black background
-        setColour(juce::TextEditor::textColourId, juce::Colour(0xFF00FF00)); // Bright green LED
+        // LED colors - white text on dark green/black background
+        setColour(juce::TextEditor::textColourId, juce::Colours::white); // White LED text
         setColour(juce::TextEditor::backgroundColourId, juce::Colour(0xFF001100)); // Very dark green
         setColour(juce::TextEditor::highlightColourId, juce::Colour(0x4000FF00)); // Green highlight
         setColour(juce::TextEditor::outlineColourId, juce::Colours::transparentBlack); // No outline

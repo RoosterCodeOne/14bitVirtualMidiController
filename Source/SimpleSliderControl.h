@@ -89,7 +89,12 @@ public:
         currentValueLabel.setJustificationType(juce::Justification::centred);
         currentValueLabel.setColour(juce::Label::backgroundColourId, juce::Colours::black);
         currentValueLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-        currentValueLabel.setFont(juce::FontOptions(12.0f));
+        // Match LED input font style
+        juce::Font ledFont("Monaco", 12.0f, juce::Font::plain);
+        if (!ledFont.getTypefaceName().contains("Monaco")) {
+            ledFont = juce::Font("Courier New", 12.0f, juce::Font::plain);
+        }
+        currentValueLabel.setFont(ledFont);
         
         // Attack knob (large)
         addAndMakeVisible(attackKnob);
@@ -179,7 +184,7 @@ public:
         
         area.removeFromTop(4); // spacing before value label
         
-        // Current value label - reduced width by 8px (4px each side)
+        // Current value label - restored to original width
         auto labelArea = area.removeFromTop(20);
         auto reducedLabelArea = labelArea.reduced(4, 0); // Reduce width by 4px on each side
         currentValueLabel.setBounds(reducedLabelArea);
@@ -193,42 +198,51 @@ public:
         
         area.removeFromTop(4); // spacing before automation controls
         
-        // New automation layout: GO button, LED input, then knob group
+        // New automation layout: Centered GO button between display and target values
         auto automationArea = area;
         
-        // GO button first - moved 12px to the right for zig-zag layout
-        auto buttonArea = automationArea.removeFromTop(33); // Height for 3D button + spacing (increased by 3px)
-        int buttonX = (buttonArea.getWidth() - 35) / 2 + 12; // Moved 12px to the right
-        goButton3D.setBounds(buttonX, buttonArea.getY() + 5, 35, 25); // Increased top padding by 2px
+        // GO button - centered on slider plate, equidistant from display and target
+        auto buttonArea = automationArea.removeFromTop(33);
+        int buttonX = (buttonArea.getWidth() - 35) / 2; // Centered horizontally
+        goButton3D.setBounds(buttonX, buttonArea.getY() + 5, 35, 25);
         
-        automationArea.removeFromTop(7); // spacing after button (increased by 2px)
+        automationArea.removeFromTop(7); // spacing after button
         
-        // Target LED input - centered horizontally below button
-        auto targetArea = automationArea.removeFromTop(28); // Height for LED input + spacing (increased by 3px)
-        int targetX = (targetArea.getWidth() - 50) / 2;
-        targetLEDInput.setBounds(targetX, targetArea.getY() + 2, 50, 20); // Increased top padding by 2px
+        // Target LED input - centered horizontally below button, same width as display
+        auto targetArea = automationArea.removeFromTop(28);
+        int displayWidth = reducedLabelArea.getWidth(); // Match display value width
+        int targetX = (targetArea.getWidth() - displayWidth) / 2;
+        targetLEDInput.setBounds(targetX, targetArea.getY() + 2, displayWidth, 20);
         
-        automationArea.removeFromTop(7); // spacing after target (increased by 2px)
+        automationArea.removeFromTop(7); // spacing after target
         
-        // Knob group arrangement in vertical zig-zag pattern:
-        // Pattern from top to bottom:
-        // 1. Delay: top-right position
-        // 2. Attack: middle-left position  
-        // 3. Return: middle-right position
-        // 4. Curve: bottom-left position
+        // Knob group arrangement in triangular pattern with separate curve knob:
+        // Triangle: Attack (top, largest), Delay (bottom-left), Return (bottom-right)
+        // Curve: Below triangle, vertically aligned with Attack
         auto knobColumnArea = automationArea;
         
-        // Define column area within automation section - improved spacing for better visibility
-        int leftX = knobColumnArea.getX() + 15;       // Left column X position (moved closer to center)
-        int rightX = knobColumnArea.getRight() - 55;  // Right column X position (moved closer to center)
-        int knobSpacing = 35; // Vertical spacing between knob centers (increased to accommodate taller knobs)
-        int startY = knobColumnArea.getY() + 8;       // Top margin (increased to 8px to accommodate bezel expansion)
+        // Calculate triangle positioning
+        int centerX = knobColumnArea.getCentreX();
+        int triangleWidth = 60; // Distance between bottom knobs
+        int triangleHeight = 45; // Vertical distance from top to bottom knobs
+        int startY = knobColumnArea.getY() + 8;
         
-        // Position knobs in zig-zag pattern (updated with differentiated sizes and bezel accommodation):
-        delayKnob.setBounds(rightX - 2, startY, 42, 57);                    // 1. Right - Delay (moved closer to center)
-        attackKnob.setBounds(leftX - 3, startY + knobSpacing, 49, 64);      // 2. Left - Attack (35 + 14 width, 35 + 29 height)
-        returnKnob.setBounds(rightX - 2, startY + (knobSpacing * 2), 42, 57); // 3. Right - Return (moved closer to center)
-        curveKnob.setBounds(leftX + 2, startY + (knobSpacing * 3), 42, 57);   // 4. Left - Curve (28 + 14 width, 28 + 29 height)
+        // Triangle positions:
+        // Attack knob - top apex (largest, Medium size)
+        int attackX = centerX - 24; // Center the 49px wide knob
+        attackKnob.setBounds(attackX, startY, 49, 64);
+        
+        // Delay knob - bottom-left (smaller)
+        int delayX = centerX - triangleWidth/2 - 21; // Center the 42px wide knob
+        delayKnob.setBounds(delayX, startY + triangleHeight, 42, 57);
+        
+        // Return knob - bottom-right (smaller)
+        int returnX = centerX + triangleWidth/2 - 21; // Center the 42px wide knob
+        returnKnob.setBounds(returnX, startY + triangleHeight, 42, 57);
+        
+        // Curve knob - below triangle, vertically aligned with Attack
+        int curveX = centerX - 21; // Center the 42px wide knob
+        curveKnob.setBounds(curveX, startY + triangleHeight + 50, 42, 57);
     }
     
     void paint(juce::Graphics& g) override
@@ -253,7 +267,7 @@ public:
     
     void paintOverChildren(juce::Graphics& g) override
     {
-        // Draw arrow from display value to target value ON TOP of all other components
+        // Draw arrow from display value to target value, but not over the GO button
         drawDirectionalArrow(g);
     }
     
@@ -500,24 +514,58 @@ private:
     
     void drawDirectionalArrow(juce::Graphics& g)
     {
-        // Calculate start point: center bottom of currentValueLabel (display value) moved 15px left
+        // Calculate start point: center bottom of currentValueLabel (display value)
         auto displayBounds = currentValueLabel.getBounds();
-        auto startPoint = juce::Point<float>(displayBounds.getCentreX() - 15, displayBounds.getBottom() + 4);
+        auto startPoint = juce::Point<float>(displayBounds.getCentreX(), displayBounds.getBottom() + 4);
         
-        // Calculate end point: center top of targetLEDInput (straight down) moved 15px left
+        // Calculate end point: center top of targetLEDInput (straight down)
         auto targetBounds = targetLEDInput.getBounds();
-        auto endPoint = juce::Point<float>(displayBounds.getCentreX() - 15, targetBounds.getY() - 4);
+        auto endPoint = juce::Point<float>(targetBounds.getCentreX(), targetBounds.getY() - 4);
+        
+        // Get GO button bounds to avoid drawing over it
+        auto buttonBounds = goButton3D.getBounds();
         
         // Only draw arrow if there's enough vertical space
         if (endPoint.y - startPoint.y > 15)
         {
-            // Draw arrow line (straight down)
-            g.setColour(juce::Colours::darkgrey.withAlpha(0.8f)); // Increased alpha for better visibility
-            juce::Line<float> arrowLine(startPoint, endPoint);
-            g.drawLine(arrowLine, 2.0f); // Thicker line for visibility
+            g.setColour(juce::Colours::darkgrey.withAlpha(0.8f));
             
-            // Draw arrowhead pointing toward target
-            drawArrowhead(g, startPoint, endPoint);
+            // Check if arrow would intersect with GO button
+            if (startPoint.x >= buttonBounds.getX() - 5 && startPoint.x <= buttonBounds.getRight() + 5 &&
+                startPoint.y <= buttonBounds.getBottom() + 5 && endPoint.y >= buttonBounds.getY() - 5)
+            {
+                // Draw arrow in segments to avoid GO button
+                auto buttonTop = buttonBounds.getY() - 5;
+                auto buttonBottom = buttonBounds.getBottom() + 5;
+                
+                // Draw line from start to button top
+                if (startPoint.y < buttonTop)
+                {
+                    auto midPoint = juce::Point<float>(startPoint.x, buttonTop);
+                    juce::Line<float> topSegment(startPoint, midPoint);
+                    g.drawLine(topSegment, 2.0f);
+                }
+                
+                // Draw line from button bottom to end
+                if (endPoint.y > buttonBottom)
+                {
+                    auto midPoint = juce::Point<float>(endPoint.x, buttonBottom);
+                    juce::Line<float> bottomSegment(midPoint, endPoint);
+                    g.drawLine(bottomSegment, 2.0f);
+                    
+                    // Draw arrowhead only on the bottom segment
+                    drawArrowhead(g, midPoint, endPoint);
+                }
+            }
+            else
+            {
+                // Draw complete arrow line (no intersection with button)
+                juce::Line<float> arrowLine(startPoint, endPoint);
+                g.drawLine(arrowLine, 2.0f);
+                
+                // Draw arrowhead pointing toward target
+                drawArrowhead(g, startPoint, endPoint);
+            }
         }
     }
     
