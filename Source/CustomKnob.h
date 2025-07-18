@@ -1,6 +1,7 @@
-// CustomKnob.h - Professional Audio Knob Component
+// CustomKnob.h - Blueprint Technical Drawing Style Knob
 #pragma once
 #include <JuceHeader.h>
+#include "CustomLookAndFeel.h"
 
 //==============================================================================
 class CustomKnob : public juce::Component
@@ -102,85 +103,25 @@ private:
     
     void drawKnobShadow(juce::Graphics& g, juce::Rectangle<int> knobArea)
     {
-        // Drop shadow - 2px offset down and right, soft black shadow
-        auto shadowArea = knobArea.translated(2, 2).toFloat();
-        g.setColour(juce::Colour(0x4D000000)); // Alpha 0.3 (77/255)
-        g.fillEllipse(shadowArea);
+        // No shadow for flat blueprint design
     }
     
     void drawKnobBezel(juce::Graphics& g, juce::Rectangle<int> knobArea)
     {
-        // Dark metallic bezel ring around knob perimeter
-        // Now that we've allocated proper space, we can safely expand by 2px
-        auto bezelBounds = knobArea.toFloat().expanded(2.0f);
-        
-        // Ensure bezel is perfectly square for a perfect circle
-        auto bezelSize = juce::jmin(bezelBounds.getWidth(), bezelBounds.getHeight());
-        bezelBounds = juce::Rectangle<float>(bezelSize, bezelSize).withCentre(bezelBounds.getCentre());
-        
-        // Outer bezel ring - dark gunmetal
-        juce::ColourGradient bezelGradient(
-            juce::Colour(0xFF303030), bezelBounds.getTopLeft(),
-            juce::Colour(0xFF404040), bezelBounds.getBottomRight(),
-            false
-        );
-        bezelGradient.addColour(0.5f, juce::Colour(0xFF353535));
-        
-        g.setGradientFill(bezelGradient);
-        g.fillEllipse(bezelBounds);
-        
-        // Inner bezel shadow to create recessed effect
-        auto innerBezel = bezelBounds.reduced(1.0f);
-        g.setColour(juce::Colour(0xFF202020));
-        g.drawEllipse(innerBezel, 1.0f);
-        
-        // Outer bezel highlight
-        g.setColour(juce::Colour(0xFF505050));
-        g.drawEllipse(bezelBounds, 0.5f);
+        // No bezel for flat blueprint design
     }
     
     void drawKnobBody(juce::Graphics& g, juce::Rectangle<int> knobArea)
     {
         auto knobBounds = knobArea.toFloat();
-        auto center = knobBounds.getCentre();
         
-        // Main knob body with matte finish - subtle radial gradient (lighter in center)
-        juce::ColourGradient knobGradient(
-            juce::Colour(0xFFF0F0F0), center, // Lighter center
-            juce::Colour(0xFFE8E8E8), knobBounds.getTopLeft(), // Base matte gray
-            true // Radial gradient
-        );
-        knobGradient.addColour(0.7f, juce::Colour(0xFFE8E8E8)); // Base color
-        knobGradient.addColour(1.0f, juce::Colour(0xFFD8D8D8)); // Slightly darker edge
-        
-        g.setGradientFill(knobGradient);
+        // Flat circular body with blueprint styling
+        g.setColour(BlueprintColors::panel);
         g.fillEllipse(knobBounds);
         
-        // Outer ring with slightly darker gray for definition
-        g.setColour(juce::Colour(0xFFD0D0D0));
-        g.drawEllipse(knobBounds, 1.0f);
-        
-        // 3D bevel effects
-        // Top highlight (upper arc)
-        auto highlightBounds = knobBounds.reduced(1.0f);
-        g.setColour(juce::Colour(0xFFF5F5F5)); // Very light gray
-        juce::Path highlightPath;
-        highlightPath.addArc(highlightBounds.getX(), highlightBounds.getY(), 
-                           highlightBounds.getWidth(), highlightBounds.getHeight(),
-                           juce::MathConstants<float>::pi * 1.2f, // Start angle (upper left)
-                           juce::MathConstants<float>::pi * 1.8f, // End angle (upper right)
-                           true);
-        g.strokePath(highlightPath, juce::PathStrokeType(1.5f));
-        
-        // Bottom shadow (lower arc)
-        g.setColour(juce::Colour(0xFFC0C0C0)); // Darker shadow
-        juce::Path shadowPath;
-        shadowPath.addArc(highlightBounds.getX(), highlightBounds.getY(),
-                         highlightBounds.getWidth(), highlightBounds.getHeight(),
-                         juce::MathConstants<float>::pi * 0.2f, // Start angle (lower right)
-                         juce::MathConstants<float>::pi * 0.8f, // End angle (lower left)
-                         true);
-        g.strokePath(shadowPath, juce::PathStrokeType(1.0f));
+        // Technical outline
+        g.setColour(BlueprintColors::blueprintLines);
+        g.drawEllipse(knobBounds, 2.0f);
     }
     
     void drawKnobIndicator(juce::Graphics& g, juce::Rectangle<int> knobArea)
@@ -188,42 +129,39 @@ private:
         auto knobBounds = knobArea.toFloat();
         auto center = knobBounds.getCentre();
         
-        // Calculate angle based on current value (270 degrees total rotation)
-        // Symmetric around vertical line through center:
-        // At value 0: 135 degrees (top-left, -45° from vertical)
-        // At max value: 45 degrees (top-right, +45° from vertical)
-        // At middle value: 270 degrees (straight down, bottom)
-        // Turn direction: clockwise increases value (135° to 45° via 270°)
+        // Calculate angle - same rotation logic as before
         double valueNormalized = (currentValue - minVal) / (maxVal - minVal);
         double angleDegrees = 135.0 + (valueNormalized * 270.0);
         
-        // Handle wraparound for angles > 360° (135° + 270° = 405° becomes 45°)
         if (angleDegrees >= 360.0)
             angleDegrees -= 360.0;
             
         double angleRadians = angleDegrees * juce::MathConstants<double>::pi / 180.0;
         
-        // Indicator line from center to edge of knob
-        float radius = knobBounds.getWidth() * 0.48f; // Extended to reach very edge of knob
+        // Technical indicator line - bright cyan
+        float radius = knobBounds.getWidth() * 0.4f;
         float lineEndX = center.x + std::cos(angleRadians) * radius;
         float lineEndY = center.y + std::sin(angleRadians) * radius;
         
-        // Draw indicator line (2px wide, black)
-        g.setColour(juce::Colours::black);
+        g.setColour(BlueprintColors::active);
         juce::Line<float> indicatorLine(center.x, center.y, lineEndX, lineEndY);
-        g.drawLine(indicatorLine, 2.0f);
+        g.drawLine(indicatorLine, 3.0f);
+        
+        // Small circle at end of line for technical appearance
+        g.fillEllipse(lineEndX - 2, lineEndY - 2, 4, 4);
     }
     
     void drawLabel(juce::Graphics& g, juce::Rectangle<int> labelArea)
     {
-        // Text label underneath the knob, centered (standardized 10pt font) - moved down 1px
-        g.setColour(juce::Colours::white);
-        g.setFont(juce::FontOptions(10.0f));
-        auto adjustedLabelArea = labelArea.translated(0, 1); // Move down 1px
+        // Blueprint-style text
+        g.setColour(BlueprintColors::textPrimary);
+        g.setFont(juce::FontOptions(9.0f));
+        auto adjustedLabelArea = labelArea.translated(0, 1);
         
         if (isHovered)
         {
-            // Show current value when hovered
+            // Show current value when hovered with cyan highlight
+            g.setColour(BlueprintColors::active);
             juce::String valueText;
             if (std::abs(currentValue - std::round(currentValue)) < 0.01)
                 valueText = juce::String((int)std::round(currentValue));

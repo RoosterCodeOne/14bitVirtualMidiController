@@ -1,4 +1,4 @@
-// SimpleSliderControl.h - Production Version with MIDI Activity Indicators and Preset Support
+// SimpleSliderControl.h - Production Version with Blueprint Technical Drawing Style
 #pragma once
 #include <JuceHeader.h>
 #include "CustomLookAndFeel.h"
@@ -72,14 +72,14 @@ public:
         addAndMakeVisible(sliderNumberLabel);
         sliderNumberLabel.setText(juce::String(sliderIndex + 1), juce::dontSendNotification);
         sliderNumberLabel.setJustificationType(juce::Justification::centred);
-        sliderNumberLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+        sliderNumberLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         sliderNumberLabel.setFont(juce::FontOptions(11.0f, juce::Font::bold));
         
         // Lock label (acting as button)
         addAndMakeVisible(lockLabel);
         lockLabel.setText("U", juce::dontSendNotification); // U for Unlocked by default
         lockLabel.setJustificationType(juce::Justification::centred);
-        lockLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+        lockLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
         lockLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold)); // Large font to fill space
         lockLabel.onClick = [this]() { toggleLock(); };
         
@@ -87,8 +87,8 @@ public:
         addAndMakeVisible(currentValueLabel);
         currentValueLabel.setText("0", juce::dontSendNotification);
         currentValueLabel.setJustificationType(juce::Justification::centred);
-        currentValueLabel.setColour(juce::Label::backgroundColourId, juce::Colours::black);
-        currentValueLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+        currentValueLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background);
+        currentValueLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         // Match LED input font style
         juce::Font ledFont("Monaco", 12.0f, juce::Font::plain);
         if (!ledFont.getTypefaceName().contains("Monaco")) {
@@ -247,15 +247,15 @@ public:
     
     void paint(juce::Graphics& g) override
     {
-        // Draw MIDI activity indicator above value label
-        juce::Colour indicatorColor = juce::Colours::orange;
+        // Draw MIDI activity indicator above value label - blueprint style
+        juce::Colour indicatorColor = BlueprintColors::warning;
         float alpha = midiActivityState ? 1.0f : 0.2f;
         
         g.setColour(indicatorColor.withAlpha(alpha));
         g.fillRect(midiIndicatorBounds);
         
-        // Optional: thin outline
-        g.setColour(juce::Colours::black.withAlpha(0.5f));
+        // Technical outline
+        g.setColour(BlueprintColors::blueprintLines);
         g.drawRect(midiIndicatorBounds, 1.0f);
         
         // Draw learn mode corner markers
@@ -269,6 +269,9 @@ public:
     {
         // Draw arrow from display value to target value, but not over the GO button
         drawDirectionalArrow(g);
+        
+        // Draw automation control connection lines
+        drawAutomationConnections(g);
     }
     
     double getValue() const { return mainSlider.getValue(); }
@@ -323,7 +326,7 @@ public:
             // Update label text and color
             lockLabel.setText(lockState ? "L" : "U", juce::dontSendNotification);
             lockLabel.setColour(juce::Label::textColourId,
-                               lockState ? juce::Colours::orange : juce::Colours::lightgrey);
+                               lockState ? BlueprintColors::warning : BlueprintColors::textSecondary);
             
             // Enable/disable slider interaction
             mainSlider.setInterceptsMouseClicks(!lockState, !lockState);
@@ -611,7 +614,7 @@ private:
         float markerSize = 8.0f;
         float markerThickness = 2.0f;
         
-        g.setColour(juce::Colours::orange);
+        g.setColour(BlueprintColors::warning);
         
         // Top-left corner
         g.fillRect(bounds.getX(), bounds.getY(), markerSize, markerThickness);
@@ -628,6 +631,39 @@ private:
         // Bottom-right corner
         g.fillRect(bounds.getRight() - markerSize, bounds.getBottom() - markerThickness, markerSize, markerThickness);
         g.fillRect(bounds.getRight() - markerThickness, bounds.getBottom() - markerSize, markerThickness, markerSize);
+    }
+    
+    void drawAutomationConnections(juce::Graphics& g)
+    {
+        g.setColour(BlueprintColors::blueprintLines.withAlpha(0.4f));
+        
+        // Get automation control centers
+        auto attackCenter = attackKnob.getBounds().getCentre();
+        auto delayCenter = delayKnob.getBounds().getCentre();
+        auto returnCenter = returnKnob.getBounds().getCentre();
+        auto curveCenter = curveKnob.getBounds().getCentre();
+        auto buttonCenter = goButton3D.getBounds().getCentre();
+        auto targetCenter = targetLEDInput.getBounds().getCentre();
+        
+        // Draw technical connection lines
+        // Knobs to GO button
+        g.drawLine(juce::Line<float>(attackCenter.toFloat(), buttonCenter.toFloat()), 1.0f);
+        g.drawLine(juce::Line<float>(delayCenter.toFloat(), buttonCenter.toFloat()), 1.0f);
+        g.drawLine(juce::Line<float>(returnCenter.toFloat(), buttonCenter.toFloat()), 1.0f);
+        g.drawLine(juce::Line<float>(curveCenter.toFloat(), buttonCenter.toFloat()), 1.0f);
+        
+        // GO button to target
+        g.drawLine(juce::Line<float>(buttonCenter.toFloat(), targetCenter.toFloat()), 1.0f);
+        
+        // Small dots at connection points
+        float dotSize = 2.0f;
+        g.setColour(BlueprintColors::active);
+        g.fillEllipse(attackCenter.x - dotSize/2, attackCenter.y - dotSize/2, dotSize, dotSize);
+        g.fillEllipse(delayCenter.x - dotSize/2, delayCenter.y - dotSize/2, dotSize, dotSize);
+        g.fillEllipse(returnCenter.x - dotSize/2, returnCenter.y - dotSize/2, dotSize, dotSize);
+        g.fillEllipse(curveCenter.x - dotSize/2, curveCenter.y - dotSize/2, dotSize, dotSize);
+        g.fillEllipse(buttonCenter.x - dotSize/2, buttonCenter.y - dotSize/2, dotSize, dotSize);
+        g.fillEllipse(targetCenter.x - dotSize/2, targetCenter.y - dotSize/2, dotSize, dotSize);
     }
     
     

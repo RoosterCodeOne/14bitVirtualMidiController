@@ -45,7 +45,7 @@ public:
                     DBG("Set learnTargetSlider=" << i << ", showing markers");
                     
                     learnButton.setButtonText("Move Controller");
-                    learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red);
+                    learnButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::warning);
                 }
                 else
                 {
@@ -57,59 +57,61 @@ public:
             addAndMakeVisible(sliderControl);
         }
         
-        // Bank buttons
+        // Bank buttons - blueprint style
         addAndMakeVisible(bankAButton);
         bankAButton.setButtonText("A");
-        bankAButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red);
-        bankAButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        bankAButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::active);
+        bankAButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
         bankAButton.onClick = [this]() { bankManager.setActiveBank(0); };
         
         addAndMakeVisible(bankBButton);
         bankBButton.setButtonText("B");
-        bankBButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
-        bankBButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        bankBButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::inactive);
+        bankBButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
         bankBButton.onClick = [this]() { bankManager.setActiveBank(1); };
         
         addAndMakeVisible(bankCButton);
         bankCButton.setButtonText("C");
-        bankCButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
-        bankCButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        bankCButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::inactive);
+        bankCButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
         bankCButton.onClick = [this]() { bankManager.setActiveBank(2); };
         
         addAndMakeVisible(bankDButton);
         bankDButton.setButtonText("D");
-        bankDButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
-        bankDButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        bankDButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::inactive);
+        bankDButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
         bankDButton.onClick = [this]() { bankManager.setActiveBank(3); };
         
-        // Settings button
+        // Settings button - blueprint style
         addAndMakeVisible(settingsButton);
         settingsButton.setButtonText("Settings");
+        settingsButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
+        settingsButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
         settingsButton.onClick = [this]() {
             toggleSettingsMode();
         };
         
-        // Mode toggle button
+        // Mode toggle button - blueprint style
         addAndMakeVisible(modeButton);
         modeButton.setButtonText(bankManager.isEightSliderMode() ? "8" : "4");
-        modeButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkblue);
-        modeButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        modeButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
+        modeButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
         modeButton.onClick = [this]() {
             toggleSliderMode();
         };
         
-        // Showing label for mode button
+        // Showing label for mode button - blueprint style
         addAndMakeVisible(showingLabel);
         showingLabel.setText("Showing:", juce::dontSendNotification);
         showingLabel.setJustificationType(juce::Justification::centredRight);
-        showingLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+        showingLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
         showingLabel.setFont(juce::FontOptions(11.0f));
         
-        // Learn button for MIDI mapping
+        // Learn button for MIDI mapping - blueprint style
         addAndMakeVisible(learnButton);
         learnButton.setButtonText("Learn");
-        learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkblue);
-        learnButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        learnButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
+        learnButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
         learnButton.onClick = [this]() {
             toggleLearnMode();
         };
@@ -139,18 +141,18 @@ public:
         
         // MIDI device selection callbacks will be set up in setupMidiManager()
         
-        // Movement speed tooltip
+        // Movement speed tooltip - blueprint style
         addAndMakeVisible(movementSpeedLabel);
         movementSpeedLabel.setJustificationType(juce::Justification::centredLeft);
-        movementSpeedLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-        movementSpeedLabel.setColour(juce::Label::backgroundColourId, juce::Colours::darkgrey);
+        movementSpeedLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
+        movementSpeedLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background);
         movementSpeedLabel.setFont(juce::FontOptions(10.0f));
         
-        // MIDI tracking tooltip
+        // MIDI tracking tooltip - blueprint style
         addAndMakeVisible(windowSizeLabel);
         windowSizeLabel.setJustificationType(juce::Justification::centredRight);
-        windowSizeLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
-        windowSizeLabel.setColour(juce::Label::backgroundColourId, juce::Colours::darkgrey);
+        windowSizeLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
+        windowSizeLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background);
         windowSizeLabel.setFont(juce::FontOptions(10.0f));
         updateMidiTrackingDisplay();
         
@@ -197,8 +199,8 @@ public:
     
     void paint(juce::Graphics& g) override
     {
-        // App background - solid color
-        g.fillAll(juce::Colour(0xFF5E5E5E));
+        // Blueprint background - dark navy base
+        g.fillAll(BlueprintColors::background);
         
         // Calculate content area bounds using same logic as resized()
         const int topAreaHeight = 50;
@@ -213,11 +215,18 @@ public:
         
         juce::Rectangle<int> contentAreaBounds(contentX, contentY, contentAreaWidth, contentHeight);
         
-        // Draw eurorack-style background before slider plates
-        drawEurorackBackground(g, contentAreaBounds);
+        // Draw blueprint grid overlay
+        CustomSliderLookAndFeel lookAndFeelGrid;
+        lookAndFeelGrid.drawBlueprintGrid(g, contentAreaBounds);
         
-        // Draw tooltip box above eurorack background
-        drawTooltipBox(g, contentAreaBounds);
+        // Draw technical signal flow indicators
+        drawSignalFlowLines(g, contentAreaBounds);
+        
+        // Draw settings panel separator if needed
+        if ((isInSettingsMode && settingsWindow.isVisible()) || (isInLearnMode && midiLearnWindow.isVisible()))
+        {
+            drawSettingsPanelSeparator(g, contentAreaBounds);
+        }
         
         CustomSliderLookAndFeel lookAndFeel;
         
@@ -271,20 +280,19 @@ public:
         }
         
         
-        // Draw MIDI input indicator next to Learn button
-        // Learn button is positioned at learnButtonX, 25 with width 50, height 20
-        int learnButtonX = topAreaBounds.getX() + 10 + 105; // settings + reduced gap
+        // Draw MIDI input indicator next to Learn button - blueprint style
+        int learnButtonX = topAreaBounds.getX() + 10 + 105;
         midiInputIndicatorBounds = juce::Rectangle<float>(learnButtonX + 55, 28, 12, 12);
         
-        juce::Colour inputIndicatorColor = juce::Colour(0xFFCC6600); // Burnt orange
+        juce::Colour inputIndicatorColor = BlueprintColors::warning;
         float inputAlpha = midiManager.getMidiInputActivity() ? 1.0f : 0.2f;
         g.setColour(inputIndicatorColor.withAlpha(inputAlpha));
-        g.fillRect(midiInputIndicatorBounds); // Changed from fillEllipse to fillRect for square shape
-        g.setColour(juce::Colours::black.withAlpha(0.5f));
-        g.drawRect(midiInputIndicatorBounds, 1.0f); // Changed from drawEllipse to drawRect
+        g.fillRect(midiInputIndicatorBounds);
+        g.setColour(BlueprintColors::blueprintLines);
+        g.drawRect(midiInputIndicatorBounds, 1.0f);
         
-        // Show MIDI status left-aligned in top area
-        g.setColour(juce::Colours::white);
+        // Show MIDI status with blueprint styling
+        g.setColour(BlueprintColors::textPrimary);
         g.setFont(juce::FontOptions(12.0f));
         juce::String status = "MIDI: ";
         if (midiManager.isOutputConnected() && midiManager.isInputConnected())
@@ -404,102 +412,91 @@ public:
         }
     }
     
-    void drawEurorackBackground(juce::Graphics& g, juce::Rectangle<int> contentAreaBounds)
+    void drawSignalFlowLines(juce::Graphics& g, juce::Rectangle<int> contentAreaBounds)
     {
-        const int railHeight = 15;
+        g.setColour(BlueprintColors::blueprintLines.withAlpha(0.3f));
         
-        // Use passed content area bounds strictly - no recalculation
-        auto rackArea = contentAreaBounds;
+        // Draw main signal flow line from sliders to MIDI output
+        int lineY = contentAreaBounds.getBottom() - 20;
         
-        // Top rail within content area
-        auto topRail = rackArea.removeFromTop(railHeight);
-        drawMetallicRail(g, topRail);
+        // Horizontal line connecting all sliders
+        g.drawHorizontalLine(lineY, contentAreaBounds.getX() + 50, contentAreaBounds.getRight() - 50);
         
-        // Bottom rail within content area
-        auto bottomRail = rackArea.removeFromBottom(railHeight);
-        drawMetallicRail(g, bottomRail);
-        
-        // Central recessed area (rack body depth) within content area
-        drawRackBodyDepth(g, rackArea);
-        
-        // In settings mode, draw visual separation with improved positioning
-        if (isInSettingsMode && settingsWindow.isVisible())
+        // Vertical connection lines from each visible slider to main flow line
+        int visibleSliderCount = bankManager.getVisibleSliderCount();
+        for (int i = 0; i < visibleSliderCount; ++i)
         {
-            drawSettingsPanelSeparator(g, contentAreaBounds, railHeight);
+            int sliderIndex = bankManager.getVisibleSliderIndex(i);
+            if (sliderIndex < sliderControls.size())
+            {
+                auto sliderBounds = sliderControls[sliderIndex]->getBounds();
+                int sliderCenterX = sliderBounds.getCentreX();
+                int sliderBottomY = sliderBounds.getBottom();
+                
+                // Draw connection line from slider to main flow
+                g.drawVerticalLine(sliderCenterX, sliderBottomY + 5, lineY);
+                
+                // Small connection dot
+                g.setColour(BlueprintColors::active);
+                g.fillEllipse(sliderCenterX - 2, lineY - 2, 4, 4);
+                g.setColour(BlueprintColors::blueprintLines.withAlpha(0.3f));
+            }
         }
+        
+        // Arrow pointing to MIDI output
+        int arrowX = contentAreaBounds.getRight() - 30;
+        g.drawLine(arrowX - 10, lineY - 5, arrowX, lineY, 2.0f);
+        g.drawLine(arrowX - 10, lineY + 5, arrowX, lineY, 2.0f);
+        
+        // MIDI output connection point
+        g.setColour(BlueprintColors::active);
+        g.fillEllipse(arrowX - 2, lineY - 2, 4, 4);
+        
+        // Label
+        g.setColour(BlueprintColors::textSecondary);
+        g.setFont(juce::FontOptions(9.0f));
+        g.drawText("MIDI OUT", arrowX + 5, lineY - 8, 60, 16, juce::Justification::left);
+        
+        // Bank selection indicator lines
+        drawBankConnectionLines(g, contentAreaBounds);
     }
     
-    void drawMetallicRail(juce::Graphics& g, juce::Rectangle<int> railBounds)
+    void drawBankConnectionLines(juce::Graphics& g, juce::Rectangle<int> contentAreaBounds)
     {
-        auto bounds = railBounds.toFloat();
+        // Get bank button positions (need to calculate from top area)
+        auto topAreaBounds = juce::Rectangle<int>(contentAreaBounds.getX(), 0, contentAreaBounds.getWidth(), 50);
         
-        // Calculate track dimensions (8px total height with gap in middle)
-        float trackHeight = 8.0f;
-        float lineHeight = 2.0f;
-        float gapHeight = trackHeight - (2 * lineHeight); // 4px gap
+        const int buttonWidth = 35;
+        const int buttonHeight = 20;
+        const int buttonSpacing = 5;
+        const int rightMargin = 10;
         
-        // Center the track within the rail bounds
-        float trackY = bounds.getY() + (bounds.getHeight() - trackHeight) / 2.0f;
+        int gridWidth = (2 * buttonWidth) + buttonSpacing;
+        int gridStartX = topAreaBounds.getRight() - rightMargin - gridWidth;
         
-        // Upper mounting track line (lighter metallic)
-        auto upperLine = juce::Rectangle<float>(bounds.getX(), trackY, bounds.getWidth(), lineHeight);
-        g.setColour(juce::Colour(0xFFE0E0E0)); // Lighter metallic color
-        g.fillRect(upperLine);
+        // Get active bank button position
+        int activeBank = bankManager.getActiveBank();
+        int bankButtonX, bankButtonY;
         
-        // Gap in middle (background color or slightly darker)
-        auto gapArea = juce::Rectangle<float>(bounds.getX(), trackY + lineHeight, bounds.getWidth(), gapHeight);
-        g.setColour(juce::Colour(0xFF303030)); // Slightly darker background
-        g.fillRect(gapArea);
+        // Calculate button position based on bank (A=0, B=1, C=2, D=3)
+        if (activeBank < 2) // Top row (A, B)
+        {
+            bankButtonX = gridStartX + (activeBank * (buttonWidth + buttonSpacing)) + buttonWidth/2;
+            bankButtonY = 5 + buttonHeight/2;
+        }
+        else // Bottom row (C, D)
+        {
+            bankButtonX = gridStartX + ((activeBank-2) * (buttonWidth + buttonSpacing)) + buttonWidth/2;
+            bankButtonY = 5 + buttonHeight + buttonSpacing + buttonHeight/2;
+        }
         
-        // Lower mounting track line (darker metallic)
-        auto lowerLine = juce::Rectangle<float>(bounds.getX(), trackY + lineHeight + gapHeight, bounds.getWidth(), lineHeight);
-        g.setColour(juce::Colour(0xFFA0A0A0)); // Darker metallic color
-        g.fillRect(lowerLine);
-    }
-    
-    void drawRackBodyDepth(juce::Graphics& g, juce::Rectangle<int> bodyBounds)
-    {
-        auto bounds = bodyBounds.toFloat();
+        // Draw connection line from active bank to sliders
+        g.setColour(BlueprintColors::active.withAlpha(0.5f));
+        g.drawVerticalLine(bankButtonX, bankButtonY + buttonHeight/2, contentAreaBounds.getY());
         
-        // Central recessed area gradient (darker in center, lighter at edges)
-        juce::ColourGradient depthGradient(
-            juce::Colour(0xFF2A2A2A), bounds.getCentre(), // Dark center
-            juce::Colour(0xFF404040), bounds.getTopLeft(), // Lighter edges
-            true // Radial gradient
-        );
-        depthGradient.addColour(0.7f, juce::Colour(0xFF353535));
-        
-        g.setGradientFill(depthGradient);
-        g.fillRect(bounds);
-        
-        // Subtle inner shadow at top
-        juce::ColourGradient topShadow(
-            juce::Colour(0x60000000), bounds.getTopLeft(),
-            juce::Colour(0x00000000), bounds.getTopLeft() + juce::Point<float>(0, 20),
-            false
-        );
-        g.setGradientFill(topShadow);
-        g.fillRect(bounds.removeFromTop(20));
-        
-        // Subtle highlight at bottom
-        juce::ColourGradient bottomHighlight(
-            juce::Colour(0x00000000), bounds.getBottomLeft() - juce::Point<float>(0, 20),
-            juce::Colour(0x30FFFFFF), bounds.getBottomLeft(),
-            false
-        );
-        g.setGradientFill(bottomHighlight);
-        g.fillRect(bounds.removeFromBottom(20));
-    }
-    
-    void drawTooltipBox(juce::Graphics& g, juce::Rectangle<int> contentAreaBounds)
-    {
-        // Tooltip box bounds are calculated but no background is drawn
-        // Content positioning remains the same but no visual background
-        auto tooltipBounds = contentAreaBounds;
-        tooltipBounds.setY(contentAreaBounds.getBottom() + 15); // Position below content area with gap
-        tooltipBounds.setHeight(38); // Fixed tooltip height
-        
-        // No background drawing - tooltip content uses app background
+        // Connection dot at bank button
+        g.setColour(BlueprintColors::active);
+        g.fillEllipse(bankButtonX - 2, bankButtonY - 2, 4, 4);
     }
     
     void layoutTopAreaComponents(const juce::Rectangle<int>& topAreaBounds)
@@ -560,59 +557,14 @@ public:
         }
     }
     
-    void drawSettingsPanelSeparator(juce::Graphics& g)
+    void drawSettingsPanelSeparator(juce::Graphics& g, juce::Rectangle<int> contentAreaBounds)
     {
+        // Blueprint-style technical divider line
         const int dividerX = SETTINGS_PANEL_WIDTH;
-        const int topAreaHeight = 50;
-        const int tooltipHeight = 25;
-        const int railHeight = 15;
+        g.setColour(BlueprintColors::blueprintLines);
+        g.drawLine(dividerX, 50, dividerX, getHeight() - 25, 2.0f);
         
-        // Draw vertical divider line between settings and main content
-        g.setColour(juce::Colour(0xFF606060));
-        g.drawLine(dividerX, topAreaHeight, dividerX, getHeight() - tooltipHeight, 1.0f);
-        
-        // Calculate shadow bounds to avoid overlapping with rails
-        int shadowStartY = topAreaHeight + railHeight;
-        int shadowHeight = getHeight() - topAreaHeight - tooltipHeight - (2 * railHeight);
-        
-        // Only draw shadow if there's space between the rails
-        if (shadowHeight > 0)
-        {
-            // Add subtle shadow effect on the right side of settings panel
-            // but only in the area between the top and bottom rails
-            juce::ColourGradient shadow(
-                juce::Colour(0x40000000), dividerX, shadowStartY,
-                juce::Colour(0x00000000), dividerX + 10, shadowStartY,
-                false
-            );
-            g.setGradientFill(shadow);
-            g.fillRect(dividerX, shadowStartY, 10, shadowHeight);
-        }
-    }
-    
-    void drawSettingsPanelSeparator(juce::Graphics& g, juce::Rectangle<int> contentAreaBounds, int railHeight)
-    {
-        // Draw subtle vertical divider line between settings and main content
-        const int dividerX = SETTINGS_PANEL_WIDTH;
-        g.setColour(juce::Colour(0xFF606060));
-        g.drawLine(dividerX, 65, dividerX, getHeight() - 35, 1.0f);
-        
-        // Add subtle shadow effect on the right side of settings panel
-        // Only draw shadow in the central area between the rails (not above or below)
-        int shadowStartY = contentAreaBounds.getY() + railHeight; // Below top rail
-        int shadowEndY = contentAreaBounds.getBottom() - railHeight; // Above bottom rail
-        int shadowHeight = shadowEndY - shadowStartY;
-        
-        if (shadowHeight > 0)
-        {
-            juce::ColourGradient shadow(
-                juce::Colour(0x30000000), dividerX, 0,
-                juce::Colour(0x00000000), dividerX + 8, 0,
-                false
-            );
-            g.setGradientFill(shadow);
-            g.fillRect(dividerX, shadowStartY, 8, shadowHeight);
-        }
+        // No shadow - clean technical appearance
     }
     
     void setupMidiManager()
@@ -793,7 +745,7 @@ public:
             
             // Reset learn button state
             learnButton.setButtonText("Select Slider");
-            learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::orange);
+            learnButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::active);
             DBG("Reset learn state");
             
             // Show success feedback
@@ -855,12 +807,13 @@ private:
     
     void updateBankButtonStates()
     {
-        auto colors = bankManager.getCurrentBankColors();
+        int activeBank = bankManager.getActiveBank();
         
-        bankAButton.setColour(juce::TextButton::buttonColourId, colors.bankA);
-        bankBButton.setColour(juce::TextButton::buttonColourId, colors.bankB);
-        bankCButton.setColour(juce::TextButton::buttonColourId, colors.bankC);
-        bankDButton.setColour(juce::TextButton::buttonColourId, colors.bankD);
+        // Update colors based on blueprint style
+        bankAButton.setColour(juce::TextButton::buttonColourId, activeBank == 0 ? BlueprintColors::active : BlueprintColors::inactive);
+        bankBButton.setColour(juce::TextButton::buttonColourId, activeBank == 1 ? BlueprintColors::active : BlueprintColors::inactive);
+        bankCButton.setColour(juce::TextButton::buttonColourId, activeBank == 2 ? BlueprintColors::active : BlueprintColors::inactive);
+        bankDButton.setColour(juce::TextButton::buttonColourId, activeBank == 3 ? BlueprintColors::active : BlueprintColors::inactive);
     }
     
     
@@ -952,7 +905,7 @@ private:
             isInLearnMode = false;
             midi7BitController.stopLearnMode();
             learnButton.setButtonText("Learn");
-            learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkblue);
+            learnButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
             midiLearnWindow.setVisible(false);
             
             // Clear any learn markers
@@ -964,7 +917,7 @@ private:
         
         // Update button appearance
         settingsButton.setColour(juce::TextButton::buttonColourId, 
-                               isInSettingsMode ? juce::Colours::orange : juce::Colours::grey);
+                               isInSettingsMode ? BlueprintColors::active : BlueprintColors::panel);
         
         // Update constraints BEFORE resizing to prevent constraint violations
         updateWindowConstraints();
@@ -1179,7 +1132,7 @@ private:
             midi7BitController.startLearnMode();
             DBG("Entered learn mode: isLearningMode=" << (int)midi7BitController.isInLearnMode());
             learnButton.setButtonText("Exit Learn");
-            learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::orange);
+            learnButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::active);
             
             // Show learn window
             updateWindowConstraints();
@@ -1200,7 +1153,7 @@ private:
             midi7BitController.stopLearnMode();
             DBG("Exited learn mode: isLearningMode=" << (int)midi7BitController.isInLearnMode());
             learnButton.setButtonText("Learn");
-            learnButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkblue);
+            learnButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
             
             midiLearnWindow.setVisible(false);
             
