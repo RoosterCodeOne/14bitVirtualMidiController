@@ -5,6 +5,7 @@
 #include "CustomKnob.h"
 #include "CustomLEDInput.h"
 #include "Custom3DButton.h"
+#include "AutomationVisualizer.h"
 #include "Core/AutomationEngine.h"
 #include "Core/SliderDisplayManager.h"
 
@@ -99,18 +100,30 @@ public:
         // Attack knob (large)
         addAndMakeVisible(attackKnob);
         attackKnob.setValue(1.0);
+        attackKnob.onValueChanged = [this](double newValue) {
+            updateVisualizerParameters();
+        };
         
         // Delay knob (small)
         addAndMakeVisible(delayKnob);
         delayKnob.setValue(0.0);
+        delayKnob.onValueChanged = [this](double newValue) {
+            updateVisualizerParameters();
+        };
         
         // Return knob (small)
         addAndMakeVisible(returnKnob);
         returnKnob.setValue(0.0);
+        returnKnob.onValueChanged = [this](double newValue) {
+            updateVisualizerParameters();
+        };
         
         // Curve knob (small) - controls automation curve shape
         addAndMakeVisible(curveKnob);
         curveKnob.setValue(1.0); // Default to linear
+        curveKnob.onValueChanged = [this](double newValue) {
+            updateVisualizerParameters();
+        };
         
         // Target value input - LED display style
         addAndMakeVisible(targetLEDInput);
@@ -124,6 +137,11 @@ public:
             else
                 startAutomation();
         };
+        
+        // Automation visualizer - blueprint-style curve display
+        addAndMakeVisible(automationVisualizer);
+        automationVisualizer.setParameters(delayKnob.getValue(), attackKnob.getValue(), 
+                                         returnKnob.getValue(), curveKnob.getValue());
         
         // Set up display manager callbacks
         setupDisplayManager();
@@ -254,6 +272,14 @@ public:
         
         returnKnob.setBounds(returnX, bottomRowY, knobWidth, knobHeight);
         curveKnob.setBounds(curveX, bottomRowY, knobWidth, knobHeight);
+        
+        // Automation visualizer - positioned below knob grid
+        int visualizerY = bottomRowY + knobHeight + 8; // Small gap after knobs
+        int visualizerWidth = totalGridWidth; // Match grid width
+        int visualizerHeight = 60; // Fixed height for curve display
+        int visualizerX = gridStartX; // Align with knob grid
+        
+        automationVisualizer.setBounds(visualizerX, visualizerY, visualizerWidth, visualizerHeight);
     }
     
     void paint(juce::Graphics& g) override
@@ -518,8 +544,21 @@ private:
             if (sliderIndex == index)
             {
                 goButton3D.setButtonText(isAutomating ? "STOP" : "GO");
+                
+                // Update visualizer state based on automation status
+                if (isAutomating)
+                {
+                    automationVisualizer.lockCurveForAutomation();
+                }
+                else
+                {
+                    automationVisualizer.unlockCurve();
+                }
             }
         };
+        
+        // Note: Progress updates would require adding onProgressUpdate callback to AutomationEngine
+        // For now, the visualizer will show state changes and curve updates
     }
     
     
@@ -547,6 +586,12 @@ private:
         // Bottom-right corner
         g.fillRect(bounds.getRight() - markerSize, bounds.getBottom() - markerThickness, markerSize, markerThickness);
         g.fillRect(bounds.getRight() - markerThickness, bounds.getBottom() - markerSize, markerThickness, markerSize);
+    }
+    
+    void updateVisualizerParameters()
+    {
+        automationVisualizer.setParameters(delayKnob.getValue(), attackKnob.getValue(),
+                                         returnKnob.getValue(), curveKnob.getValue());
     }
     
     
@@ -594,6 +639,7 @@ private:
     Custom3DButton goButton3D;
     AutomationEngine automationEngine;
     SliderDisplayManager displayManager;
+    AutomationVisualizer automationVisualizer;
     
     bool lockState = false; // Lock state for manual controls
     
