@@ -219,8 +219,6 @@ public:
         CustomSliderLookAndFeel lookAndFeelGrid;
         lookAndFeelGrid.drawBlueprintGrid(g, contentAreaBounds);
         
-        // Draw technical signal flow indicators
-        drawSignalFlowLines(g, contentAreaBounds);
         
         // Draw settings panel separator if needed
         if ((isInSettingsMode && settingsWindow.isVisible()) || (isInLearnMode && midiLearnWindow.isVisible()))
@@ -412,92 +410,7 @@ public:
         }
     }
     
-    void drawSignalFlowLines(juce::Graphics& g, juce::Rectangle<int> contentAreaBounds)
-    {
-        g.setColour(BlueprintColors::blueprintLines.withAlpha(0.3f));
-        
-        // Draw main signal flow line from sliders to MIDI output
-        int lineY = contentAreaBounds.getBottom() - 20;
-        
-        // Horizontal line connecting all sliders
-        g.drawHorizontalLine(lineY, contentAreaBounds.getX() + 50, contentAreaBounds.getRight() - 50);
-        
-        // Vertical connection lines from each visible slider to main flow line
-        int visibleSliderCount = bankManager.getVisibleSliderCount();
-        for (int i = 0; i < visibleSliderCount; ++i)
-        {
-            int sliderIndex = bankManager.getVisibleSliderIndex(i);
-            if (sliderIndex < sliderControls.size())
-            {
-                auto sliderBounds = sliderControls[sliderIndex]->getBounds();
-                int sliderCenterX = sliderBounds.getCentreX();
-                int sliderBottomY = sliderBounds.getBottom();
-                
-                // Draw connection line from slider to main flow
-                g.drawVerticalLine(sliderCenterX, sliderBottomY + 5, lineY);
-                
-                // Small connection dot
-                g.setColour(BlueprintColors::active);
-                g.fillEllipse(sliderCenterX - 2, lineY - 2, 4, 4);
-                g.setColour(BlueprintColors::blueprintLines.withAlpha(0.3f));
-            }
-        }
-        
-        // Arrow pointing to MIDI output
-        int arrowX = contentAreaBounds.getRight() - 30;
-        g.drawLine(arrowX - 10, lineY - 5, arrowX, lineY, 2.0f);
-        g.drawLine(arrowX - 10, lineY + 5, arrowX, lineY, 2.0f);
-        
-        // MIDI output connection point
-        g.setColour(BlueprintColors::active);
-        g.fillEllipse(arrowX - 2, lineY - 2, 4, 4);
-        
-        // Label
-        g.setColour(BlueprintColors::textSecondary);
-        g.setFont(juce::FontOptions(9.0f));
-        g.drawText("MIDI OUT", arrowX + 5, lineY - 8, 60, 16, juce::Justification::left);
-        
-        // Bank selection indicator lines
-        drawBankConnectionLines(g, contentAreaBounds);
-    }
     
-    void drawBankConnectionLines(juce::Graphics& g, juce::Rectangle<int> contentAreaBounds)
-    {
-        // Get bank button positions (need to calculate from top area)
-        auto topAreaBounds = juce::Rectangle<int>(contentAreaBounds.getX(), 0, contentAreaBounds.getWidth(), 50);
-        
-        const int buttonWidth = 35;
-        const int buttonHeight = 20;
-        const int buttonSpacing = 5;
-        const int rightMargin = 10;
-        
-        int gridWidth = (2 * buttonWidth) + buttonSpacing;
-        int gridStartX = topAreaBounds.getRight() - rightMargin - gridWidth;
-        
-        // Get active bank button position
-        int activeBank = bankManager.getActiveBank();
-        int bankButtonX, bankButtonY;
-        
-        // Calculate button position based on bank (A=0, B=1, C=2, D=3)
-        if (activeBank < 2) // Top row (A, B)
-        {
-            bankButtonX = gridStartX + (activeBank * (buttonWidth + buttonSpacing)) + buttonWidth/2;
-            bankButtonY = 5 + buttonHeight/2;
-        }
-        else // Bottom row (C, D)
-        {
-            bankButtonX = gridStartX + ((activeBank-2) * (buttonWidth + buttonSpacing)) + buttonWidth/2;
-            bankButtonY = 5 + buttonHeight + buttonSpacing + buttonHeight/2;
-        }
-        
-        // Draw connection line from active bank to sliders
-        g.setColour(BlueprintColors::active.withAlpha(0.5f));
-        g.drawVerticalLine(bankButtonX, bankButtonY + buttonHeight/2, contentAreaBounds.getY());
-        
-        // Connection dot at bank button
-        g.setColour(BlueprintColors::active);
-        g.fillEllipse(bankButtonX - 2, bankButtonY - 2, 4, 4);
-    }
     
     void layoutTopAreaComponents(const juce::Rectangle<int>& topAreaBounds)
     {

@@ -28,7 +28,7 @@ class SimpleSliderControl : public juce::Component, public juce::Timer
 public:
     SimpleSliderControl(int sliderIndex, std::function<void(int, int)> midiCallback)
         : index(sliderIndex), sendMidiCallback(midiCallback), sliderColor(juce::Colours::cyan),
-          attackKnob("ATTACK", 0.0, 30.0, CustomKnob::Medium), 
+          attackKnob("ATTACK", 0.0, 30.0, CustomKnob::Smaller), 
           delayKnob("DELAY", 0.0, 10.0, CustomKnob::Smaller), 
           returnKnob("RETURN", 0.0, 30.0, CustomKnob::Smaller),
           curveKnob("CURVE", 0.0, 2.0, CustomKnob::Smaller)
@@ -216,33 +216,44 @@ public:
         
         automationArea.removeFromTop(7); // spacing after target
         
-        // Knob group arrangement in triangular pattern with separate curve knob:
-        // Triangle: Attack (top, largest), Delay (bottom-left), Return (bottom-right)
-        // Curve: Below triangle, vertically aligned with Attack
+        // Knob group arrangement in 2x2 grid:
+        // [DELAY]   [ATTACK]
+        // [RETURN]  [CURVE]
         auto knobColumnArea = automationArea;
         
-        // Calculate triangle positioning
+        // Calculate 2x2 grid positioning
         int centerX = knobColumnArea.getCentreX();
-        int triangleWidth = 60; // Distance between bottom knobs
-        int triangleHeight = 45; // Vertical distance from top to bottom knobs
         int startY = knobColumnArea.getY() + 8;
         
-        // Triangle positions:
-        // Attack knob - top apex (largest, Medium size)
-        int attackX = centerX - 24; // Center the 49px wide knob
-        attackKnob.setBounds(attackX, startY, 49, 64);
+        // Grid layout parameters
+        int knobWidth = 42;
+        int knobHeight = 57;
+        int horizontalSpacing = 15; // Space between columns
+        int verticalSpacing = 10;   // Space between rows
         
-        // Delay knob - bottom-left (smaller)
-        int delayX = centerX - triangleWidth/2 - 21; // Center the 42px wide knob
-        delayKnob.setBounds(delayX, startY + triangleHeight, 42, 57);
+        // Calculate grid dimensions
+        int totalGridWidth = (2 * knobWidth) + horizontalSpacing;
+        int totalGridHeight = (2 * knobHeight) + verticalSpacing;
         
-        // Return knob - bottom-right (smaller)
-        int returnX = centerX + triangleWidth/2 - 21; // Center the 42px wide knob
-        returnKnob.setBounds(returnX, startY + triangleHeight, 42, 57);
+        // Calculate starting position to center the grid
+        int gridStartX = centerX - (totalGridWidth / 2);
         
-        // Curve knob - below triangle, vertically aligned with Attack
-        int curveX = centerX - 21; // Center the 42px wide knob
-        curveKnob.setBounds(curveX, startY + triangleHeight + 50, 42, 57);
+        // 2x2 Grid positions:
+        // Top row: [DELAY] [ATTACK]
+        int delayX = gridStartX;
+        int attackX = gridStartX + knobWidth + horizontalSpacing;
+        int topRowY = startY;
+        
+        delayKnob.setBounds(delayX, topRowY, knobWidth, knobHeight);
+        attackKnob.setBounds(attackX, topRowY, knobWidth, knobHeight);
+        
+        // Bottom row: [RETURN] [CURVE]
+        int returnX = gridStartX;
+        int curveX = gridStartX + knobWidth + horizontalSpacing;
+        int bottomRowY = startY + knobHeight + verticalSpacing;
+        
+        returnKnob.setBounds(returnX, bottomRowY, knobWidth, knobHeight);
+        curveKnob.setBounds(curveX, bottomRowY, knobWidth, knobHeight);
     }
     
     void paint(juce::Graphics& g) override
@@ -267,11 +278,7 @@ public:
     
     void paintOverChildren(juce::Graphics& g) override
     {
-        // Draw arrow from display value to target value, but not over the GO button
-        drawDirectionalArrow(g);
-        
-        // Draw automation control connection lines
-        drawAutomationConnections(g);
+        // Signal flow lines removed for cleaner blueprint aesthetic
     }
     
     double getValue() const { return mainSlider.getValue(); }
@@ -515,98 +522,7 @@ private:
         };
     }
     
-    void drawDirectionalArrow(juce::Graphics& g)
-    {
-        // Calculate start point: center bottom of currentValueLabel (display value)
-        auto displayBounds = currentValueLabel.getBounds();
-        auto startPoint = juce::Point<float>(displayBounds.getCentreX(), displayBounds.getBottom() + 4);
-        
-        // Calculate end point: center top of targetLEDInput (straight down)
-        auto targetBounds = targetLEDInput.getBounds();
-        auto endPoint = juce::Point<float>(targetBounds.getCentreX(), targetBounds.getY() - 4);
-        
-        // Get GO button bounds to avoid drawing over it
-        auto buttonBounds = goButton3D.getBounds();
-        
-        // Only draw arrow if there's enough vertical space
-        if (endPoint.y - startPoint.y > 15)
-        {
-            g.setColour(juce::Colours::darkgrey.withAlpha(0.8f));
-            
-            // Check if arrow would intersect with GO button
-            if (startPoint.x >= buttonBounds.getX() - 5 && startPoint.x <= buttonBounds.getRight() + 5 &&
-                startPoint.y <= buttonBounds.getBottom() + 5 && endPoint.y >= buttonBounds.getY() - 5)
-            {
-                // Draw arrow in segments to avoid GO button
-                auto buttonTop = buttonBounds.getY() - 5;
-                auto buttonBottom = buttonBounds.getBottom() + 5;
-                
-                // Draw line from start to button top
-                if (startPoint.y < buttonTop)
-                {
-                    auto midPoint = juce::Point<float>(startPoint.x, buttonTop);
-                    juce::Line<float> topSegment(startPoint, midPoint);
-                    g.drawLine(topSegment, 2.0f);
-                }
-                
-                // Draw line from button bottom to end
-                if (endPoint.y > buttonBottom)
-                {
-                    auto midPoint = juce::Point<float>(endPoint.x, buttonBottom);
-                    juce::Line<float> bottomSegment(midPoint, endPoint);
-                    g.drawLine(bottomSegment, 2.0f);
-                    
-                    // Draw arrowhead only on the bottom segment
-                    drawArrowhead(g, midPoint, endPoint);
-                }
-            }
-            else
-            {
-                // Draw complete arrow line (no intersection with button)
-                juce::Line<float> arrowLine(startPoint, endPoint);
-                g.drawLine(arrowLine, 2.0f);
-                
-                // Draw arrowhead pointing toward target
-                drawArrowhead(g, startPoint, endPoint);
-            }
-        }
-    }
     
-    void drawArrowhead(juce::Graphics& g, juce::Point<float> start, juce::Point<float> end)
-    {
-        // Calculate direction vector
-        auto direction = end - start;
-        auto length = direction.getDistanceFromOrigin();
-        
-        if (length > 0)
-        {
-            // Normalize direction
-            direction = direction / length;
-            
-            // Arrowhead size
-            float arrowheadSize = 5.0f;
-            
-            // Calculate arrowhead points
-            auto arrowheadTip = end;
-            auto arrowheadBase = end - (direction * arrowheadSize);
-            
-            // Perpendicular vector for arrowhead wings
-            auto perpendicular = juce::Point<float>(-direction.y, direction.x) * (arrowheadSize * 0.5f);
-            
-            auto wing1 = arrowheadBase + perpendicular;
-            auto wing2 = arrowheadBase - perpendicular;
-            
-            // Draw arrowhead triangle
-            juce::Path arrowheadPath;
-            arrowheadPath.startNewSubPath(arrowheadTip);
-            arrowheadPath.lineTo(wing1);
-            arrowheadPath.lineTo(wing2);
-            arrowheadPath.closeSubPath();
-            
-            g.setColour(juce::Colours::darkgrey.withAlpha(0.8f)); // Match line alpha
-            g.fillPath(arrowheadPath);
-        }
-    }
     
     void drawLearnModeMarkers(juce::Graphics& g)
     {
@@ -633,38 +549,6 @@ private:
         g.fillRect(bounds.getRight() - markerThickness, bounds.getBottom() - markerSize, markerThickness, markerSize);
     }
     
-    void drawAutomationConnections(juce::Graphics& g)
-    {
-        g.setColour(BlueprintColors::blueprintLines.withAlpha(0.4f));
-        
-        // Get automation control centers
-        auto attackCenter = attackKnob.getBounds().getCentre();
-        auto delayCenter = delayKnob.getBounds().getCentre();
-        auto returnCenter = returnKnob.getBounds().getCentre();
-        auto curveCenter = curveKnob.getBounds().getCentre();
-        auto buttonCenter = goButton3D.getBounds().getCentre();
-        auto targetCenter = targetLEDInput.getBounds().getCentre();
-        
-        // Draw technical connection lines
-        // Knobs to GO button
-        g.drawLine(juce::Line<float>(attackCenter.toFloat(), buttonCenter.toFloat()), 1.0f);
-        g.drawLine(juce::Line<float>(delayCenter.toFloat(), buttonCenter.toFloat()), 1.0f);
-        g.drawLine(juce::Line<float>(returnCenter.toFloat(), buttonCenter.toFloat()), 1.0f);
-        g.drawLine(juce::Line<float>(curveCenter.toFloat(), buttonCenter.toFloat()), 1.0f);
-        
-        // GO button to target
-        g.drawLine(juce::Line<float>(buttonCenter.toFloat(), targetCenter.toFloat()), 1.0f);
-        
-        // Small dots at connection points
-        float dotSize = 2.0f;
-        g.setColour(BlueprintColors::active);
-        g.fillEllipse(attackCenter.x - dotSize/2, attackCenter.y - dotSize/2, dotSize, dotSize);
-        g.fillEllipse(delayCenter.x - dotSize/2, delayCenter.y - dotSize/2, dotSize, dotSize);
-        g.fillEllipse(returnCenter.x - dotSize/2, returnCenter.y - dotSize/2, dotSize, dotSize);
-        g.fillEllipse(curveCenter.x - dotSize/2, curveCenter.y - dotSize/2, dotSize, dotSize);
-        g.fillEllipse(buttonCenter.x - dotSize/2, buttonCenter.y - dotSize/2, dotSize, dotSize);
-        g.fillEllipse(targetCenter.x - dotSize/2, targetCenter.y - dotSize/2, dotSize, dotSize);
-    }
     
     
     void validateTargetValue()

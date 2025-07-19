@@ -15,15 +15,15 @@ public:
         
         addAndMakeVisible(midiChannelLabel);
         midiChannelLabel.setText("MIDI Channel:", juce::dontSendNotification);
-        midiChannelLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
+        midiChannelLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         
         addAndMakeVisible(midiChannelCombo);
         for (int i = 1; i <= 16; ++i)
             midiChannelCombo.addItem("Channel " + juce::String(i), i);
         midiChannelCombo.setSelectedId(1);
-        midiChannelCombo.setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xFF404040));
-        midiChannelCombo.setColour(juce::ComboBox::textColourId, juce::Colour(0xFFEEEEEE));
-        midiChannelCombo.setColour(juce::ComboBox::outlineColourId, juce::Colour(0xFF1A1A1A));
+        midiChannelCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background);
+        midiChannelCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary);
+        midiChannelCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines);
         midiChannelCombo.onChange = [this]() {
             if (onSettingsChanged)
                 onSettingsChanged();
@@ -33,54 +33,54 @@ public:
         addAndMakeVisible(presetLabel);
         presetLabel.setText("Presets:", juce::dontSendNotification);
         presetLabel.setFont(juce::FontOptions(16.0f, juce::Font::bold));
-        presetLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
+        presetLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         
         addAndMakeVisible(presetCombo);
         presetCombo.setTextWhenNothingSelected("Select preset...");
-        presetCombo.setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xFF404040));
-        presetCombo.setColour(juce::ComboBox::textColourId, juce::Colour(0xFFEEEEEE));
-        presetCombo.setColour(juce::ComboBox::outlineColourId, juce::Colour(0xFF1A1A1A));
+        presetCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background);
+        presetCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary);
+        presetCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines);
         refreshPresetList();
         
         addAndMakeVisible(savePresetButton);
         savePresetButton.setButtonText("Save");
-        savePresetButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF404040));
-        savePresetButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFFEEEEEE));
+        savePresetButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
+        savePresetButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
         savePresetButton.onClick = [this]() { showSavePresetDialog(); };
         
         addAndMakeVisible(loadPresetButton);
         loadPresetButton.setButtonText("Load");
-        loadPresetButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF404040));
-        loadPresetButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFFEEEEEE));
+        loadPresetButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
+        loadPresetButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
         loadPresetButton.onClick = [this]() { loadSelectedPreset(); };
         
         addAndMakeVisible(deletePresetButton);
         deletePresetButton.setButtonText("Del");
-        deletePresetButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF404040));
-        deletePresetButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFFEEEEEE));
+        deletePresetButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
+        deletePresetButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
         deletePresetButton.onClick = [this]() { deleteSelectedPreset(); };
         
         addAndMakeVisible(presetFolderLabel);
         presetFolderLabel.setText("Preset Folder:", juce::dontSendNotification);
         presetFolderLabel.setFont(juce::FontOptions(14.0f));
-        presetFolderLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
+        presetFolderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
 
         addAndMakeVisible(presetPathLabel);
         presetPathLabel.setText("", juce::dontSendNotification);
-        presetPathLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFBBBBBB)); // Slightly dimmed
+        presetPathLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary); // Slightly dimmed
         presetPathLabel.setFont(juce::FontOptions(12.0f));
         presetPathLabel.setJustificationType(juce::Justification::centredLeft);
         
         addAndMakeVisible(openFolderButton);
         openFolderButton.setButtonText("Open Folder");
-        openFolderButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF404040));
-        openFolderButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFFEEEEEE));
+        openFolderButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
+        openFolderButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
         openFolderButton.onClick = [this]() { openPresetFolder(); };
 
         addAndMakeVisible(changeFolderButton);
         changeFolderButton.setButtonText("Change Folder");
-        changeFolderButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF404040));
-        changeFolderButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFFEEEEEE));
+        changeFolderButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
+        changeFolderButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
         changeFolderButton.onClick = [this]() { changePresetFolder(); };
 
         updatePresetFolderDisplay();
@@ -89,64 +89,64 @@ public:
         addAndMakeVisible(ccValueHeaderLabel);
         ccValueHeaderLabel.setText("CC Value", juce::dontSendNotification);
         ccValueHeaderLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
-        ccValueHeaderLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
+        ccValueHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         ccValueHeaderLabel.setJustificationType(juce::Justification::centred);
         
         addAndMakeVisible(rangeHeaderLabel);
         rangeHeaderLabel.setText("Range", juce::dontSendNotification);
         rangeHeaderLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
-        rangeHeaderLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
+        rangeHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         rangeHeaderLabel.setJustificationType(juce::Justification::centred);
         
         addAndMakeVisible(colorHeaderLabel);
         colorHeaderLabel.setText("Color", juce::dontSendNotification);
         colorHeaderLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
-        colorHeaderLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
+        colorHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         colorHeaderLabel.setJustificationType(juce::Justification::centred);
         
         addAndMakeVisible(resetToDefaultButton);
         resetToDefaultButton.setButtonText("Reset");
-        resetToDefaultButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF404040));
-        resetToDefaultButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFFEEEEEE));
+        resetToDefaultButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
+        resetToDefaultButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
         resetToDefaultButton.onClick = [this]() { resetToDefaults(); };
         
         // Bank selector
         addAndMakeVisible(bankSelectorLabel);
         bankSelectorLabel.setText("Bank:", juce::dontSendNotification);
         bankSelectorLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold));
-        bankSelectorLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
+        bankSelectorLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         
         // Bank selector buttons - modern styling
         addAndMakeVisible(bankASelector);
         bankASelector.setText("A", juce::dontSendNotification);
         bankASelector.setFont(juce::FontOptions(14.0f, juce::Font::bold));
         bankASelector.setJustificationType(juce::Justification::centred);
-        bankASelector.setColour(juce::Label::backgroundColourId, juce::Colour(0xFF0066CC)); // Modern blue
-        bankASelector.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
+        bankASelector.setColour(juce::Label::backgroundColourId, BlueprintColors::active); // Blueprint active color
+        bankASelector.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         bankASelector.onClick = [this]() { setSelectedBank(0); };
         
         addAndMakeVisible(bankBSelector);
         bankBSelector.setText("B", juce::dontSendNotification);
         bankBSelector.setFont(juce::FontOptions(14.0f, juce::Font::bold));
         bankBSelector.setJustificationType(juce::Justification::centred);
-        bankBSelector.setColour(juce::Label::backgroundColourId, juce::Colour(0xFF404040));
-        bankBSelector.setColour(juce::Label::textColourId, juce::Colour(0xFFBBBBBB));
+        bankBSelector.setColour(juce::Label::backgroundColourId, BlueprintColors::inactive);
+        bankBSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
         bankBSelector.onClick = [this]() { setSelectedBank(1); };
         
         addAndMakeVisible(bankCSelector);
         bankCSelector.setText("C", juce::dontSendNotification);
         bankCSelector.setFont(juce::FontOptions(14.0f, juce::Font::bold));
         bankCSelector.setJustificationType(juce::Justification::centred);
-        bankCSelector.setColour(juce::Label::backgroundColourId, juce::Colour(0xFF404040));
-        bankCSelector.setColour(juce::Label::textColourId, juce::Colour(0xFFBBBBBB));
+        bankCSelector.setColour(juce::Label::backgroundColourId, BlueprintColors::inactive);
+        bankCSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
         bankCSelector.onClick = [this]() { setSelectedBank(2); };
         
         addAndMakeVisible(bankDSelector);
         bankDSelector.setText("D", juce::dontSendNotification);
         bankDSelector.setFont(juce::FontOptions(14.0f, juce::Font::bold));
         bankDSelector.setJustificationType(juce::Justification::centred);
-        bankDSelector.setColour(juce::Label::backgroundColourId, juce::Colour(0xFF404040));
-        bankDSelector.setColour(juce::Label::textColourId, juce::Colour(0xFFBBBBBB));
+        bankDSelector.setColour(juce::Label::backgroundColourId, BlueprintColors::inactive);
+        bankDSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
         bankDSelector.onClick = [this]() { setSelectedBank(3); };
     }
     
@@ -167,16 +167,12 @@ public:
     
     void paint(juce::Graphics& g) override
     {
-        // Modern dark interface background
+        // Blueprint aesthetic background
         auto bounds = getLocalBounds().toFloat();
         
-        // Dark background with rounded corners
-        g.setColour(juce::Colour(0xFF2D2D2D)); // Dark charcoal background
-        g.fillRoundedRectangle(bounds, 8.0f);
-        
-        // Subtle border
-        g.setColour(juce::Colour(0xFF1A1A1A)); // Dark border
-        g.drawRoundedRectangle(bounds, 8.0f, 1.0f);
+        // Blueprint background (no rounded corners)
+        g.setColour(BlueprintColors::background);
+        g.fillAll();
         
         // Draw section background rectangles
         drawSectionBackgrounds(g);
@@ -185,7 +181,7 @@ public:
         
         if (!controlsInitialized)
         {
-            g.setColour(juce::Colour(0xFFEEEEEE));
+            g.setColour(BlueprintColors::textPrimary);
             g.setFont(juce::FontOptions(14.0f));
             g.drawText("Loading controls...", bounds, juce::Justification::centred);
             return;
@@ -726,7 +722,7 @@ private:
             sliderLabels.add(sliderLabel);
             addAndMakeVisible(sliderLabel);
             sliderLabel->setText("Slider " + juce::String(i + 1) + ":", juce::dontSendNotification);
-            sliderLabel->setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
+            sliderLabel->setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
             
             // CC input
             auto* ccInput = new juce::TextEditor();
@@ -735,9 +731,9 @@ private:
             ccInput->setText(juce::String(i), juce::dontSendNotification);
             ccInput->setInputRestrictions(3, "0123456789");
             ccInput->setTooltip("MIDI CC number (0-127)");
-            ccInput->setColour(juce::TextEditor::backgroundColourId, juce::Colour(0xFF404040));
-            ccInput->setColour(juce::TextEditor::textColourId, juce::Colour(0xFFEEEEEE));
-            ccInput->setColour(juce::TextEditor::outlineColourId, juce::Colour(0xFF1A1A1A));
+            ccInput->setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
+            ccInput->setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
+            ccInput->setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
             ccInput->onReturnKey = [this, ccInput]() { validateCCInput(ccInput); };
             ccInput->onFocusLost = [this, ccInput]() { validateCCInput(ccInput); };
             
@@ -746,7 +742,7 @@ private:
             rangeLabels.add(rangeLabel);
             addAndMakeVisible(rangeLabel);
             rangeLabel->setText("", juce::dontSendNotification); // Empty text since header replaces it
-            rangeLabel->setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
+            rangeLabel->setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
             
             // Min range input
             auto* minInput = new juce::TextEditor();
@@ -754,9 +750,9 @@ private:
             addAndMakeVisible(minInput);
             minInput->setText("0");
             minInput->setInputRestrictions(0, "-0123456789.");
-            minInput->setColour(juce::TextEditor::backgroundColourId, juce::Colour(0xFF404040));
-            minInput->setColour(juce::TextEditor::textColourId, juce::Colour(0xFFEEEEEE));
-            minInput->setColour(juce::TextEditor::outlineColourId, juce::Colour(0xFF1A1A1A));
+            minInput->setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
+            minInput->setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
+            minInput->setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
             minInput->onReturnKey = [this, minInput]() { validateRangeInput(minInput); };
             minInput->onFocusLost = [this, minInput]() { validateRangeInput(minInput); };
             
@@ -766,9 +762,9 @@ private:
             addAndMakeVisible(maxInput);
             maxInput->setText("16383");
             maxInput->setInputRestrictions(0, "-0123456789.");
-            maxInput->setColour(juce::TextEditor::backgroundColourId, juce::Colour(0xFF404040));
-            maxInput->setColour(juce::TextEditor::textColourId, juce::Colour(0xFFEEEEEE));
-            maxInput->setColour(juce::TextEditor::outlineColourId, juce::Colour(0xFF1A1A1A));
+            maxInput->setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
+            maxInput->setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
+            maxInput->setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
             maxInput->onReturnKey = [this, maxInput]() { validateRangeInput(maxInput); };
             maxInput->onFocusLost = [this, maxInput]() { validateRangeInput(maxInput); };
             
@@ -777,15 +773,15 @@ private:
             colorLabels.add(colorLabel);
             addAndMakeVisible(colorLabel);
             colorLabel->setText("", juce::dontSendNotification); // Empty text since header replaces it
-            colorLabel->setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
+            colorLabel->setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
             
             // Color selector
             auto* colorCombo = new juce::ComboBox();
             colorCombos.add(colorCombo);
             addAndMakeVisible(colorCombo);
-            colorCombo->setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xFF404040));
-            colorCombo->setColour(juce::ComboBox::textColourId, juce::Colour(0xFFEEEEEE));
-            colorCombo->setColour(juce::ComboBox::outlineColourId, juce::Colour(0xFF1A1A1A));
+            colorCombo->setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background);
+            colorCombo->setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary);
+            colorCombo->setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines);
             
             colorCombo->addItem("Default", 1);
             colorCombo->addItem("Red", 2);
@@ -913,28 +909,28 @@ private:
         
         int flexibleSpacing = juce::jmax(3, (availableHeight - fixedHeight) / 8);
         
-        // Top section (Preset controls) - with updated padding
+        // Top section (Preset controls) - blueprint outline style
         auto topSectionBounds = bounds.removeFromTop(10 + 16 + 6 + 22 + 6 + 20); // Updated padding values
         topSectionBounds = topSectionBounds.expanded(5, 0).withTrimmedBottom(1).withBottom(topSectionBounds.getBottom() + 4); // 5px left/right margin, 1px bottom gap, extend bottom by 4px
         
-        g.setColour(juce::Colour(0xFF33484A));
-        g.fillRoundedRectangle(topSectionBounds.toFloat(), 6.0f);
+        g.setColour(BlueprintColors::blueprintLines);
+        g.drawRect(topSectionBounds.toFloat(), 1.0f);
         
         // Skip flexible spacing
         bounds.removeFromTop(flexibleSpacing);
         
-        // Middle section (Preset folder controls) - updated dimensions
+        // Middle section (Preset folder controls) - blueprint outline style
         auto middleSectionBounds = bounds.removeFromTop(10 + 16 + 5 + 16 + 7 + 20); // Updated folder section height
         middleSectionBounds = middleSectionBounds.expanded(5, 0).withTrimmedTop(1).withTrimmedBottom(1); // 5px left/right margin, 1px top/bottom gaps
         middleSectionBounds = middleSectionBounds.withTop(middleSectionBounds.getY() - 2).withBottom(middleSectionBounds.getBottom() + 6); // Raise top by 2px, extend bottom by 6px
         
-        g.setColour(juce::Colour(0xFF33484A));
-        g.fillRoundedRectangle(middleSectionBounds.toFloat(), 6.0f);
+        g.setColour(BlueprintColors::blueprintLines);
+        g.drawRect(middleSectionBounds.toFloat(), 1.0f);
         
         // Skip flexible spacing
         bounds.removeFromTop(flexibleSpacing);
         
-        // Bottom section (MIDI Channel + Bank + Slider controls) - updated dimensions
+        // Bottom section (MIDI Channel + Bank + Slider controls) - blueprint outline style
         auto bottomSectionHeight = 10 + 22 + 8 + 22 + 8; // Updated MIDI + spacing + Bank
         if (controlsInitialized)
             bottomSectionHeight += 18 + 4 + (4 * 26) + (4 * 3) + 8; // Headers + sliders
@@ -942,8 +938,8 @@ private:
         auto bottomSectionBounds = bounds.removeFromTop(bottomSectionHeight);
         bottomSectionBounds = bottomSectionBounds.expanded(5, 0).withTrimmedTop(1).withBottom(bottomSectionBounds.getBottom() + 5); // 5px left/right margin, 1px top gap, extend bottom by 5px
         
-        g.setColour(juce::Colour(0xFF33484A));
-        g.fillRoundedRectangle(bottomSectionBounds.toFloat(), 6.0f);
+        g.setColour(BlueprintColors::blueprintLines);
+        g.drawRect(bottomSectionBounds.toFloat(), 1.0f);
     }
     
     

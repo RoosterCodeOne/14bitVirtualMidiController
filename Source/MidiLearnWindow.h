@@ -1,6 +1,7 @@
 // MidiLearnWindow.h - MIDI Learn Mappings Display Window
 #pragma once
 #include <JuceHeader.h>
+#include "CustomLookAndFeel.h"
 
 //==============================================================================
 class MidiLearnWindow : public juce::Component
@@ -13,20 +14,20 @@ public:
         titleLabel.setText("MIDI Learn Mappings", juce::dontSendNotification);
         titleLabel.setFont(juce::FontOptions(18.0f, juce::Font::bold));
         titleLabel.setJustificationType(juce::Justification::centred);
-        titleLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
+        titleLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         
         // MIDI Input Device Selection Section
         addAndMakeVisible(inputDeviceLabel);
         inputDeviceLabel.setText("MIDI Input Device:", juce::dontSendNotification);
         inputDeviceLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold));
         inputDeviceLabel.setJustificationType(juce::Justification::centredLeft);
-        inputDeviceLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
+        inputDeviceLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         
         addAndMakeVisible(inputDeviceCombo);
         inputDeviceCombo.setTextWhenNothingSelected("Select MIDI Input Device...");
-        inputDeviceCombo.setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xFF404040));
-        inputDeviceCombo.setColour(juce::ComboBox::textColourId, juce::Colour(0xFFEEEEEE));
-        inputDeviceCombo.setColour(juce::ComboBox::outlineColourId, juce::Colour(0xFF33484A));
+        inputDeviceCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background);
+        inputDeviceCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary);
+        inputDeviceCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines);
         inputDeviceCombo.onChange = [this]() {
             if (onMidiDeviceSelected)
                 onMidiDeviceSelected(inputDeviceCombo.getText());
@@ -34,8 +35,8 @@ public:
         
         addAndMakeVisible(refreshDevicesButton);
         refreshDevicesButton.setButtonText("Refresh");
-        refreshDevicesButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF404040));
-        refreshDevicesButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFFEEEEEE));
+        refreshDevicesButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
+        refreshDevicesButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
         refreshDevicesButton.onClick = [this]() {
             refreshMidiDevices();
         };
@@ -44,7 +45,7 @@ public:
         connectionStatusLabel.setText("No device selected", juce::dontSendNotification);
         connectionStatusLabel.setFont(juce::FontOptions(11.0f));
         connectionStatusLabel.setJustificationType(juce::Justification::centredLeft);
-        connectionStatusLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFCCCCCC));
+        connectionStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
         
         // Initialize device list
         refreshMidiDevices();
@@ -54,35 +55,35 @@ public:
         sliderHeaderLabel.setText("Slider", juce::dontSendNotification);
         sliderHeaderLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
         sliderHeaderLabel.setJustificationType(juce::Justification::centred);
-        sliderHeaderLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
-        sliderHeaderLabel.setColour(juce::Label::backgroundColourId, juce::Colour(0xFF33484A));
+        sliderHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        sliderHeaderLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background);
         
         addAndMakeVisible(channelHeaderLabel);
         channelHeaderLabel.setText("Input Channel", juce::dontSendNotification);
         channelHeaderLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
         channelHeaderLabel.setJustificationType(juce::Justification::centred);
-        channelHeaderLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
-        channelHeaderLabel.setColour(juce::Label::backgroundColourId, juce::Colour(0xFF33484A));
+        channelHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        channelHeaderLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background);
         
         addAndMakeVisible(ccHeaderLabel);
         ccHeaderLabel.setText("Input CC", juce::dontSendNotification);
         ccHeaderLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
         ccHeaderLabel.setJustificationType(juce::Justification::centred);
-        ccHeaderLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
-        ccHeaderLabel.setColour(juce::Label::backgroundColourId, juce::Colour(0xFF33484A));
+        ccHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        ccHeaderLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background);
         
         addAndMakeVisible(actionHeaderLabel);
         actionHeaderLabel.setText("Action", juce::dontSendNotification);
         actionHeaderLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
         actionHeaderLabel.setJustificationType(juce::Justification::centred);
-        actionHeaderLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
-        actionHeaderLabel.setColour(juce::Label::backgroundColourId, juce::Colour(0xFF33484A));
+        actionHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        actionHeaderLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background);
         
         // Clear All button
         addAndMakeVisible(clearAllButton);
         clearAllButton.setButtonText("Clear All");
-        clearAllButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF404040));
-        clearAllButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFFEEEEEE));
+        clearAllButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
+        clearAllButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
         clearAllButton.onClick = [this]() {
             clearAllMappings();
         };
@@ -91,7 +92,7 @@ public:
         addAndMakeVisible(statusLabel);
         statusLabel.setFont(juce::FontOptions(11.0f));
         statusLabel.setJustificationType(juce::Justification::centred);
-        statusLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFCCCCCC));
+        statusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
         updateStatusLabel();
     }
     
@@ -103,15 +104,15 @@ public:
     void paint(juce::Graphics& g) override
     {
         // Background
-        g.fillAll(juce::Colour(0xFF2D2D2D));
+        g.fillAll(BlueprintColors::background);
         
         // Header background
         auto headerBounds = getHeaderBounds();
-        g.setColour(juce::Colour(0xFF33484A));
+        g.setColour(BlueprintColors::blueprintLines);
         g.fillRect(headerBounds);
         
         // Table grid lines
-        g.setColour(juce::Colour(0xFF404040));
+        g.setColour(BlueprintColors::blueprintLines);
         
         // Draw horizontal lines between rows
         int rowHeight = 25;
@@ -233,17 +234,17 @@ public:
         if (deviceName == "None")
         {
             connectionStatusLabel.setText("MIDI input disabled", juce::dontSendNotification);
-            connectionStatusLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFCCCCCC));
+            connectionStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
         }
         else if (isConnected)
         {
             connectionStatusLabel.setText(deviceName + " (Connected)", juce::dontSendNotification);
-            connectionStatusLabel.setColour(juce::Label::textColourId, juce::Colour(0xFF66FF66));
+            connectionStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::active);
         }
         else
         {
             connectionStatusLabel.setText(deviceName + " (Disconnected)", juce::dontSendNotification);
-            connectionStatusLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFFF6666));
+            connectionStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::warning);
         }
     }
     
@@ -281,27 +282,27 @@ private:
             sliderLabel.setText(juce::String(sliderIndex + 1), juce::dontSendNotification);
             sliderLabel.setFont(juce::FontOptions(11.0f));
             sliderLabel.setJustificationType(juce::Justification::centred);
-            sliderLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
+            sliderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
             
             // Channel label
             addAndMakeVisible(channelLabel);
             channelLabel.setText(juce::String(midiChannel), juce::dontSendNotification);
             channelLabel.setFont(juce::FontOptions(11.0f));
             channelLabel.setJustificationType(juce::Justification::centred);
-            channelLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
+            channelLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
             
             // CC label
             addAndMakeVisible(ccLabel);
             ccLabel.setText(juce::String(ccNumber), juce::dontSendNotification);
             ccLabel.setFont(juce::FontOptions(11.0f));
             ccLabel.setJustificationType(juce::Justification::centred);
-            ccLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFEEEEEE));
+            ccLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
             
             // Remove button
             addAndMakeVisible(removeButton);
             removeButton.setButtonText("Remove");
-            removeButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF404040));
-            removeButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFFEEEEEE));
+            removeButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
+            removeButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
             removeButton.onClick = [this]() {
                 if (onRemoveClicked)
                     onRemoveClicked();
@@ -389,7 +390,7 @@ private:
         {
             inputDeviceCombo.addItem("No MIDI devices found", 2);
             connectionStatusLabel.setText("No MIDI devices available", juce::dontSendNotification);
-            connectionStatusLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFFF6666));
+            connectionStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::warning);
         }
         else
         {
@@ -402,7 +403,7 @@ private:
             // Update status
             connectionStatusLabel.setText(juce::String(midiInputs.size()) + " device(s) found", 
                                         juce::dontSendNotification);
-            connectionStatusLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFCCCCCC));
+            connectionStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
         }
         
         // Trigger callback to notify parent
