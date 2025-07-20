@@ -46,6 +46,8 @@ public:
         connectionStatusLabel.setFont(juce::FontOptions(11.0f));
         connectionStatusLabel.setJustificationType(juce::Justification::centredLeft);
         connectionStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
+        connectionStatusLabel.setColour(juce::Label::backgroundColourId, juce::Colours::transparentBlack);
+        connectionStatusLabel.setColour(juce::Label::outlineColourId, juce::Colours::transparentBlack);
         
         // Initialize device list
         refreshMidiDevices();
@@ -103,20 +105,36 @@ public:
     
     void paint(juce::Graphics& g) override
     {
-        // Background
-        g.fillAll(BlueprintColors::background);
+        // Window background (slightly lighter than main background)
+        g.fillAll(BlueprintColors::windowBackground);
         
-        // Header background
+        // Draw complete window outline - blueprint style
+        g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
+        g.drawRect(getLocalBounds().toFloat(), 1.0f);
+        
+        // Header section background
         auto headerBounds = getHeaderBounds();
-        g.setColour(BlueprintColors::blueprintLines);
+        g.setColour(BlueprintColors::sectionBackground);
         g.fillRect(headerBounds);
+        g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
+        g.drawRect(headerBounds.toFloat(), 1.0f);
         
-        // Table grid lines
-        g.setColour(BlueprintColors::blueprintLines);
-        
-        // Draw horizontal lines between rows
+        // Table section background
+        auto tableBounds = getTableBounds();
         int rowHeight = 25;
         int startY = headerBounds.getBottom();
+        int tableHeight = mappingRows.size() * rowHeight;
+        juce::Rectangle<int> tableAreaBounds(tableBounds.getX(), startY, tableBounds.getWidth(), tableHeight);
+        
+        g.setColour(BlueprintColors::sectionBackground);
+        g.fillRect(tableAreaBounds);
+        g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
+        g.drawRect(tableAreaBounds.toFloat(), 1.0f);
+        
+        // Table grid lines
+        g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
+        
+        // Draw horizontal lines between rows
         for (int i = 0; i <= mappingRows.size(); ++i)
         {
             int y = startY + (i * rowHeight);
@@ -124,7 +142,6 @@ public:
         }
         
         // Draw vertical column separators
-        auto tableBounds = getTableBounds();
         int colWidth = tableBounds.getWidth() / 4;
         for (int i = 1; i < 4; ++i)
         {

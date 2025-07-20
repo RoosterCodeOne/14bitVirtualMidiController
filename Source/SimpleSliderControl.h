@@ -234,33 +234,34 @@ public:
         
         automationArea.removeFromTop(7); // spacing after target
         
-        // Knob group arrangement in 2x2 grid:
-        // [DELAY]   [ATTACK]
-        // [RETURN]  [CURVE]
-        auto knobColumnArea = automationArea;
-        
-        // Calculate 2x2 grid positioning
-        int centerX = knobColumnArea.getCentreX();
-        int startY = knobColumnArea.getY() + 8;
-        
-        // Grid layout parameters
+        // Calculate dimensions for automation visualizer and knob grid
         int knobWidth = 42;
         int knobHeight = 57;
-        int horizontalSpacing = 15; // Space between columns
-        int verticalSpacing = 10;   // Space between rows
-        
-        // Calculate grid dimensions
+        int horizontalSpacing = 9; // Space between columns (reduced from 15 to 9, ~40% reduction)
+        int verticalSpacing = 2;   // Space between rows (minimal gap for very tight knob layout)
         int totalGridWidth = (2 * knobWidth) + horizontalSpacing;
         int totalGridHeight = (2 * knobHeight) + verticalSpacing;
-        
-        // Calculate starting position to center the grid
+        int centerX = automationArea.getCentreX();
         int gridStartX = centerX - (totalGridWidth / 2);
+        
+        // Automation visualizer - positioned above knob grid
+        int visualizerWidth = totalGridWidth; // Match grid width
+        int visualizerHeight = 60; // Fixed height for curve display
+        int visualizerX = gridStartX; // Align with knob grid
+        int visualizerY = automationArea.getY() - 2; // Reduced from 8 to 4 pixels
+        
+        automationVisualizer.setBounds(visualizerX, visualizerY, visualizerWidth, visualizerHeight);
+        
+        // Knob group arrangement in 2x2 grid positioned below visualizer:
+        // [DELAY]   [ATTACK]
+        // [RETURN]  [CURVE]
+        int knobStartY = visualizerY + visualizerHeight + 8; // Reduced gap from 8 to 5 pixels
         
         // 2x2 Grid positions:
         // Top row: [DELAY] [ATTACK]
         int delayX = gridStartX;
         int attackX = gridStartX + knobWidth + horizontalSpacing;
-        int topRowY = startY;
+        int topRowY = knobStartY;
         
         delayKnob.setBounds(delayX, topRowY, knobWidth, knobHeight);
         attackKnob.setBounds(attackX, topRowY, knobWidth, knobHeight);
@@ -268,18 +269,10 @@ public:
         // Bottom row: [RETURN] [CURVE]
         int returnX = gridStartX;
         int curveX = gridStartX + knobWidth + horizontalSpacing;
-        int bottomRowY = startY + knobHeight + verticalSpacing;
+        int bottomRowY = knobStartY + knobHeight + verticalSpacing - 6;
         
         returnKnob.setBounds(returnX, bottomRowY, knobWidth, knobHeight);
         curveKnob.setBounds(curveX, bottomRowY, knobWidth, knobHeight);
-        
-        // Automation visualizer - positioned below knob grid
-        int visualizerY = bottomRowY + knobHeight + 8; // Small gap after knobs
-        int visualizerWidth = totalGridWidth; // Match grid width
-        int visualizerHeight = 60; // Fixed height for curve display
-        int visualizerX = gridStartX; // Align with knob grid
-        
-        automationVisualizer.setBounds(visualizerX, visualizerY, visualizerWidth, visualizerHeight);
     }
     
     void paint(juce::Graphics& g) override

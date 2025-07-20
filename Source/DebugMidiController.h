@@ -220,11 +220,6 @@ public:
         lookAndFeelGrid.drawBlueprintGrid(g, contentAreaBounds);
         
         
-        // Draw settings panel separator if needed
-        if ((isInSettingsMode && settingsWindow.isVisible()) || (isInLearnMode && midiLearnWindow.isVisible()))
-        {
-            drawSettingsPanelSeparator(g, contentAreaBounds);
-        }
         
         CustomSliderLookAndFeel lookAndFeel;
         
@@ -266,21 +261,25 @@ public:
             }
         }
         
-        // Calculate top area bounds for text positioning
+        // Calculate top area bounds for text positioning (2px down from window edge)
         juce::Rectangle<int> topAreaBounds;
         if ((isInSettingsMode && settingsWindow.isVisible()) || (isInLearnMode && midiLearnWindow.isVisible()))
         {
-            topAreaBounds = juce::Rectangle<int>(0, 0, getWidth(), topAreaHeight);
+            topAreaBounds = juce::Rectangle<int>(0, 2, getWidth(), topAreaHeight - 2);
         }
         else
         {
-            topAreaBounds = juce::Rectangle<int>(contentX, 0, contentAreaWidth, topAreaHeight);
+            topAreaBounds = juce::Rectangle<int>(contentX, 2, contentAreaWidth, topAreaHeight - 2);
         }
         
+        // Draw blueprint-style outline around top area
+        g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
+        g.drawRect(topAreaBounds.toFloat(), 1.0f);
         
         // Draw MIDI input indicator next to Learn button - blueprint style
         int learnButtonX = topAreaBounds.getX() + 10 + 105;
-        midiInputIndicatorBounds = juce::Rectangle<float>(learnButtonX + 55, 28, 12, 12);
+        int indicatorY = topAreaBounds.getY() + 26; // Adjusted to be relative to top area bounds
+        midiInputIndicatorBounds = juce::Rectangle<float>(learnButtonX + 55, indicatorY, 12, 12);
         
         juce::Colour inputIndicatorColor = BlueprintColors::warning;
         float inputAlpha = midiManager.getMidiInputActivity() ? 1.0f : 0.2f;
@@ -301,7 +300,7 @@ public:
             status += "IN Connected";
         else
             status += "Disconnected";
-        g.drawText(status, topAreaBounds.getX() + 10, 5, 200, 20, juce::Justification::left);
+        g.drawText(status, topAreaBounds.getX() + 10, topAreaBounds.getY() + 3, 200, 20, juce::Justification::left);
     }
     
     void resized() override
@@ -414,13 +413,14 @@ public:
     
     void layoutTopAreaComponents(const juce::Rectangle<int>& topAreaBounds)
     {
-        // Settings button - positioned on left within top area
+        // Settings button - positioned on left within top area bounds
         int settingsButtonX = topAreaBounds.getX() + 10;
-        settingsButton.setBounds(settingsButtonX, 25, 100, 20);
+        int settingsButtonY = topAreaBounds.getY() + 23; // Adjusted to be relative to top area bounds
+        settingsButton.setBounds(settingsButtonX, settingsButtonY, 100, 20);
         
         // Learn button - positioned closer to settings button
         int learnButtonX = settingsButtonX + 105; // 100px settings button + 5px gap (reduced from 10px)
-        learnButton.setBounds(learnButtonX, 25, 50, 20);
+        learnButton.setBounds(learnButtonX, settingsButtonY, 50, 20);
         
         // Bank buttons - positioned as 2x2 grid in top right of top area
         const int buttonWidth = 35;
@@ -430,7 +430,7 @@ public:
         
         int gridWidth = (2 * buttonWidth) + buttonSpacing;
         int gridStartX = topAreaBounds.getRight() - rightMargin - gridWidth;
-        int gridStartY = 5;
+        int gridStartY = topAreaBounds.getY() + 3; // Adjusted to be relative to top area bounds
         
         // Top row: A and B buttons
         bankAButton.setBounds(gridStartX, gridStartY, buttonWidth, buttonHeight);
@@ -470,15 +470,6 @@ public:
         }
     }
     
-    void drawSettingsPanelSeparator(juce::Graphics& g, juce::Rectangle<int> contentAreaBounds)
-    {
-        // Blueprint-style technical divider line
-        const int dividerX = SETTINGS_PANEL_WIDTH;
-        g.setColour(BlueprintColors::blueprintLines);
-        g.drawLine(dividerX, 50, dividerX, getHeight() - 25, 2.0f);
-        
-        // No shadow - clean technical appearance
-    }
     
     void setupMidiManager()
     {

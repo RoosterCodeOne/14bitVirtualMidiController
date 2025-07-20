@@ -170,9 +170,13 @@ public:
         // Blueprint aesthetic background
         auto bounds = getLocalBounds().toFloat();
         
-        // Blueprint background (no rounded corners)
-        g.setColour(BlueprintColors::background);
+        // Blueprint window background (slightly lighter than main background)
+        g.setColour(BlueprintColors::windowBackground);
         g.fillAll();
+        
+        // Draw complete window outline - blueprint style
+        g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
+        g.drawRect(bounds, 1.0f);
         
         // Draw section background rectangles
         drawSectionBackgrounds(g);
@@ -909,28 +913,32 @@ private:
         
         int flexibleSpacing = juce::jmax(3, (availableHeight - fixedHeight) / 8);
         
-        // Top section (Preset controls) - blueprint outline style
+        // Top section (Preset controls) - blueprint background and outline style
         auto topSectionBounds = bounds.removeFromTop(10 + 16 + 6 + 22 + 6 + 20); // Updated padding values
         topSectionBounds = topSectionBounds.expanded(5, 0).withTrimmedBottom(1).withBottom(topSectionBounds.getBottom() + 4); // 5px left/right margin, 1px bottom gap, extend bottom by 4px
         
-        g.setColour(BlueprintColors::blueprintLines);
+        g.setColour(BlueprintColors::sectionBackground);
+        g.fillRect(topSectionBounds.toFloat());
+        g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
         g.drawRect(topSectionBounds.toFloat(), 1.0f);
         
         // Skip flexible spacing
         bounds.removeFromTop(flexibleSpacing);
         
-        // Middle section (Preset folder controls) - blueprint outline style
+        // Middle section (Preset folder controls) - blueprint background and outline style
         auto middleSectionBounds = bounds.removeFromTop(10 + 16 + 5 + 16 + 7 + 20); // Updated folder section height
         middleSectionBounds = middleSectionBounds.expanded(5, 0).withTrimmedTop(1).withTrimmedBottom(1); // 5px left/right margin, 1px top/bottom gaps
         middleSectionBounds = middleSectionBounds.withTop(middleSectionBounds.getY() - 2).withBottom(middleSectionBounds.getBottom() + 6); // Raise top by 2px, extend bottom by 6px
         
-        g.setColour(BlueprintColors::blueprintLines);
+        g.setColour(BlueprintColors::sectionBackground);
+        g.fillRect(middleSectionBounds.toFloat());
+        g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
         g.drawRect(middleSectionBounds.toFloat(), 1.0f);
         
         // Skip flexible spacing
         bounds.removeFromTop(flexibleSpacing);
         
-        // Bottom section (MIDI Channel + Bank + Slider controls) - blueprint outline style
+        // Bottom section (MIDI Channel + Bank + Slider controls) - blueprint background and outline style
         auto bottomSectionHeight = 10 + 22 + 8 + 22 + 8; // Updated MIDI + spacing + Bank
         if (controlsInitialized)
             bottomSectionHeight += 18 + 4 + (4 * 26) + (4 * 3) + 8; // Headers + sliders
@@ -938,7 +946,9 @@ private:
         auto bottomSectionBounds = bounds.removeFromTop(bottomSectionHeight);
         bottomSectionBounds = bottomSectionBounds.expanded(5, 0).withTrimmedTop(1).withBottom(bottomSectionBounds.getBottom() + 5); // 5px left/right margin, 1px top gap, extend bottom by 5px
         
-        g.setColour(BlueprintColors::blueprintLines);
+        g.setColour(BlueprintColors::sectionBackground);
+        g.fillRect(bottomSectionBounds.toFloat());
+        g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
         g.drawRect(bottomSectionBounds.toFloat(), 1.0f);
     }
     

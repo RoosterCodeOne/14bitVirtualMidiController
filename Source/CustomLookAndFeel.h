@@ -7,6 +7,8 @@ namespace BlueprintColors
 {
     const juce::Colour background(0xFF1a1a2e);      // Dark navy base
     const juce::Colour panel(0xFF16213e);           // Slightly lighter navy for raised areas
+    const juce::Colour windowBackground(0xFF1e2344); // Window background - slightly lighter than main
+    const juce::Colour sectionBackground(0xFF242951); // Section background - lightest blue
     const juce::Colour blueprintLines(0xFF00d4ff);  // Bright cyan for technical lines
     const juce::Colour textPrimary(0xFFe8e8e8);     // Soft white
     const juce::Colour textSecondary(0xFFa0b4cc);   // Blue-gray
@@ -57,12 +59,12 @@ public:
     // Public method for drawing blueprint-style technical panel
     void drawExtendedModulePlate(juce::Graphics& g, juce::Rectangle<float> bounds)
     {
-        // Solid panel background with no gradients
-        g.setColour(BlueprintColors::panel);
+        // Solid panel background matching settings sections
+        g.setColour(BlueprintColors::sectionBackground);
         g.fillRoundedRectangle(bounds, 2.0f);
         
-        // Technical outline - thin cyan line
-        g.setColour(BlueprintColors::blueprintLines);
+        // Technical outline - dimmed cyan line
+        g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
         g.drawRoundedRectangle(bounds, 2.0f, 1.0f);
         
         // No mounting screws - clean technical appearance
