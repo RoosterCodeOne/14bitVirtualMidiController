@@ -35,8 +35,7 @@ public:
         
         addAndMakeVisible(refreshDevicesButton);
         refreshDevicesButton.setButtonText("Refresh");
-        refreshDevicesButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
-        refreshDevicesButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
+        refreshDevicesButton.setLookAndFeel(&customButtonLookAndFeel);
         refreshDevicesButton.onClick = [this]() {
             refreshMidiDevices();
         };
@@ -84,8 +83,7 @@ public:
         // Clear All button
         addAndMakeVisible(clearAllButton);
         clearAllButton.setButtonText("Clear All");
-        clearAllButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
-        clearAllButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
+        clearAllButton.setLookAndFeel(&customButtonLookAndFeel);
         clearAllButton.onClick = [this]() {
             clearAllMappings();
         };
@@ -100,6 +98,10 @@ public:
     
     ~MidiLearnWindow()
     {
+        // Clean up custom look and feel
+        refreshDevicesButton.setLookAndFeel(nullptr);
+        clearAllButton.setLookAndFeel(nullptr);
+        
         mappingRows.clear();
     }
     
@@ -442,6 +444,7 @@ private:
     juce::Label actionHeaderLabel;
     juce::TextButton clearAllButton;
     juce::Label statusLabel;
+    CustomButtonLookAndFeel customButtonLookAndFeel;
     
     // Dynamic mapping rows
     juce::OwnedArray<MappingRow> mappingRows;

@@ -44,20 +44,17 @@ public:
         
         addAndMakeVisible(savePresetButton);
         savePresetButton.setButtonText("Save");
-        savePresetButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
-        savePresetButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
+        savePresetButton.setLookAndFeel(&customButtonLookAndFeel);
         savePresetButton.onClick = [this]() { showSavePresetDialog(); };
         
         addAndMakeVisible(loadPresetButton);
         loadPresetButton.setButtonText("Load");
-        loadPresetButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
-        loadPresetButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
+        loadPresetButton.setLookAndFeel(&customButtonLookAndFeel);
         loadPresetButton.onClick = [this]() { loadSelectedPreset(); };
         
         addAndMakeVisible(deletePresetButton);
         deletePresetButton.setButtonText("Del");
-        deletePresetButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
-        deletePresetButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
+        deletePresetButton.setLookAndFeel(&customButtonLookAndFeel);
         deletePresetButton.onClick = [this]() { deleteSelectedPreset(); };
         
         addAndMakeVisible(presetFolderLabel);
@@ -73,14 +70,12 @@ public:
         
         addAndMakeVisible(openFolderButton);
         openFolderButton.setButtonText("Open Folder");
-        openFolderButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
-        openFolderButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
+        openFolderButton.setLookAndFeel(&customButtonLookAndFeel);
         openFolderButton.onClick = [this]() { openPresetFolder(); };
 
         addAndMakeVisible(changeFolderButton);
         changeFolderButton.setButtonText("Change Folder");
-        changeFolderButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
-        changeFolderButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
+        changeFolderButton.setLookAndFeel(&customButtonLookAndFeel);
         changeFolderButton.onClick = [this]() { changePresetFolder(); };
 
         updatePresetFolderDisplay();
@@ -106,8 +101,7 @@ public:
         
         addAndMakeVisible(resetToDefaultButton);
         resetToDefaultButton.setButtonText("Reset");
-        resetToDefaultButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
-        resetToDefaultButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
+        resetToDefaultButton.setLookAndFeel(&customButtonLookAndFeel);
         resetToDefaultButton.onClick = [this]() { resetToDefaults(); };
         
         // Bank selector
@@ -163,6 +157,17 @@ public:
         }
         
         Component::setVisible(shouldBeVisible);
+    }
+    
+    ~SettingsWindow()
+    {
+        // Clean up custom look and feel
+        savePresetButton.setLookAndFeel(nullptr);
+        loadPresetButton.setLookAndFeel(nullptr);
+        deletePresetButton.setLookAndFeel(nullptr);
+        resetToDefaultButton.setLookAndFeel(nullptr);
+        openFolderButton.setLookAndFeel(nullptr);
+        changeFolderButton.setLookAndFeel(nullptr);
     }
     
     void paint(juce::Graphics& g) override
@@ -502,6 +507,7 @@ private:
     juce::Label presetPathLabel;
     juce::TextButton openFolderButton, changeFolderButton;
     juce::TextButton resetToDefaultButton;
+    CustomButtonLookAndFeel customButtonLookAndFeel;
 
     
     juce::Label bankSelectorLabel;

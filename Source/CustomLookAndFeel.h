@@ -70,6 +70,50 @@ public:
         // No mounting screws - clean technical appearance
     }
     
+    // Blueprint-style button drawing method for consistent button styling
+    void drawBlueprintButton(juce::Graphics& g, juce::Rectangle<float> bounds, const juce::String& text, 
+                           bool isPressed, bool isHighlighted, bool isSelected = false)
+    {
+        // Blueprint-style flat button background
+        juce::Colour bgColor;
+        if (isPressed)
+            bgColor = BlueprintColors::active.darker(0.3f);
+        else if (isSelected)
+            bgColor = BlueprintColors::active;
+        else
+            bgColor = BlueprintColors::panel;
+            
+        g.setColour(bgColor);
+        g.fillRoundedRectangle(bounds, 2.0f);
+        
+        // Technical outline - thicker when pressed/highlighted
+        float lineWidth = (isPressed || isHighlighted) ? 2.0f : 1.0f;
+        juce::Colour outlineColor;
+        if (isHighlighted)
+            outlineColor = BlueprintColors::active;
+        else
+            outlineColor = BlueprintColors::blueprintLines.withAlpha(0.6f);
+            
+        g.setColour(outlineColor);
+        g.drawRoundedRectangle(bounds, 2.0f, lineWidth);
+        
+        // Draw button text with blueprint styling
+        if (text.isNotEmpty())
+        {
+            g.setFont(juce::Font(9.0f, juce::Font::bold));
+            
+            // Color based on state
+            if (isHighlighted)
+                g.setColour(BlueprintColors::active);
+            else if (isPressed)
+                g.setColour(BlueprintColors::textPrimary.darker(0.2f));
+            else
+                g.setColour(BlueprintColors::textPrimary);
+                
+            g.drawText(text, bounds, juce::Justification::centred);
+        }
+    }
+    
     // Public drawing methods for external use
     void drawSliderTrack(juce::Graphics& g, juce::Rectangle<float> trackArea, juce::Colour trackColor, double sliderValue = 1.0, double minValue = 0.0, double maxValue = 16383.0)
     {
@@ -178,6 +222,46 @@ public:
 
 private:
     juce::Colour sliderColor;
+};
+
+//==============================================================================
+// Custom button look and feel for blueprint-style buttons
+class CustomButtonLookAndFeel : public juce::LookAndFeel_V4
+{
+public:
+    CustomButtonLookAndFeel() = default;
+    
+    void drawButtonBackground(juce::Graphics& g, juce::Button& button, const juce::Colour& backgroundColour,
+                            bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override
+    {
+        // Use the blueprint button drawing method
+        CustomSliderLookAndFeel lookAndFeel;
+        auto bounds = button.getLocalBounds().toFloat();
+        auto text = button.getButtonText();
+        
+        // Check if this is a bank button that should show selected state
+        bool isSelected = false;
+        if (auto* toggleButton = dynamic_cast<juce::ToggleButton*>(&button))
+        {
+            isSelected = toggleButton->getToggleState();
+        }
+        
+        lookAndFeel.drawBlueprintButton(g, bounds, text, shouldDrawButtonAsDown, 
+                                      shouldDrawButtonAsHighlighted, isSelected);
+    }
+    
+    void drawButtonText(juce::Graphics& g, juce::TextButton& button, bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override
+    {
+        // Text is already drawn in drawButtonBackground, so we don't need to draw it again
+    }
+    
+    void drawToggleButton(juce::Graphics& g, juce::ToggleButton& button, bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override
+    {
+        // Use the same blueprint button styling for toggle buttons
+        drawButtonBackground(g, button, juce::Colour(), shouldDrawButtonAsHighlighted, shouldDrawButtonAsDown);
+    }
+    
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CustomButtonLookAndFeel)
 };
 
 //End CustomLookAndFeel.h

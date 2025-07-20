@@ -45,7 +45,6 @@ public:
                     DBG("Set learnTargetSlider=" << i << ", showing markers");
                     
                     learnButton.setButtonText("Move Controller");
-                    learnButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::warning);
                 }
                 else
                 {
@@ -57,45 +56,40 @@ public:
             addAndMakeVisible(sliderControl);
         }
         
-        // Bank buttons - blueprint style
+        // Bank buttons - blueprint style with custom look and feel
         addAndMakeVisible(bankAButton);
         bankAButton.setButtonText("A");
-        bankAButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::active);
-        bankAButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
+        bankAButton.setLookAndFeel(&customButtonLookAndFeel);
+        bankAButton.setToggleState(true, juce::dontSendNotification); // Start with A selected
         bankAButton.onClick = [this]() { bankManager.setActiveBank(0); };
         
         addAndMakeVisible(bankBButton);
         bankBButton.setButtonText("B");
-        bankBButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::inactive);
-        bankBButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
+        bankBButton.setLookAndFeel(&customButtonLookAndFeel);
         bankBButton.onClick = [this]() { bankManager.setActiveBank(1); };
         
         addAndMakeVisible(bankCButton);
         bankCButton.setButtonText("C");
-        bankCButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::inactive);
-        bankCButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
+        bankCButton.setLookAndFeel(&customButtonLookAndFeel);
         bankCButton.onClick = [this]() { bankManager.setActiveBank(2); };
         
         addAndMakeVisible(bankDButton);
         bankDButton.setButtonText("D");
-        bankDButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::inactive);
-        bankDButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
+        bankDButton.setLookAndFeel(&customButtonLookAndFeel);
         bankDButton.onClick = [this]() { bankManager.setActiveBank(3); };
         
-        // Settings button - blueprint style
+        // Settings button - blueprint style with custom look and feel
         addAndMakeVisible(settingsButton);
         settingsButton.setButtonText("Settings");
-        settingsButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
-        settingsButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
+        settingsButton.setLookAndFeel(&customButtonLookAndFeel);
         settingsButton.onClick = [this]() {
             toggleSettingsMode();
         };
         
-        // Mode toggle button - blueprint style
+        // Mode toggle button - blueprint style with custom look and feel
         addAndMakeVisible(modeButton);
         modeButton.setButtonText(bankManager.isEightSliderMode() ? "8" : "4");
-        modeButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
-        modeButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
+        modeButton.setLookAndFeel(&customButtonLookAndFeel);
         modeButton.onClick = [this]() {
             toggleSliderMode();
         };
@@ -110,8 +104,7 @@ public:
         // Learn button for MIDI mapping - blueprint style
         addAndMakeVisible(learnButton);
         learnButton.setButtonText("Learn");
-        learnButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
-        learnButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary);
+        learnButton.setLookAndFeel(&customButtonLookAndFeel);
         learnButton.onClick = [this]() {
             toggleLearnMode();
         };
@@ -193,6 +186,15 @@ public:
         
         // Auto-save current state before destruction
         saveCurrentState();
+        
+        // Clean up custom look and feel
+        settingsButton.setLookAndFeel(nullptr);
+        learnButton.setLookAndFeel(nullptr);
+        modeButton.setLookAndFeel(nullptr);
+        bankAButton.setLookAndFeel(nullptr);
+        bankBButton.setLookAndFeel(nullptr);
+        bankCButton.setLookAndFeel(nullptr);
+        bankDButton.setLookAndFeel(nullptr);
         
         // MIDI cleanup is handled by MidiManager destructor
     }
@@ -649,7 +651,6 @@ public:
             
             // Reset learn button state
             learnButton.setButtonText("Select Slider");
-            learnButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::active);
             DBG("Reset learn state");
             
             // Show success feedback
@@ -713,11 +714,11 @@ private:
     {
         int activeBank = bankManager.getActiveBank();
         
-        // Update colors based on blueprint style
-        bankAButton.setColour(juce::TextButton::buttonColourId, activeBank == 0 ? BlueprintColors::active : BlueprintColors::inactive);
-        bankBButton.setColour(juce::TextButton::buttonColourId, activeBank == 1 ? BlueprintColors::active : BlueprintColors::inactive);
-        bankCButton.setColour(juce::TextButton::buttonColourId, activeBank == 2 ? BlueprintColors::active : BlueprintColors::inactive);
-        bankDButton.setColour(juce::TextButton::buttonColourId, activeBank == 3 ? BlueprintColors::active : BlueprintColors::inactive);
+        // Update toggle states for bank buttons
+        bankAButton.setToggleState(activeBank == 0, juce::dontSendNotification);
+        bankBButton.setToggleState(activeBank == 1, juce::dontSendNotification);
+        bankCButton.setToggleState(activeBank == 2, juce::dontSendNotification);
+        bankDButton.setToggleState(activeBank == 3, juce::dontSendNotification);
     }
     
     
@@ -809,7 +810,6 @@ private:
             isInLearnMode = false;
             midi7BitController.stopLearnMode();
             learnButton.setButtonText("Learn");
-            learnButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
             midiLearnWindow.setVisible(false);
             
             // Clear any learn markers
@@ -819,9 +819,7 @@ private:
         
         isInSettingsMode = !isInSettingsMode;
         
-        // Update button appearance
-        settingsButton.setColour(juce::TextButton::buttonColourId, 
-                               isInSettingsMode ? BlueprintColors::active : BlueprintColors::panel);
+        // Custom look and feel handles button appearance automatically
         
         // Update constraints BEFORE resizing to prevent constraint violations
         updateWindowConstraints();
@@ -1024,7 +1022,7 @@ private:
         if (isInSettingsMode)
         {
             isInSettingsMode = false;
-            settingsButton.setColour(juce::TextButton::buttonColourId, juce::Colours::grey);
+            // Custom look and feel handles button appearance
             settingsWindow.setVisible(false);
         }
         
@@ -1036,7 +1034,6 @@ private:
             midi7BitController.startLearnMode();
             DBG("Entered learn mode: isLearningMode=" << (int)midi7BitController.isInLearnMode());
             learnButton.setButtonText("Exit Learn");
-            learnButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::active);
             
             // Show learn window
             updateWindowConstraints();
@@ -1057,7 +1054,6 @@ private:
             midi7BitController.stopLearnMode();
             DBG("Exited learn mode: isLearningMode=" << (int)midi7BitController.isInLearnMode());
             learnButton.setButtonText("Learn");
-            learnButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
             
             midiLearnWindow.setVisible(false);
             
@@ -1084,7 +1080,8 @@ private:
     juce::TextButton settingsButton;
     juce::TextButton modeButton;
     juce::TextButton learnButton;
-    juce::TextButton bankAButton, bankBButton, bankCButton, bankDButton;
+    juce::ToggleButton bankAButton, bankBButton, bankCButton, bankDButton;
+    CustomButtonLookAndFeel customButtonLookAndFeel;
     juce::Label showingLabel;
     SettingsWindow settingsWindow;
     MidiLearnWindow midiLearnWindow;
