@@ -21,6 +21,8 @@ public:
     {
         setSize(140, 80); // Default size for SimpleSliderControl integration
         calculateCurvePoints();
+        // Force initial repaint to show default curve immediately on startup
+        repaint();
     }
     
     ~AutomationVisualizer()
@@ -147,6 +149,12 @@ private:
     {
         curvePoints.clear();
         auto bounds = getLocalBounds().toFloat().reduced(10.0f); // Margin for grid
+            
+        // If bounds are invalid (common during construction), use default bounds
+        if (bounds.getWidth() <= 0.0f || bounds.getHeight() <= 0.0f)
+        {
+            bounds = juce::Rectangle<float>(10.0f, 10.0f, 120.0f, 60.0f); // Default working area
+        }
         
         // Origin point (bottom-left)
         float originX = bounds.getX();

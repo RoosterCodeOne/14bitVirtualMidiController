@@ -140,8 +140,9 @@ public:
         
         // Automation visualizer - blueprint-style curve display
         addAndMakeVisible(automationVisualizer);
-        automationVisualizer.setParameters(delayKnob.getValue(), attackKnob.getValue(), 
-                                         returnKnob.getValue(), curveKnob.getValue());
+        
+        // Update visualizer with initial knob values (this ensures proper initialization)
+        updateVisualizerParameters();
         
         // Set up display manager callbacks
         setupDisplayManager();
@@ -273,6 +274,9 @@ public:
         
         returnKnob.setBounds(returnX, bottomRowY, knobWidth, knobHeight);
         curveKnob.setBounds(curveX, bottomRowY, knobWidth, knobHeight);
+        
+        // Force automation visualizer repaint after resizing to ensure curve is visible
+        automationVisualizer.repaint();
     }
     
     void paint(juce::Graphics& g) override
@@ -323,14 +327,27 @@ public:
         auto value = mainSlider.getValue();
         float norm = juce::jmap<float>(value, mainSlider.getMinimum(), mainSlider.getMaximum(), 0.0f, 1.0f);
         
-        // Map to the usable track area (excluding thumb size)
-        float thumbHeight = 24.0f; // Reverted to original for thumb positioning
-        float usableTrackHeight = trackBounds.getHeight() - thumbHeight;
-        float trackTop = trackBounds.getY() + (thumbHeight / 2.0f);
-        float trackBottom = trackTop + usableTrackHeight;
+        // For hardware-realistic behavior, thumb center should align with track edges
+        // This allows the visual thumb to extend beyond the track bounds
+        float trackTop = trackBounds.getY() + 4.0f;
+        float trackBottom = trackBounds.getBottom() - 4.0f;
         
+        // Map normalized value directly to track edge boundaries
+        // At max value (norm=1.0): thumb center aligns with track top edge (thumb extends above)
+        // At min value (norm=0.0): thumb center aligns with track bottom edge (thumb extends below)
         float thumbY = juce::jmap(norm, trackBottom, trackTop);
         return juce::Point<float>(trackBounds.getCentreX(), thumbY);
+    }
+    
+    // Get visual thumb bounds for hit-testing
+    juce::Rectangle<float> getVisualThumbBounds() const
+    {
+        auto thumbPos = getThumbPosition();
+        float thumbWidth = 28.0f;  // Match CustomLookAndFeel::drawSliderThumb
+        float thumbHeight = 12.0f; // Match CustomLookAndFeel::drawSliderThumb
+        
+        return juce::Rectangle<float>(thumbWidth, thumbHeight)
+            .withCentre(thumbPos);
     }
     
     // Preset support methods
@@ -493,8 +510,79 @@ public:
         if (onSliderClick)
             onSliderClick();
         
+        // Check if click is on visual thumb area
+        auto localPos = event.getPosition().toFloat();
+        auto thumbBounds = getVisualThumbBounds();
+        
+        if (thumbBounds.contains(localPos))
+        {
+            // Check if locked - prevent thumb dragging
+            if (lockState) return;
+            
+            // Clicking on thumb - initiate grab behavior
+            isDraggingThumb = true;
+            dragStartValue = mainSlider.getValue();
+            dragStartY = localPos.y;
+            mainSlider.setInterceptsMouseClicks(false, false); // Disable normal slider interaction
+        }
+        else
+        {
+            // Clicking outside thumb - allow normal jump-to-position behavior
+            isDraggingThumb = false;
+            mainSlider.setInterceptsMouseClicks(true, true); // Enable normal slider interaction
+            // Pass to base class for normal handling
+            juce::Component::mouseDown(event);
+        }
+    }
+    
+    void mouseDrag(const juce::MouseEvent& event) override
+    {
+        if (isDraggingThumb)
+        {
+            // Custom thumb dragging behavior
+            auto localPos = event.getPosition().toFloat();
+            auto trackBounds = getVisualTrackBounds().toFloat();
+            
+            // Calculate drag distance
+            float dragDistance = dragStartY - localPos.y; // Inverted because Y increases downward
+            
+            // Convert drag distance to value change
+            float trackHeight = trackBounds.getHeight();
+            float valueRange = mainSlider.getMaximum() - mainSlider.getMinimum();
+            float valueDelta = (dragDistance / trackHeight) * valueRange;
+            
+            // Apply relative change from starting position
+            double newValue = juce::jlimit(mainSlider.getMinimum(), mainSlider.getMaximum(), 
+                                         dragStartValue + valueDelta);
+            
+            // Update slider value
+            mainSlider.setValue(newValue, juce::dontSendNotification);
+            displayManager.setMidiValue(newValue);
+            if (sendMidiCallback)
+                sendMidiCallback(index, (int)newValue);
+            
+            // Trigger parent repaint to update visual thumb position
+            if (auto* parent = getParentComponent())
+                parent->repaint();
+        }
+        else
+        {
+            // Pass to base class for normal handling
+            juce::Component::mouseDrag(event);
+        }
+    }
+    
+    void mouseUp(const juce::MouseEvent& event) override
+    {
+        if (isDraggingThumb)
+        {
+            // End custom thumb dragging
+            isDraggingThumb = false;
+            mainSlider.setInterceptsMouseClicks(true, true); // Re-enable normal slider interaction
+        }
+        
         // Pass to base class for normal handling
-        juce::Component::mouseDown(event);
+        juce::Component::mouseUp(event);
     }
     
     // Set learn markers visibility
@@ -646,6 +734,11 @@ private:
     bool showLearnMarkers = false;
     
     juce::Colour sliderColor;
+    
+    // Custom thumb dragging state
+    bool isDraggingThumb = false;
+    double dragStartValue = 0.0;
+    float dragStartY = 0.0f;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SimpleSliderControl)
 };
