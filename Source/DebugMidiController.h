@@ -187,7 +187,12 @@ public:
         // Auto-save current state before destruction
         saveCurrentState();
         
-        // Clean up custom look and feel
+        // Clean up custom look and feel and button color mappings
+        customButtonLookAndFeel.removeButtonColor(&bankAButton);
+        customButtonLookAndFeel.removeButtonColor(&bankBButton);
+        customButtonLookAndFeel.removeButtonColor(&bankCButton);
+        customButtonLookAndFeel.removeButtonColor(&bankDButton);
+        
         settingsButton.setLookAndFeel(nullptr);
         learnButton.setLookAndFeel(nullptr);
         modeButton.setLookAndFeel(nullptr);
@@ -572,6 +577,9 @@ public:
         bankManager.onBankColorsChanged = [this](const BankManager::BankColors& colors) {
             updateBankButtonStates();
         };
+        
+        // Set initial bank button colors
+        updateBankButtonStates();
     }
     
     void setupKeyboardController()
@@ -713,12 +721,25 @@ private:
     void updateBankButtonStates()
     {
         int activeBank = bankManager.getActiveBank();
+        auto bankColors = bankManager.getCurrentBankColors();
         
         // Update toggle states for bank buttons
         bankAButton.setToggleState(activeBank == 0, juce::dontSendNotification);
         bankBButton.setToggleState(activeBank == 1, juce::dontSendNotification);
         bankCButton.setToggleState(activeBank == 2, juce::dontSendNotification);
         bankDButton.setToggleState(activeBank == 3, juce::dontSendNotification);
+        
+        // Apply bank-specific colors to buttons
+        customButtonLookAndFeel.setButtonColor(&bankAButton, bankColors.bankA);
+        customButtonLookAndFeel.setButtonColor(&bankBButton, bankColors.bankB);
+        customButtonLookAndFeel.setButtonColor(&bankCButton, bankColors.bankC);
+        customButtonLookAndFeel.setButtonColor(&bankDButton, bankColors.bankD);
+        
+        // Repaint buttons to reflect color changes
+        bankAButton.repaint();
+        bankBButton.repaint();
+        bankCButton.repaint();
+        bankDButton.repaint();
     }
     
     

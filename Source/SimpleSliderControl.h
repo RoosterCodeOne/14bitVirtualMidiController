@@ -733,7 +733,12 @@ private:
                 // Update visualizer state based on automation status
                 if (isAutomating)
                 {
-                    automationVisualizer.lockCurveForAutomation();
+                    // Pass current knob values for precise animation timing
+                    automationVisualizer.lockCurveForAutomation(
+                        delayKnob.getValue(), 
+                        attackKnob.getValue(), 
+                        returnKnob.getValue()
+                    );
                 }
                 else
                 {
@@ -742,8 +747,7 @@ private:
             }
         };
         
-        // Note: Progress updates would require adding onProgressUpdate callback to AutomationEngine
-        // For now, the visualizer will show state changes and curve updates
+        // Animation is now self-contained in the visualizer - no callbacks needed
     }
     
     

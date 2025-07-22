@@ -1,6 +1,7 @@
 // CustomLookAndFeel.h - Blueprint Technical Drawing Style
 #pragma once
 #include <JuceHeader.h>
+#include <map>
 
 // Blueprint color palette
 namespace BlueprintColors
@@ -72,14 +73,17 @@ public:
     
     // Blueprint-style button drawing method for consistent button styling
     void drawBlueprintButton(juce::Graphics& g, juce::Rectangle<float> bounds, const juce::String& text, 
-                           bool isPressed, bool isHighlighted, bool isSelected = false)
+                           bool isPressed, bool isHighlighted, bool isSelected = false, 
+                           juce::Colour customColor = juce::Colour())
     {
         // Blueprint-style flat button background
         juce::Colour bgColor;
+        juce::Colour activeColor = customColor.isTransparent() ? BlueprintColors::active : customColor;
+        
         if (isPressed)
-            bgColor = BlueprintColors::active.darker(0.3f);
+            bgColor = activeColor.darker(0.3f);
         else if (isSelected)
-            bgColor = BlueprintColors::active;
+            bgColor = activeColor;
         else
             bgColor = BlueprintColors::panel;
             
@@ -90,7 +94,9 @@ public:
         float lineWidth = (isPressed || isHighlighted) ? 2.0f : 1.0f;
         juce::Colour outlineColor;
         if (isHighlighted)
-            outlineColor = BlueprintColors::active;
+            outlineColor = activeColor;
+        else if (isSelected)
+            outlineColor = activeColor.brighter(0.2f);
         else
             outlineColor = BlueprintColors::blueprintLines.withAlpha(0.6f);
             
@@ -100,13 +106,21 @@ public:
         // Draw button text with blueprint styling
         if (text.isNotEmpty())
         {
-            g.setFont(juce::Font(9.0f, juce::Font::bold));
+            g.setFont(juce::Font(11.0f, juce::Font::bold)); // Increased from 9.0f for better readability
             
-            // Color based on state
+            // Color based on state - ensure good contrast
             if (isHighlighted)
-                g.setColour(BlueprintColors::active);
+                g.setColour(activeColor);
             else if (isPressed)
                 g.setColour(BlueprintColors::textPrimary.darker(0.2f));
+            else if (isSelected)
+            {
+                // For better contrast on colored backgrounds, especially yellow
+                if (customColor == juce::Colours::yellow)
+                    g.setColour(juce::Colours::black); // Black text on yellow background
+                else
+                    g.setColour(juce::Colours::white); // White text on other colored backgrounds
+            }
             else
                 g.setColour(BlueprintColors::textPrimary);
                 
@@ -231,6 +245,18 @@ class CustomButtonLookAndFeel : public juce::LookAndFeel_V4
 public:
     CustomButtonLookAndFeel() = default;
     
+    // Set custom color for a specific button
+    void setButtonColor(juce::Button* button, juce::Colour color)
+    {
+        buttonColors[button] = color;
+    }
+    
+    // Remove button color mapping when button is destroyed
+    void removeButtonColor(juce::Button* button)
+    {
+        buttonColors.erase(button);
+    }
+    
     void drawButtonBackground(juce::Graphics& g, juce::Button& button, const juce::Colour& backgroundColour,
                             bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override
     {
@@ -246,8 +272,16 @@ public:
             isSelected = toggleButton->getToggleState();
         }
         
+        // Get custom color for this button, if set
+        juce::Colour customColor;
+        auto it = buttonColors.find(&button);
+        if (it != buttonColors.end())
+        {
+            customColor = it->second;
+        }
+        
         lookAndFeel.drawBlueprintButton(g, bounds, text, shouldDrawButtonAsDown, 
-                                      shouldDrawButtonAsHighlighted, isSelected);
+                                      shouldDrawButtonAsHighlighted, isSelected, customColor);
     }
     
     void drawButtonText(juce::Graphics& g, juce::TextButton& button, bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override
@@ -260,6 +294,9 @@ public:
         // Use the same blueprint button styling for toggle buttons
         drawButtonBackground(g, button, juce::Colour(), shouldDrawButtonAsHighlighted, shouldDrawButtonAsDown);
     }
+    
+private:
+    std::map<juce::Button*, juce::Colour> buttonColors;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CustomButtonLookAndFeel)
 };

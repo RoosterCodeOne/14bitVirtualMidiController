@@ -17,7 +17,9 @@ public:
     AutomationVisualizer()
         : currentState(VisualizerState::Idle),
           delayTime(0.0), attackTime(1.0), returnTime(0.0), curveValue(1.0),
-          automationProgress(0.0), ballPosition(0.0f, 0.0f), showBall(false)
+          ballPosition(0.0f, 0.0f), showBall(false),
+          animationStartTime(0.0), totalAnimationDuration(0.0),
+          animationDelayTime(0.0), animationAttackTime(1.0), animationReturnTime(0.0)
     {
         setSize(140, 80); // Default size for SimpleSliderControl integration
         calculateCurvePoints();
@@ -44,14 +46,39 @@ public:
         }
     }
     
-    void setAutomationProgress(double progress)
+    // Start self-contained animation using provided knob values
+    void startAnimation(double currentDelay, double currentAttack, double currentReturn)
     {
-        automationProgress = juce::jlimit(0.0, 1.0, progress);
-        if (currentState == VisualizerState::Locked)
+        if (currentState != VisualizerState::Locked) return;
+        
+        // Use the actual current knob values for animation timing
+        animationDelayTime = currentDelay;
+        animationAttackTime = currentAttack;
+        animationReturnTime = currentReturn;
+        
+        // Record animation start time
+        animationStartTime = juce::Time::getMillisecondCounterHiRes();
+        
+        // Calculate total animation duration from actual knob values
+        totalAnimationDuration = animationDelayTime + animationAttackTime + animationReturnTime;
+        
+        // Debug logging
+        DBG("AutomationVisualizer: Starting animation - Delay: " << animationDelayTime 
+            << "s, Attack: " << animationAttackTime << "s, Return: " << animationReturnTime 
+            << "s, Total: " << totalAnimationDuration << "s");
+        
+        // Start internal animation timer
+        if (totalAnimationDuration > 0.0)
         {
-            updateBallPosition();
-            repaint();
+            startTimer(16); // 60fps animation
         }
+    }
+    
+    void stopAnimation()
+    {
+        stopTimer();
+        showBall = false;
+        repaint();
     }
     
     void setVisualizerState(VisualizerState state)
@@ -68,7 +95,7 @@ public:
                     break;
                     
                 case VisualizerState::Locked:
-                    lockCurveForAutomation();
+                    lockCurveForAutomation(delayTime, attackTime, returnTime);
                     break;
                     
                 case VisualizerState::Stopped:
@@ -79,19 +106,18 @@ public:
         }
     }
     
-    void lockCurveForAutomation()
+    void lockCurveForAutomation(double currentDelay, double currentAttack, double currentReturn)
     {
         currentState = VisualizerState::Locked;
         showBall = true;
-        startTimer(16); // 60fps animation
+        startAnimation(currentDelay, currentAttack, currentReturn); // Start self-contained animation
         repaint();
     }
     
     void unlockCurve()
     {
         currentState = VisualizerState::Idle;
-        showBall = false;
-        stopTimer();
+        stopAnimation(); // Stop self-contained animation
         calculateCurvePoints(); // Reload current knob settings
         repaint();
     }
@@ -123,12 +149,19 @@ public:
         g.drawRect(bounds, 1.0f);
     }
     
+    void resized() override
+    {
+        // Recalculate curve when component bounds are set/changed
+        calculateCurvePoints();
+        repaint();
+    }
+    
     void timerCallback() override
     {
-        // Smooth ball animation updates
+        // Self-contained animation using knob values
         if (currentState == VisualizerState::Locked)
         {
-            updateBallPosition();
+            updateBallPositionFromTime();
             repaint();
         }
     }
@@ -137,13 +170,116 @@ private:
     // State variables
     VisualizerState currentState;
     double delayTime, attackTime, returnTime, curveValue;
-    double automationProgress;
     juce::Point<float> ballPosition;
     bool showBall;
+    
+    // Self-contained animation timing
+    double animationStartTime;
+    double totalAnimationDuration;
+    double animationDelayTime, animationAttackTime, animationReturnTime;
     
     // Curve calculation
     std::vector<juce::Point<float>> curvePoints;
     juce::Point<float> delayEndPoint, attackEndPoint, returnEndPoint;
+    
+    // Ball positioning using exact same geometry as curve drawing
+    void updateBallPositionFromTime()
+    {
+        if (curvePoints.empty() || totalAnimationDuration <= 0.0) return;
+        
+        // Calculate elapsed animation time
+        double currentTime = juce::Time::getMillisecondCounterHiRes();
+        double elapsed = (currentTime - animationStartTime) / 1000.0; // Convert to seconds
+        
+        // Debug phase transitions
+        static int lastPhase = -1;
+        int currentPhase = -1;
+        
+        if (elapsed < animationDelayTime)
+        {
+            // DELAY PHASE: Move horizontally along delay line
+            currentPhase = 0;
+            if (lastPhase != currentPhase) {
+                DBG("AutomationVisualizer: Entering DELAY phase at " << elapsed << "s");
+                lastPhase = currentPhase;
+            }
+            
+            double delayProgress = animationDelayTime > 0.0 ? elapsed / animationDelayTime : 1.0;
+            delayProgress = juce::jlimit(0.0, 1.0, delayProgress);
+            
+            // Ball moves horizontally across delay line
+            if (!curvePoints.empty() && delayEndPoint.x > curvePoints[0].x)
+            {
+                float startX = curvePoints[0].x;
+                float endX = delayEndPoint.x;
+                float y = curvePoints[0].y; // Horizontal line
+                ballPosition = {startX + (endX - startX) * (float)delayProgress, y};
+            }
+            else
+            {
+                ballPosition = curvePoints[0]; // No delay, stay at start
+            }
+        }
+        else if (elapsed < animationDelayTime + animationAttackTime)
+        {
+            // ATTACK PHASE: Move along attack slope to peak
+            currentPhase = 1;
+            if (lastPhase != currentPhase) {
+                DBG("AutomationVisualizer: Entering ATTACK phase at " << elapsed << "s");
+                lastPhase = currentPhase;
+            }
+            
+            double attackElapsed = elapsed - animationDelayTime;
+            double attackProgress = animationAttackTime > 0.0 ? attackElapsed / animationAttackTime : 1.0;
+            attackProgress = juce::jlimit(0.0, 1.0, attackProgress);
+            
+            // Ball moves from delay end to attack end (peak)
+            float startX = delayEndPoint.x;
+            float startY = delayEndPoint.y;
+            float endX = attackEndPoint.x;
+            float endY = attackEndPoint.y;
+            
+            ballPosition = {
+                startX + (endX - startX) * (float)attackProgress,
+                startY + (endY - startY) * (float)attackProgress
+            };
+        }
+        else if (animationReturnTime > 0.0 && elapsed < totalAnimationDuration)
+        {
+            // RETURN PHASE: Move along return slope back to start level
+            currentPhase = 2;
+            if (lastPhase != currentPhase) {
+                DBG("AutomationVisualizer: Entering RETURN phase at " << elapsed << "s");
+                lastPhase = currentPhase;
+            }
+            
+            double returnElapsed = elapsed - animationDelayTime - animationAttackTime;
+            double returnProgress = animationReturnTime > 0.0 ? returnElapsed / animationReturnTime : 1.0;
+            returnProgress = juce::jlimit(0.0, 1.0, returnProgress);
+            
+            // Ball moves from attack end (peak) to return end
+            float startX = attackEndPoint.x;
+            float startY = attackEndPoint.y;
+            float endX = returnEndPoint.x;
+            float endY = returnEndPoint.y;
+            
+            ballPosition = {
+                startX + (endX - startX) * (float)returnProgress,
+                startY + (endY - startY) * (float)returnProgress
+            };
+        }
+        else
+        {
+            // ANIMATION COMPLETE: Ball at final position
+            if (lastPhase != 3) {
+                DBG("AutomationVisualizer: Animation COMPLETE at " << elapsed << "s");
+                lastPhase = 3;
+            }
+            
+            ballPosition = returnEndPoint.x > 0 ? returnEndPoint : attackEndPoint;
+            stopTimer(); // Stop animation when complete
+        }
+    }
     
     void calculateCurvePoints()
     {
@@ -361,32 +497,6 @@ private:
         }
     }
     
-    void updateBallPosition()
-    {
-        if (curvePoints.empty()) return;
-        
-        // Calculate position along curve based on automation progress
-        float totalPoints = static_cast<float>(curvePoints.size() - 1);
-        float pointIndex = automationProgress * totalPoints;
-        
-        int baseIndex = static_cast<int>(pointIndex);
-        float fraction = pointIndex - baseIndex;
-        
-        if (baseIndex >= static_cast<int>(curvePoints.size()) - 1)
-        {
-            ballPosition = curvePoints.back();
-        }
-        else
-        {
-            // Interpolate between two points
-            auto p1 = curvePoints[baseIndex];
-            auto p2 = curvePoints[baseIndex + 1];
-            ballPosition = {
-                p1.x + (p2.x - p1.x) * fraction,
-                p1.y + (p2.y - p1.y) * fraction
-            };
-        }
-    }
     
     void drawMovingBall(juce::Graphics& g)
     {
