@@ -154,15 +154,20 @@ double AutomationEngine::applyCurve(double progress, double curveValue) const
     
     if (curveValue < 1.0)
     {
-        // Exponential (0.0 to 1.0)
-        double factor = curveValue; // 0.0 = full exponential, 1.0 = linear
-        return std::pow(progress, 2.0 - factor);
+        // Exponential (0.0 = full exponential, slow start/fast finish)
+        double exponent = 1.0 + (1.0 - curveValue) * 3.0; // Range: 1.0 to 4.0
+        return std::pow(progress, exponent);
+    }
+    else if (curveValue > 1.0)
+    {
+        // Logarithmic (2.0 = full logarithmic, fast start/slow finish)
+        double exponent = 1.0 / (1.0 + (curveValue - 1.0) * 3.0); // Range: 1.0 to 0.25
+        return std::pow(progress, exponent);
     }
     else
     {
-        // Logarithmic (1.0 to 2.0)  
-        double factor = curveValue - 1.0; // 0.0 = linear, 1.0 = full logarithmic
-        return std::pow(progress, 1.0 - factor);
+        // Linear (curveValue == 1.0)
+        return progress;
     }
 }
 
@@ -200,8 +205,24 @@ void AutomationEngine::updateAutomation(SliderAutomation& automation)
         
         double returnElapsed = elapsed - params.delayTime - params.attackTime;
         double progress = returnElapsed / params.returnTime;
-        double invertedCurve = 2.0 - params.curveValue; // Invert curve for return phase
-        double curvedProgress = applyCurve(progress, invertedCurve);
+        // Create proper inverse curve: exponential becomes logarithmic and vice versa
+        double inverseCurve;
+        if (params.curveValue < 1.0)
+        {
+            // Attack was exponential, return should be logarithmic
+            inverseCurve = 1.0 + (1.0 - params.curveValue); // Maps 0.0->2.0, 1.0->1.0
+        }
+        else if (params.curveValue > 1.0)
+        {
+            // Attack was logarithmic, return should be exponential  
+            inverseCurve = 1.0 - (params.curveValue - 1.0); // Maps 2.0->0.0, 1.0->1.0
+        }
+        else
+        {
+            // Attack was linear, return stays linear
+            inverseCurve = 1.0;
+        }
+        double curvedProgress = applyCurve(progress, inverseCurve);
         double currentValue = params.targetValue + (automation.originalValue - params.targetValue) * curvedProgress;
         
         if (onValueUpdate)

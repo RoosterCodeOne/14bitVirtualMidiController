@@ -27,6 +27,8 @@ public:
 class SimpleSliderControl : public juce::Component, public juce::Timer
 {
 public:
+    // Time mode enumeration
+    enum class TimeMode { Seconds, Beats };
     SimpleSliderControl(int sliderIndex, std::function<void(int, int)> midiCallback)
         : index(sliderIndex), sendMidiCallback(midiCallback), sliderColor(juce::Colours::cyan),
           attackKnob("ATTACK", 0.0, 30.0, CustomKnob::Smaller), 
@@ -141,6 +143,33 @@ public:
         // Automation visualizer - blueprint-style curve display
         addAndMakeVisible(automationVisualizer);
         
+        // Time mode toggle buttons
+        addAndMakeVisible(secButton);
+        addAndMakeVisible(beatButton);
+        addAndMakeVisible(secLabel);
+        addAndMakeVisible(beatLabel);
+        
+        // Configure SEC button (default active)
+        secButton.setToggleState(true, juce::dontSendNotification);
+        secButton.setLookAndFeel(&buttonLookAndFeel);
+        secButton.onClick = [this]() { setTimeMode(TimeMode::Seconds); };
+        
+        // Configure BEAT button
+        beatButton.setToggleState(false, juce::dontSendNotification);
+        beatButton.setLookAndFeel(&buttonLookAndFeel);
+        beatButton.onClick = [this]() { setTimeMode(TimeMode::Beats); };
+        
+        // Configure labels
+        secLabel.setText("SEC", juce::dontSendNotification);
+        secLabel.setJustificationType(juce::Justification::centred);
+        secLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        secLabel.setFont(juce::FontOptions(9.0f, juce::Font::bold));
+        
+        beatLabel.setText("BEAT", juce::dontSendNotification);
+        beatLabel.setJustificationType(juce::Justification::centred);
+        beatLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        beatLabel.setFont(juce::FontOptions(9.0f, juce::Font::bold));
+        
         // Update visualizer with initial knob values (this ensures proper initialization)
         updateVisualizerParameters();
         
@@ -159,6 +188,8 @@ public:
         
         // CRITICAL: Remove look and feel before destruction
         mainSlider.setLookAndFeel(nullptr);
+        secButton.setLookAndFeel(nullptr);
+        beatButton.setLookAndFeel(nullptr);
     }
     
     void resized() override
@@ -275,6 +306,27 @@ public:
         returnKnob.setBounds(returnX, bottomRowY, knobWidth, knobHeight);
         curveKnob.setBounds(curveX, bottomRowY, knobWidth, knobHeight);
         
+        // Time mode toggle buttons below knob grid
+        int toggleStartY = bottomRowY + knobHeight + 8; // 8px below knob grid
+        int buttonWidth = 20;
+        int buttonHeight = 14; 
+        int buttonSpacing = 2; // Tight spacing between buttons
+        int labelSpacing = 3; // Small gap between label and button
+        
+        // Calculate total width: label + gap + button + spacing + button + gap + label
+        int labelWidth = 16;
+        int totalToggleWidth = labelWidth + labelSpacing + buttonWidth + buttonSpacing + buttonWidth + labelSpacing + labelWidth;
+        int toggleStartX = centerX - (totalToggleWidth / 2);
+        
+        // SEC label and button (left side)
+        secLabel.setBounds(toggleStartX, toggleStartY, labelWidth, buttonHeight);
+        secButton.setBounds(toggleStartX + labelWidth + labelSpacing, toggleStartY, buttonWidth, buttonHeight);
+        
+        // BEAT button and label (right side)
+        int beatButtonX = toggleStartX + labelWidth + labelSpacing + buttonWidth + buttonSpacing;
+        beatButton.setBounds(beatButtonX, toggleStartY, buttonWidth, buttonHeight);
+        beatLabel.setBounds(beatButtonX + buttonWidth + labelSpacing, toggleStartY, labelWidth, buttonHeight);
+        
         // Force automation visualizer repaint after resizing to ensure curve is visible
         automationVisualizer.repaint();
     }
@@ -305,6 +357,22 @@ public:
     }
     
     double getValue() const { return mainSlider.getValue(); }
+    
+    void setTimeMode(TimeMode mode)
+    {
+        if (currentTimeMode == mode) return;
+        
+        currentTimeMode = mode;
+        
+        // Update button toggle states (only one can be active)
+        secButton.setToggleState(mode == TimeMode::Seconds, juce::dontSendNotification);
+        beatButton.setToggleState(mode == TimeMode::Beats, juce::dontSendNotification);
+        
+        // Note: Display conversion would happen here in future iterations
+        // For now, this only affects display, internal calculations remain in seconds
+    }
+    
+    TimeMode getTimeMode() const { return currentTimeMode; }
     
     // Methods for parent component to get visual track and thumb positions
     juce::Rectangle<int> getVisualTrackBounds() const 
@@ -739,6 +807,12 @@ private:
     bool isDraggingThumb = false;
     double dragStartValue = 0.0;
     float dragStartY = 0.0f;
+    
+    // Time mode toggle state and UI
+    TimeMode currentTimeMode = TimeMode::Seconds;
+    juce::ToggleButton secButton, beatButton;
+    juce::Label secLabel, beatLabel;
+    CustomButtonLookAndFeel buttonLookAndFeel;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SimpleSliderControl)
 };

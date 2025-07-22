@@ -275,19 +275,22 @@ private:
     float applyCurve(float t, double curve)
     {
         // Apply exponential/logarithmic curve based on curve parameter
+        // Must match AutomationEngine::applyCurve() behavior exactly
         if (curve < 1.0)
         {
-            // Logarithmic curve (fast start, slow end)
-            return 1.0f - std::pow(1.0f - t, 1.0f / curve);
+            // Exponential (0.0 = full exponential, slow start/fast finish)
+            double exponent = 1.0 + (1.0 - curve) * 3.0; // Range: 1.0 to 4.0
+            return std::pow(t, exponent);
         }
         else if (curve > 1.0)
         {
-            // Exponential curve (slow start, fast end)
-            return std::pow(t, curve);
+            // Logarithmic (2.0 = full logarithmic, fast start/slow finish)
+            double exponent = 1.0 / (1.0 + (curve - 1.0) * 3.0); // Range: 1.0 to 0.25
+            return std::pow(t, exponent);
         }
         else
         {
-            // Linear curve
+            // Linear curve (curve == 1.0)
             return t;
         }
     }
