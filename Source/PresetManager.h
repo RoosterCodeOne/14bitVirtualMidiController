@@ -57,6 +57,7 @@ struct ControllerPreset
 {
     juce::String name = "Untitled";
     int midiChannel = 1;
+    double bpm = 120.0; // Default BPM
     juce::Array<SliderPreset> sliders;
     
     ControllerPreset()
@@ -87,6 +88,7 @@ struct ControllerPreset
         auto obj = new juce::DynamicObject();
         obj->setProperty("name", name);
         obj->setProperty("midiChannel", midiChannel);
+        obj->setProperty("bpm", bpm);
         
         juce::Array<juce::var> sliderArray;
         for (const auto& slider : sliders)
@@ -102,6 +104,7 @@ struct ControllerPreset
         {
             name = obj->hasProperty("name") ? obj->getProperty("name").toString() : "Untitled";
             midiChannel = obj->hasProperty("midiChannel") ? (int)obj->getProperty("midiChannel") : 1;
+            bpm = obj->hasProperty("bpm") ? (double)obj->getProperty("bpm") : 120.0;
             
             sliders.clear();
             if (obj->hasProperty("sliders"))

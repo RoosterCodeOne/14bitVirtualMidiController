@@ -152,23 +152,39 @@ public:
         // Configure SEC button (default active)
         secButton.setToggleState(true, juce::dontSendNotification);
         secButton.setLookAndFeel(&buttonLookAndFeel);
-        secButton.onClick = [this]() { setTimeMode(TimeMode::Seconds); };
+        secButton.setRadioGroupId(1001); // Group buttons together
+        secButton.onClick = [this]() { 
+            if (currentTimeMode != TimeMode::Seconds) {
+                setTimeMode(TimeMode::Seconds); 
+            } else {
+                // Prevent deselection - ensure button stays selected
+                secButton.setToggleState(true, juce::dontSendNotification);
+            }
+        };
         
         // Configure BEAT button
         beatButton.setToggleState(false, juce::dontSendNotification);
         beatButton.setLookAndFeel(&buttonLookAndFeel);
-        beatButton.onClick = [this]() { setTimeMode(TimeMode::Beats); };
+        beatButton.setRadioGroupId(1001); // Same group as SEC button
+        beatButton.onClick = [this]() { 
+            if (currentTimeMode != TimeMode::Beats) {
+                setTimeMode(TimeMode::Beats); 
+            } else {
+                // Prevent deselection - ensure button stays selected
+                beatButton.setToggleState(true, juce::dontSendNotification);
+            }
+        };
         
         // Configure labels
         secLabel.setText("SEC", juce::dontSendNotification);
         secLabel.setJustificationType(juce::Justification::centred);
         secLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-        secLabel.setFont(juce::FontOptions(9.0f, juce::Font::bold));
+        secLabel.setFont(juce::FontOptions(9.0f)); // Match knob labels exactly
         
         beatLabel.setText("BEAT", juce::dontSendNotification);
         beatLabel.setJustificationType(juce::Justification::centred);
         beatLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-        beatLabel.setFont(juce::FontOptions(9.0f, juce::Font::bold));
+        beatLabel.setFont(juce::FontOptions(9.0f)); // Match knob labels exactly
         
         // Update visualizer with initial knob values (this ensures proper initialization)
         updateVisualizerParameters();
@@ -306,16 +322,27 @@ public:
         returnKnob.setBounds(returnX, bottomRowY, knobWidth, knobHeight);
         curveKnob.setBounds(curveX, bottomRowY, knobWidth, knobHeight);
         
-        // Time mode toggle buttons below knob grid
-        int toggleStartY = bottomRowY + knobHeight + 8; // 8px below knob grid
-        int buttonWidth = 20;
-        int buttonHeight = 14; 
-        int buttonSpacing = 2; // Tight spacing between buttons
-        int labelSpacing = 3; // Small gap between label and button
+        // Time mode toggle buttons below knob grid (smaller, constrained to plate width)
+        int toggleStartY = bottomRowY + knobHeight + 1; // 1px below knob grid (moved up 3px more)
+        int buttonWidth = 16; // Reduced from 20 to 16
+        int buttonHeight = 12; // Reduced from 14 to 12
+        int buttonSpacing = 1; // Tighter spacing between buttons
+        int labelSpacing = 2; // Smaller gap between label and button
         
         // Calculate total width: label + gap + button + spacing + button + gap + label
-        int labelWidth = 16;
+        int labelWidth = 24; // Increased to 24 to match knob label space
         int totalToggleWidth = labelWidth + labelSpacing + buttonWidth + buttonSpacing + buttonWidth + labelSpacing + labelWidth;
+        
+        // Ensure buttons fit within the knob grid width (plate bounds)
+        int maxToggleWidth = totalGridWidth - 4; // 2px margin on each side
+        if (totalToggleWidth > maxToggleWidth) {
+            // Scale down if needed to fit within plate
+            float scaleFactor = (float)maxToggleWidth / totalToggleWidth;
+            labelWidth = (int)(labelWidth * scaleFactor);
+            buttonWidth = (int)(buttonWidth * scaleFactor);
+            totalToggleWidth = maxToggleWidth;
+        }
+        
         int toggleStartX = centerX - (totalToggleWidth / 2);
         
         // SEC label and button (left side)
@@ -367,6 +394,15 @@ public:
         // Update button toggle states (only one can be active)
         secButton.setToggleState(mode == TimeMode::Seconds, juce::dontSendNotification);
         beatButton.setToggleState(mode == TimeMode::Beats, juce::dontSendNotification);
+        
+        // Update all time-related knobs with the new time mode
+        CustomKnob::TimeMode knobTimeMode = (mode == TimeMode::Seconds) ? 
+            CustomKnob::TimeMode::Seconds : CustomKnob::TimeMode::Beats;
+        
+        delayKnob.setTimeMode(knobTimeMode);
+        attackKnob.setTimeMode(knobTimeMode); 
+        returnKnob.setTimeMode(knobTimeMode);
+        // Note: curveKnob is not time-related, so it doesn't need time mode
         
         // Note: Display conversion would happen here in future iterations
         // For now, this only affects display, internal calculations remain in seconds

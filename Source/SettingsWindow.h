@@ -29,6 +29,33 @@ public:
                 onSettingsChanged();
         };
         
+        // BPM controls
+        addAndMakeVisible(bpmLabel);
+        bpmLabel.setText("BPM:", juce::dontSendNotification);
+        bpmLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        
+        addAndMakeVisible(bpmSlider);
+        bpmSlider.setSliderStyle(juce::Slider::LinearHorizontal);
+        bpmSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
+        bpmSlider.setRange(60.0, 200.0, 1.0);
+        bpmSlider.setValue(120.0); // Default BPM
+        bpmSlider.setColour(juce::Slider::backgroundColourId, BlueprintColors::background);
+        bpmSlider.setColour(juce::Slider::trackColourId, BlueprintColors::blueprintLines);
+        bpmSlider.setColour(juce::Slider::thumbColourId, BlueprintColors::active);
+        bpmSlider.setColour(juce::Slider::textBoxTextColourId, BlueprintColors::textPrimary);
+        bpmSlider.setColour(juce::Slider::textBoxBackgroundColourId, BlueprintColors::background);
+        bpmSlider.setColour(juce::Slider::textBoxOutlineColourId, BlueprintColors::blueprintLines);
+        bpmSlider.onValueChange = [this]() {
+            if (onBPMChanged)
+                onBPMChanged(bpmSlider.getValue());
+        };
+        
+        addAndMakeVisible(syncStatusLabel);
+        syncStatusLabel.setText("Internal Sync", juce::dontSendNotification);
+        syncStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
+        syncStatusLabel.setFont(juce::FontOptions(10.0f));
+        syncStatusLabel.setJustificationType(juce::Justification::centredRight);
+        
         // Preset controls
         addAndMakeVisible(presetLabel);
         presetLabel.setText("Presets:", juce::dontSendNotification);
@@ -264,6 +291,17 @@ public:
         channelArea.removeFromLeft(8);
         midiChannelCombo.setBounds(channelArea);
         
+        bounds.removeFromTop(6); // Spacing before BPM
+        
+        // BPM section
+        auto bpmArea = bounds.removeFromTop(22);
+        bpmLabel.setBounds(bpmArea.removeFromLeft(40));
+        bpmArea.removeFromLeft(8);
+        auto sliderArea = bpmArea.removeFromLeft(120);
+        bpmSlider.setBounds(sliderArea);
+        bpmArea.removeFromLeft(8);
+        syncStatusLabel.setBounds(bpmArea);
+        
         bounds.removeFromTop(8); // Reduced spacing
         
         if (!controlsInitialized)
@@ -489,14 +527,46 @@ public:
     
     PresetManager& getPresetManager() { return presetManager; }
     
+    // BPM management methods
+    void setBPM(double bpm)
+    {
+        bpmSlider.setValue(bpm, juce::dontSendNotification);
+    }
+    
+    double getBPM() const
+    {
+        return bpmSlider.getValue();
+    }
+    
+    void setSyncStatus(bool isExternal, double externalBPM = 0.0)
+    {
+        if (isExternal && externalBPM > 0.0)
+        {
+            syncStatusLabel.setText("DAW Sync: " + juce::String(externalBPM, 1) + " BPM", 
+                                  juce::dontSendNotification);
+            syncStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::active);
+        }
+        else
+        {
+            syncStatusLabel.setText("Internal Sync", juce::dontSendNotification);
+            syncStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
+        }
+    }
+    
     std::function<void()> onSettingsChanged;
     std::function<void(const ControllerPreset&)> onPresetLoaded; // For slider values and lock states
+    std::function<void(double)> onBPMChanged; // For BPM changes
     
 private:
     bool controlsInitialized;
     // Close button removed - closing handled by main Settings button toggle
     juce::Label midiChannelLabel;
     juce::ComboBox midiChannelCombo;
+    
+    // BPM controls
+    juce::Label bpmLabel;
+    juce::Slider bpmSlider;
+    juce::Label syncStatusLabel;
     
     // Preset controls
     juce::Label presetLabel;

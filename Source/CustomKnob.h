@@ -15,8 +15,10 @@ public:
         Smaller = 28  // 10% smaller than Small (32 * 0.9 = 28.8, rounded to 28)
     };
     
+    enum class TimeMode { Seconds, Beats };
+    
     CustomKnob(const juce::String& labelText, double minValue = 0.0, double maxValue = 10.0, KnobSize size = Small)
-        : label(labelText), minVal(minValue), maxVal(maxValue), knobSize(size), currentValue(minValue)
+        : label(labelText), minVal(minValue), maxVal(maxValue), knobSize(size), currentValue(minValue), timeMode(TimeMode::Seconds)
     {
         setSize(knobSize + 14, knobSize + 29); // Extra space for label and 2px bezel on each side (4px total + 4px more for height)
     }
@@ -48,6 +50,14 @@ public:
     }
     
     std::function<void(double)> onValueChanged;
+    
+    void setTimeMode(TimeMode mode)
+    {
+        timeMode = mode;
+        repaint(); // Refresh display when hovering
+    }
+    
+    TimeMode getTimeMode() const { return timeMode; }
     
     void mouseEnter(const juce::MouseEvent& event) override
     {
@@ -100,6 +110,44 @@ private:
     double dragStartValue = 0.0;
     float dragStartY = 0.0f;
     bool isHovered = false;
+    TimeMode timeMode;
+    
+    juce::String secondsToBeats(double seconds) const
+    {
+        // Beat conversion - independent scale using musical notation
+        // 1/16, 1/8, 1/4, 1/2, 1, 2, 4, 8, 16 (representing 16th notes to 16 bars)
+        
+        static const struct {
+            double seconds;
+            juce::String text;
+        } beatValues[] = {
+            {0.0, "1/16"},
+            {0.5, "1/8"}, 
+            {1.0, "1/4"},
+            {2.0, "1/2"},
+            {4.0, "1"},
+            {8.0, "2"},
+            {12.0, "4"},
+            {16.0, "8"},
+            {20.0, "16"}
+        };
+        
+        // Find the closest beat value
+        juce::String closestBeat = "1/16";
+        double minDistance = std::abs(seconds - 0.0);
+        
+        for (const auto& beat : beatValues)
+        {
+            double distance = std::abs(seconds - beat.seconds);
+            if (distance < minDistance)
+            {
+                minDistance = distance;
+                closestBeat = beat.text;
+            }
+        }
+        
+        return closestBeat;
+    }
     
     void drawKnobShadow(juce::Graphics& g, juce::Rectangle<int> knobArea)
     {
@@ -163,10 +211,21 @@ private:
             // Show current value when hovered with cyan highlight
             g.setColour(BlueprintColors::active);
             juce::String valueText;
-            if (std::abs(currentValue - std::round(currentValue)) < 0.01)
-                valueText = juce::String((int)std::round(currentValue));
+            
+            if (timeMode == TimeMode::Beats)
+            {
+                // Show beat notation
+                valueText = secondsToBeats(currentValue);
+            }
             else
-                valueText = juce::String(currentValue, 1);
+            {
+                // Show seconds value
+                if (std::abs(currentValue - std::round(currentValue)) < 0.01)
+                    valueText = juce::String((int)std::round(currentValue));
+                else
+                    valueText = juce::String(currentValue, 1);
+            }
+            
             g.drawText(valueText, adjustedLabelArea, juce::Justification::centredTop);
         }
         else
