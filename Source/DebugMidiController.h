@@ -9,6 +9,9 @@
 #include "Core/KeyboardController.h"
 #include "Core/BankManager.h"
 #include "Core/Midi7BitController.h"
+#include "UI/MainControllerLayout.h"
+#include "UI/WindowManager.h"
+#include "UI/BankButtonManager.h"
 
 //==============================================================================
 class DebugMidiController : public juce::Component, public juce::Timer
@@ -56,27 +59,15 @@ public:
             addAndMakeVisible(sliderControl);
         }
         
-        // Bank buttons - blueprint style with custom look and feel
+        // Bank buttons - setup through BankButtonManager
         addAndMakeVisible(bankAButton);
-        bankAButton.setButtonText("A");
-        bankAButton.setLookAndFeel(&customButtonLookAndFeel);
-        bankAButton.setToggleState(true, juce::dontSendNotification); // Start with A selected
-        bankAButton.onClick = [this]() { bankManager.setActiveBank(0); };
-        
         addAndMakeVisible(bankBButton);
-        bankBButton.setButtonText("B");
-        bankBButton.setLookAndFeel(&customButtonLookAndFeel);
-        bankBButton.onClick = [this]() { bankManager.setActiveBank(1); };
-        
         addAndMakeVisible(bankCButton);
-        bankCButton.setButtonText("C");
-        bankCButton.setLookAndFeel(&customButtonLookAndFeel);
-        bankCButton.onClick = [this]() { bankManager.setActiveBank(2); };
-        
         addAndMakeVisible(bankDButton);
-        bankDButton.setButtonText("D");
-        bankDButton.setLookAndFeel(&customButtonLookAndFeel);
-        bankDButton.onClick = [this]() { bankManager.setActiveBank(3); };
+        
+        bankButtonManager.setupBankButtons(bankAButton, bankBButton, bankCButton, bankDButton,
+                                          customButtonLookAndFeel, 
+                                          [this](int bankIndex) { bankManager.setActiveBank(bankIndex); });
         
         // Settings button - blueprint style with custom look and feel
         addAndMakeVisible(settingsButton);
@@ -187,19 +178,12 @@ public:
         // Auto-save current state before destruction
         saveCurrentState();
         
-        // Clean up custom look and feel and button color mappings
-        customButtonLookAndFeel.removeButtonColor(&bankAButton);
-        customButtonLookAndFeel.removeButtonColor(&bankBButton);
-        customButtonLookAndFeel.removeButtonColor(&bankCButton);
-        customButtonLookAndFeel.removeButtonColor(&bankDButton);
+        // Clean up bank buttons through manager
+        bankButtonManager.cleanupBankButtons(bankAButton, bankBButton, bankCButton, bankDButton, customButtonLookAndFeel);
         
         settingsButton.setLookAndFeel(nullptr);
         learnButton.setLookAndFeel(nullptr);
         modeButton.setLookAndFeel(nullptr);
-        bankAButton.setLookAndFeel(nullptr);
-        bankBButton.setLookAndFeel(nullptr);
-        bankCButton.setLookAndFeel(nullptr);
-        bankDButton.setLookAndFeel(nullptr);
         
         // MIDI cleanup is handled by MidiManager destructor
     }
@@ -209,22 +193,13 @@ public:
         // Blueprint background - dark navy base
         g.fillAll(BlueprintColors::background);
         
-        // Calculate content area bounds using same logic as resized()
-        const int topAreaHeight = 50;
-        const int tooltipHeight = 25;
-        const int verticalGap = 10;
-        const int contentAreaWidth = bankManager.isEightSliderMode() ? 970 : 490;
-        
-        auto area = getLocalBounds();
-        int contentX = (isInSettingsMode || isInLearnMode) ? SETTINGS_PANEL_WIDTH : (area.getWidth() - contentAreaWidth) / 2;
-        int contentY = topAreaHeight + verticalGap;
-        int contentHeight = area.getHeight() - topAreaHeight - tooltipHeight - (2 * verticalGap) + 8; // Allow 8px overlap into tooltip area
-        
-        juce::Rectangle<int> contentAreaBounds(contentX, contentY, contentAreaWidth, contentHeight);
+        // Calculate layout bounds using MainControllerLayout
+        auto layoutBounds = mainLayout.calculateLayoutBounds(getLocalBounds(), 
+                                                            bankManager.isEightSliderMode(),
+                                                            isInSettingsMode, isInLearnMode);
         
         // Draw blueprint grid overlay
-        CustomSliderLookAndFeel lookAndFeelGrid;
-        lookAndFeelGrid.drawBlueprintGrid(g, contentAreaBounds);
+        mainLayout.drawBlueprintGrid(g, layoutBounds.contentArea);
         
         
         
@@ -268,16 +243,8 @@ public:
             }
         }
         
-        // Calculate top area bounds for text positioning (2px down from window edge)
-        juce::Rectangle<int> topAreaBounds;
-        if ((isInSettingsMode && settingsWindow.isVisible()) || (isInLearnMode && midiLearnWindow.isVisible()))
-        {
-            topAreaBounds = juce::Rectangle<int>(0, 2, getWidth(), topAreaHeight - 2);
-        }
-        else
-        {
-            topAreaBounds = juce::Rectangle<int>(contentX, 2, contentAreaWidth, topAreaHeight - 2);
-        }
+        // Use layout bounds for top area positioning  
+        juce::Rectangle<int> topAreaBounds = layoutBounds.topArea.withY(2).withHeight(layoutBounds.topArea.getHeight() - 2);
         
         // Draw blueprint-style outline around top area
         g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
@@ -313,59 +280,40 @@ public:
     void resized() override
     {
         auto area = getLocalBounds();
-        
-        // Use current slider mode (controlled by mode button)
         int visibleSliderCount = bankManager.getVisibleSliderCount();
         
         // Update MIDI tracking display
         updateMidiTrackingDisplay();
         
-        // Calculate layout dimensions once
-        const int topAreaHeight = 50;
-        const int tooltipHeight = 25;
-        const int verticalGap = 10;
-        const int contentAreaWidth = bankManager.isEightSliderMode() ? 970 : 490;
+        // Calculate layout bounds using MainControllerLayout
+        auto layoutBounds = mainLayout.calculateLayoutBounds(area, 
+                                                            bankManager.isEightSliderMode(),
+                                                            isInSettingsMode, isInLearnMode);
         
-        // Calculate content area bounds - simplified logic
-        int contentX = (isInSettingsMode || isInLearnMode) ? SETTINGS_PANEL_WIDTH : (area.getWidth() - contentAreaWidth) / 2;
-        int contentY = topAreaHeight + verticalGap;
-        int contentHeight = area.getHeight() - topAreaHeight - tooltipHeight - (2 * verticalGap) + 8; // Allow 8px overlap into tooltip area
-        
-        juce::Rectangle<int> contentAreaBounds(contentX, contentY, contentAreaWidth, contentHeight);
-        
-        // Calculate top area bounds based on settings or learn state
-        juce::Rectangle<int> topAreaBounds;
-        if ((isInSettingsMode && settingsWindow.isVisible()) || (isInLearnMode && midiLearnWindow.isVisible()))
-        {
-            topAreaBounds = juce::Rectangle<int>(0, 0, getWidth(), topAreaHeight);
-        }
-        else
-        {
-            topAreaBounds = juce::Rectangle<int>(contentX, 0, contentAreaWidth, topAreaHeight);
-        }
-        
-        // Position top area components
-        layoutTopAreaComponents(topAreaBounds);
+        // Position top area components using MainControllerLayout
+        mainLayout.layoutTopAreaComponents(layoutBounds.topArea, settingsButton, learnButton,
+                                          bankAButton, bankBButton, bankCButton, bankDButton,
+                                          modeButton, showingLabel);
         
         // Position the active window (Settings OR Learn, never both)
         if (isInSettingsMode && settingsWindow.isVisible())
         {
-            int windowY = topAreaHeight;
-            int windowHeight = area.getHeight() - windowY;
-            settingsWindow.setBounds(0, windowY, SETTINGS_PANEL_WIDTH, windowHeight);
+            windowManager.positionSideWindow(settingsWindow, area, MainControllerLayout::Constants::TOP_AREA_HEIGHT, 
+                                            MainControllerLayout::Constants::SETTINGS_PANEL_WIDTH);
         }
         else if (isInLearnMode && midiLearnWindow.isVisible())
         {
-            int windowY = topAreaHeight;
-            int windowHeight = area.getHeight() - windowY;
-            midiLearnWindow.setBounds(0, windowY, SETTINGS_PANEL_WIDTH, windowHeight);
+            windowManager.positionSideWindow(midiLearnWindow, area, MainControllerLayout::Constants::TOP_AREA_HEIGHT,
+                                            MainControllerLayout::Constants::SETTINGS_PANEL_WIDTH);
         }
         
-        // Layout sliders within content area
-        layoutSlidersFixed(contentAreaBounds, visibleSliderCount);
+        // Layout sliders using MainControllerLayout
+        mainLayout.layoutSliders(sliderControls, layoutBounds.contentArea, visibleSliderCount,
+                                [this](int i) { return bankManager.getVisibleSliderIndex(i); });
         
-        // Position tooltips at bottom
-        layoutTooltips(area, contentAreaWidth, tooltipHeight);
+        // Position tooltips using MainControllerLayout
+        mainLayout.layoutTooltips(area, movementSpeedLabel, windowSizeLabel,
+                                 isInSettingsMode, isInLearnMode, bankManager.isEightSliderMode());
     }
     
     bool keyPressed(const juce::KeyPress& key) override
@@ -387,93 +335,6 @@ public:
         {
             midiManager.resetMidiInputActivity();
             repaint();
-        }
-    }
-    
-    
-    void layoutSlidersFixed(juce::Rectangle<int> area, int visibleSliderCount)
-    {
-        // Calculate total width needed for the slider rack
-        int totalSliderWidth = (visibleSliderCount * SLIDER_PLATE_WIDTH) + ((visibleSliderCount - 1) * SLIDER_GAP);
-        
-        // Center sliders within the provided content area
-        int startX = area.getX() + (area.getWidth() - totalSliderWidth) / 2;
-
-        
-        // Set bounds for each visible slider - complete recalculation
-        for (int i = 0; i < visibleSliderCount; ++i)
-        {
-            int sliderIndex = bankManager.getVisibleSliderIndex(i);
-            if (sliderIndex < sliderControls.size())
-            {
-                int xPos = startX + (i * (SLIDER_PLATE_WIDTH + SLIDER_GAP));
-                auto sliderBounds = juce::Rectangle<int>(xPos, area.getY(), SLIDER_PLATE_WIDTH, area.getHeight());
-                sliderControls[sliderIndex]->setBounds(sliderBounds);
-                
-                // Force slider to repaint with fresh bounds
-                sliderControls[sliderIndex]->repaint();
-            }
-        }
-    }
-    
-    
-    
-    void layoutTopAreaComponents(const juce::Rectangle<int>& topAreaBounds)
-    {
-        // Settings button - positioned on left within top area bounds
-        int settingsButtonX = topAreaBounds.getX() + 10;
-        int settingsButtonY = topAreaBounds.getY() + 23; // Adjusted to be relative to top area bounds
-        settingsButton.setBounds(settingsButtonX, settingsButtonY, 100, 20);
-        
-        // Learn button - positioned closer to settings button
-        int learnButtonX = settingsButtonX + 105; // 100px settings button + 5px gap (reduced from 10px)
-        learnButton.setBounds(learnButtonX, settingsButtonY, 50, 20);
-        
-        // Bank buttons - positioned as 2x2 grid in top right of top area
-        const int buttonWidth = 35;
-        const int buttonHeight = 20;
-        const int buttonSpacing = 5;
-        const int rightMargin = 10;
-        
-        int gridWidth = (2 * buttonWidth) + buttonSpacing;
-        int gridStartX = topAreaBounds.getRight() - rightMargin - gridWidth;
-        int gridStartY = topAreaBounds.getY() + 3; // Adjusted to be relative to top area bounds
-        
-        // Top row: A and B buttons
-        bankAButton.setBounds(gridStartX, gridStartY, buttonWidth, buttonHeight);
-        bankBButton.setBounds(gridStartX + buttonWidth + buttonSpacing, gridStartY, buttonWidth, buttonHeight);
-        
-        // Bottom row: C and D buttons
-        bankCButton.setBounds(gridStartX, gridStartY + buttonHeight + buttonSpacing, buttonWidth, buttonHeight);
-        bankDButton.setBounds(gridStartX + buttonWidth + buttonSpacing, gridStartY + buttonHeight + buttonSpacing, buttonWidth, buttonHeight);
-        
-        // Mode button - positioned to the left of C bank button with "Showing:" label
-        int showingLabelX = gridStartX - 85; // Position for "Showing:" label
-        int modeButtonX = gridStartX - 40; // Position for mode button (left of C button)
-        showingLabel.setBounds(showingLabelX, gridStartY + buttonHeight + buttonSpacing, 40, 20);
-        modeButton.setBounds(modeButtonX, gridStartY + buttonHeight + buttonSpacing, 30, 20);
-    }
-    
-    void layoutTooltips(const juce::Rectangle<int>& area, int contentAreaWidth, int tooltipHeight)
-    {
-        auto tooltipArea = area.withHeight(tooltipHeight).withBottomY(area.getBottom());
-        
-        if ((isInSettingsMode && settingsWindow.isVisible()) || (isInLearnMode && midiLearnWindow.isVisible()))
-        {
-            // Settings or learn open: tooltips span remaining width after panel
-            auto adjustedTooltipArea = tooltipArea.withTrimmedLeft(SETTINGS_PANEL_WIDTH);
-            auto leftTooltip = adjustedTooltipArea.removeFromLeft(adjustedTooltipArea.getWidth() / 2);
-            movementSpeedLabel.setBounds(leftTooltip);
-            windowSizeLabel.setBounds(adjustedTooltipArea);
-        }
-        else
-        {
-            // Settings closed: tooltips positioned within content area bounds
-            int contentAreaX = (area.getWidth() - contentAreaWidth) / 2;
-            auto contentTooltipArea = tooltipArea.withX(contentAreaX).withWidth(contentAreaWidth);
-            auto leftTooltip = contentTooltipArea.removeFromLeft(contentTooltipArea.getWidth() / 2);
-            movementSpeedLabel.setBounds(leftTooltip);
-            windowSizeLabel.setBounds(contentTooltipArea);
         }
     }
     
@@ -723,23 +584,10 @@ private:
         int activeBank = bankManager.getActiveBank();
         auto bankColors = bankManager.getCurrentBankColors();
         
-        // Update toggle states for bank buttons
-        bankAButton.setToggleState(activeBank == 0, juce::dontSendNotification);
-        bankBButton.setToggleState(activeBank == 1, juce::dontSendNotification);
-        bankCButton.setToggleState(activeBank == 2, juce::dontSendNotification);
-        bankDButton.setToggleState(activeBank == 3, juce::dontSendNotification);
-        
-        // Apply bank-specific colors to buttons
-        customButtonLookAndFeel.setButtonColor(&bankAButton, bankColors.bankA);
-        customButtonLookAndFeel.setButtonColor(&bankBButton, bankColors.bankB);
-        customButtonLookAndFeel.setButtonColor(&bankCButton, bankColors.bankC);
-        customButtonLookAndFeel.setButtonColor(&bankDButton, bankColors.bankD);
-        
-        // Repaint buttons to reflect color changes
-        bankAButton.repaint();
-        bankBButton.repaint();
-        bankCButton.repaint();
-        bankDButton.repaint();
+        bankButtonManager.updateBankButtonStates(bankAButton, bankBButton, bankCButton, bankDButton,
+                                                customButtonLookAndFeel, activeBank,
+                                                bankColors.bankA, bankColors.bankB, 
+                                                bankColors.bankC, bankColors.bankD);
     }
     
     
@@ -825,9 +673,7 @@ private:
     
     void toggleSettingsMode()
     {
-        // Close learn mode if it's open
-        if (isInLearnMode)
-        {
+        auto onLearnModeExit = [this]() {
             isInLearnMode = false;
             midi7BitController.stopLearnMode();
             learnButton.setButtonText("Learn");
@@ -836,35 +682,15 @@ private:
             // Clear any learn markers
             for (auto* slider : sliderControls)
                 slider->setShowLearnMarkers(false);
-        }
+        };
         
-        isInSettingsMode = !isInSettingsMode;
+        windowManager.toggleSettingsWindow(getTopLevelComponent(), settingsWindow, &midiLearnWindow,
+                                          isInSettingsMode, isInLearnMode, bankManager.isEightSliderMode(),
+                                          350, onLearnModeExit);
         
-        // Custom look and feel handles button appearance automatically
-        
-        // Update constraints BEFORE resizing to prevent constraint violations
-        updateWindowConstraints();
-        
-        if (auto* topLevel = getTopLevelComponent())
+        if (isInSettingsMode)
         {
-            // Calculate target window width: content area + settings panel (if open)
-            int contentAreaWidth = bankManager.isEightSliderMode() ? 970 : 490;
-            int targetWidth = isInSettingsMode ? (contentAreaWidth + SETTINGS_PANEL_WIDTH) : contentAreaWidth;
-            
-            // Resize window instantly
-            topLevel->setSize(targetWidth, topLevel->getHeight());
-            
-            if (isInSettingsMode)
-            {
-                // Show settings window
-                addAndMakeVisible(settingsWindow);
-                settingsWindow.toFront(true);
-            }
-            else
-            {
-                // Hide settings window
-                settingsWindow.setVisible(false);
-            }
+            addAndMakeVisible(settingsWindow);
         }
         
         resized(); // Re-layout components
@@ -882,27 +708,9 @@ private:
     
     void updateWindowConstraints()
     {
-        if (auto* topLevel = getTopLevelComponent())
-        {
-            if (auto* documentWindow = dynamic_cast<juce::DocumentWindow*>(topLevel))
-            {
-                if (auto* constrainer = documentWindow->getConstrainer())
-                {
-                    // Fixed window widths based on mode
-                    int fixedWidth = bankManager.isEightSliderMode() ? 970 : 490;
-                    
-                    if (isInSettingsMode || isInLearnMode)
-                    {
-                        // Add panel width to fixed width (same width for both settings and learn)
-                        fixedWidth += SETTINGS_PANEL_WIDTH;
-                    }
-                    
-                    // Set both min and max to the same value to prevent resizing
-                    constrainer->setMinimumWidth(fixedWidth);
-                    constrainer->setMaximumWidth(fixedWidth);
-                }
-            }
-        }
+        windowManager.updateWindowConstraints(getTopLevelComponent(), bankManager.isEightSliderMode(),
+                                            isInSettingsMode, isInLearnMode, 
+                                            MainControllerLayout::Constants::SETTINGS_PANEL_WIDTH);
     }
     
     void saveCurrentState()
@@ -1039,56 +847,30 @@ private:
     
     void toggleLearnMode()
     {
-        // Close settings mode if it's open
-        if (isInSettingsMode)
-        {
-            isInSettingsMode = false;
-            // Custom look and feel handles button appearance
-            settingsWindow.setVisible(false);
-        }
-        
-        isInLearnMode = !isInLearnMode;
-        
-        if (isInLearnMode)
-        {
-            // Enter learn mode - show MIDI learn window
+        auto onLearnModeEnter = [this]() {
             midi7BitController.startLearnMode();
             DBG("Entered learn mode: isLearningMode=" << (int)midi7BitController.isInLearnMode());
             learnButton.setButtonText("Exit Learn");
-            
-            // Show learn window
-            updateWindowConstraints();
-            
-            if (auto* topLevel = getTopLevelComponent())
-            {
-                int contentAreaWidth = bankManager.isEightSliderMode() ? 970 : 490;
-                int targetWidth = contentAreaWidth + SETTINGS_PANEL_WIDTH;
-                topLevel->setSize(targetWidth, topLevel->getHeight());
-                
-                addAndMakeVisible(midiLearnWindow);
-                midiLearnWindow.toFront(true);
-            }
-        }
-        else
-        {
-            // Exit learn mode
+        };
+        
+        auto onLearnModeExit = [this]() {
             midi7BitController.stopLearnMode();
             DBG("Exited learn mode: isLearningMode=" << (int)midi7BitController.isInLearnMode());
             learnButton.setButtonText("Learn");
             
-            midiLearnWindow.setVisible(false);
-            
             // Clear any learn markers
             for (auto* slider : sliderControls)
                 slider->setShowLearnMarkers(false);
-            
-            // Resize window back
-            updateWindowConstraints();
-            if (auto* topLevel = getTopLevelComponent())
-            {
-                int contentAreaWidth = bankManager.isEightSliderMode() ? 970 : 490;
-                topLevel->setSize(contentAreaWidth, topLevel->getHeight());
-            }
+        };
+        
+        windowManager.toggleLearnWindow(getTopLevelComponent(), midiLearnWindow, settingsWindow,
+                                       isInLearnMode, isInSettingsMode, bankManager.isEightSliderMode(),
+                                       MainControllerLayout::Constants::SETTINGS_PANEL_WIDTH,
+                                       onLearnModeEnter, onLearnModeExit);
+        
+        if (isInLearnMode)
+        {
+            addAndMakeVisible(midiLearnWindow);
         }
         
         resized();
@@ -1097,6 +879,7 @@ private:
     // Note: Complex CC-based filtering removed in favor of simple channel-based approach
     
     
+    // UI Components
     juce::OwnedArray<SimpleSliderControl> sliderControls;
     juce::TextButton settingsButton;
     juce::TextButton modeButton;
@@ -1108,16 +891,21 @@ private:
     MidiLearnWindow midiLearnWindow;
     juce::Label movementSpeedLabel;
     juce::Label windowSizeLabel;
+    
+    // Core Systems
     MidiManager midiManager;
     KeyboardController keyboardController;
     BankManager bankManager;
     Midi7BitController midi7BitController;
+    
+    // Layout and window managers
+    MainControllerLayout mainLayout;
+    WindowManager windowManager;
+    BankButtonManager bankButtonManager;
+    
+    // State
     bool isInSettingsMode = false;
     bool isInLearnMode = false;
-    
-    static constexpr int SLIDER_PLATE_WIDTH = 110; // Fixed slider plate width
-    static constexpr int SLIDER_GAP = 10; // Gap between sliders
-    static constexpr int SETTINGS_PANEL_WIDTH = 350; // Width of settings panel
     
     
     // MIDI Input handling
