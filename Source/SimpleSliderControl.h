@@ -50,7 +50,12 @@ public:
         mainSlider.onValueChange = [this]() {
             if (!automationEngine.isSliderAutomating(index)) // Only update if not currently automating
             {
-                int value = (int)mainSlider.getValue();
+                double quantizedValue = quantizeValue(mainSlider.getValue());
+                if (quantizedValue != mainSlider.getValue()) {
+                    // Update slider to quantized value without triggering callback
+                    mainSlider.setValue(quantizedValue, juce::dontSendNotification);
+                }
+                int value = (int)quantizedValue;
                 displayManager.setMidiValue(value);
                 if (sendMidiCallback)
                     sendMidiCallback(index, value);
@@ -212,8 +217,9 @@ public:
     // Preset support methods
     void setValue(double newValue)
     {
-        mainSlider.setValue(newValue, juce::dontSendNotification);
-        displayManager.setMidiValue(newValue);
+        double quantizedValue = quantizeValue(newValue);
+        mainSlider.setValue(quantizedValue, juce::dontSendNotification);
+        displayManager.setMidiValue(quantizedValue);
         automationControlPanel.setTargetValue(displayManager.getDisplayValue());
     }
     
@@ -249,6 +255,34 @@ public:
         sliderColor = color;
         customLookAndFeel.setSliderColor(color);
         // Trigger parent repaint since visuals are now drawn there
+        if (auto* parent = getParentComponent())
+            parent->repaint();
+    }
+    
+    // Set step increment for quantization
+    void setStepIncrement(double increment)
+    {
+        // Validate increment - must be positive or zero for disable
+        stepIncrement = juce::jmax(0.0, increment);
+        
+        bool shouldQuantize = stepIncrement > 0.0;
+        customLookAndFeel.setQuantizationEnabled(shouldQuantize);
+        
+        if (shouldQuantize)
+        {
+            double displayRange = displayManager.getDisplayMax() - displayManager.getDisplayMin();
+            
+            // Ensure increment is not too small (causes performance issues) or too large
+            if (stepIncrement < 0.001) stepIncrement = 0.001;
+            if (stepIncrement > displayRange) stepIncrement = displayRange / 2.0;
+            
+            // Update tick marks for quantization steps
+            customLookAndFeel.setQuantizationIncrement(stepIncrement, 
+                displayManager.getDisplayMin(), 
+                displayManager.getDisplayMax());
+        }
+        
+        // Trigger parent repaint to update tick marks
         if (auto* parent = getParentComponent())
             parent->repaint();
     }
@@ -343,17 +377,19 @@ public:
     // For keyboard movement - updates slider without changing target input
     void setValueFromKeyboard(double newValue)
     {
-        mainSlider.setValue(newValue, juce::dontSendNotification);
-        displayManager.setMidiValue(newValue);
+        double quantizedValue = quantizeValue(newValue);
+        mainSlider.setValue(quantizedValue, juce::dontSendNotification);
+        displayManager.setMidiValue(quantizedValue);
         if (sendMidiCallback)
-            sendMidiCallback(index, (int)newValue);
+            sendMidiCallback(index, (int)quantizedValue);
     }
     
     // For MIDI input - updates slider without triggering output (prevents feedback loops)
     void setValueFromMIDI(double newValue)
     {
-        mainSlider.setValue(newValue, juce::dontSendNotification);
-        displayManager.setMidiValue(newValue);
+        double quantizedValue = quantizeValue(newValue);
+        mainSlider.setValue(quantizedValue, juce::dontSendNotification);
+        displayManager.setMidiValue(quantizedValue);
         // Note: No sendMidiCallback to prevent feedback loops
         
         // Trigger activity indicator to show MIDI input activity
@@ -442,10 +478,11 @@ private:
         automationEngine.onValueUpdate = [this](int sliderIndex, double newValue) {
             if (sliderIndex == index)
             {
-                mainSlider.setValue(newValue, juce::dontSendNotification);
-                displayManager.setMidiValue(newValue);
+                double quantizedValue = quantizeValue(newValue);
+                mainSlider.setValue(quantizedValue, juce::dontSendNotification);
+                displayManager.setMidiValue(quantizedValue);
                 if (sendMidiCallback)
-                    sendMidiCallback(index, (int)newValue);
+                    sendMidiCallback(index, (int)quantizedValue);
             }
         };
         
@@ -536,12 +573,66 @@ private:
         automationEngine.startAutomation(index, params);
     }
     
+private:
+    // Quantize value to step increments based on display range
+    double quantizeValue(double midiValue) const
+    {
+        if (stepIncrement <= 0.0) return midiValue; // No quantization
+        
+        // Convert MIDI value to display value for quantization
+        double displayValue = displayManager.midiToDisplay(midiValue);
+        double displayMin = displayManager.getDisplayMin();
+        double displayMax = displayManager.getDisplayMax();
+        
+        // Handle invalid range
+        double displayRange = displayMax - displayMin;
+        if (std::abs(displayRange) < 0.001)
+        {
+            // Range too small - return clamped MIDI value
+            return juce::jlimit(0.0, 16383.0, midiValue);
+        }
+        
+        // Handle edge cases
+        if (stepIncrement >= std::abs(displayRange))
+        {
+            // Step is larger than range - snap to closest endpoint
+            double middleDisplay = (displayMin + displayMax) / 2.0;
+            double distToMin = std::abs(displayValue - displayMin);
+            double distToMax = std::abs(displayValue - displayMax);
+            double snapTarget = (distToMin <= distToMax) ? displayMin : displayMax;
+            return displayManager.displayToMidi(snapTarget);
+        }
+        
+        // Calculate number of steps and quantize
+        // Handle both positive and negative ranges
+        double relativeValue = displayValue - displayMin;
+        double stepNumber = std::round(relativeValue / stepIncrement);
+        double quantizedDisplay = displayMin + (stepNumber * stepIncrement);
+        
+        // Clamp to display range (handles both positive and negative ranges)
+        if (displayMin <= displayMax)
+        {
+            quantizedDisplay = juce::jlimit(displayMin, displayMax, quantizedDisplay);
+        }
+        else
+        {
+            quantizedDisplay = juce::jlimit(displayMax, displayMin, quantizedDisplay);
+        }
+        
+        // Convert back to MIDI value and clamp to MIDI range
+        double quantizedMidi = displayManager.displayToMidi(quantizedDisplay);
+        return juce::jlimit(0.0, 16383.0, quantizedMidi);
+    }
+
+public:
+    
     
     // Core properties
     int index;
     std::function<void(int, int)> sendMidiCallback;
     juce::Colour sliderColor;
     bool lockState = false;
+    double stepIncrement = 0.0; // 0 = disabled, >0 = quantization enabled
     
     // UI Components
     CustomSliderLookAndFeel customLookAndFeel;

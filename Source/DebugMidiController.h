@@ -108,6 +108,10 @@ public:
         settingsWindow.onPresetLoaded = [this](const ControllerPreset& preset) {
             applyPresetToSliders(preset);
         };
+        settingsWindow.onSelectedSliderChanged = [this](int sliderIndex) {
+            // Update visual highlighting when slider selection changes in settings
+            setSelectedSliderForEditing(sliderIndex);
+        };
         
         // MIDI Learn window
         addChildComponent(midiLearnWindow);
@@ -188,6 +192,61 @@ public:
         // MIDI cleanup is handled by MidiManager destructor
     }
     
+    // Visual selection highlighting for settings editing
+    void setSelectedSliderForEditing(int sliderIndex)
+    {
+        if (sliderIndex < -1 || sliderIndex >= 16)
+            return;
+            
+        selectedSliderForEditing = sliderIndex;
+        
+        // If a valid slider is selected, ensure it's visible by auto-switching banks
+        if (selectedSliderForEditing >= 0)
+        {
+            // Check if selected slider is currently visible
+            bool isVisible = bankManager.isSliderVisible(selectedSliderForEditing);
+            
+            if (!isVisible)
+            {
+                // Auto-switch to the appropriate bank
+                int requiredBank = selectedSliderForEditing / 4; // 0-3 for banks A-D
+                
+                if (bankManager.isEightSliderMode())
+                {
+                    // In 8-slider mode: switch to appropriate bank pair
+                    // Banks A+B (0-7) or C+D (8-15)
+                    if (selectedSliderForEditing < 8)
+                        bankManager.setActiveBank(0); // Show A+B pair
+                    else
+                        bankManager.setActiveBank(2); // Show C+D pair
+                }
+                else
+                {
+                    // In 4-slider mode: switch to the specific bank
+                    bankManager.setActiveBank(requiredBank);
+                }
+                
+                // Update slider visibility and bank button appearance
+                updateSliderVisibility();
+                
+                // Update bank button states with current colors
+                auto currentColors = bankManager.getCurrentBankColors();
+                bankButtonManager.updateBankButtonStates(bankAButton, bankBButton, 
+                                                        bankCButton, bankDButton,
+                                                        customButtonLookAndFeel,
+                                                        bankManager.getActiveBank(),
+                                                        currentColors.bankA, currentColors.bankB,
+                                                        currentColors.bankC, currentColors.bankD);
+            }
+        }
+        
+        // Trigger repaint to show/hide highlighting
+        repaint();
+    }
+    
+    // Get currently selected slider for editing (for testing/debugging)
+    int getSelectedSliderForEditing() const { return selectedSliderForEditing; }
+    
     void paint(juce::Graphics& g) override
     {
         // Blueprint background - dark navy base
@@ -240,6 +299,28 @@ public:
                 
                 // Draw the thumb
                 lookAndFeel.drawSliderThumb(g, thumbPos.x, thumbPos.y, sliderControl->getSliderColor());
+            }
+        }
+        
+        // Draw selection highlighting for settings editing (only when settings window is open)
+        if (isInSettingsMode && selectedSliderForEditing >= 0 && selectedSliderForEditing < sliderControls.size())
+        {
+            // Check if the selected slider is currently visible
+            if (bankManager.isSliderVisible(selectedSliderForEditing))
+            {
+                auto* selectedSliderControl = sliderControls[selectedSliderForEditing];
+                auto highlightBounds = selectedSliderControl->getBounds().toFloat();
+                
+                // Use the slider's current color for the highlight border
+                juce::Colour highlightColor = selectedSliderControl->getSliderColor();
+                
+                // Draw thick border around the entire slider plate
+                g.setColour(highlightColor);
+                g.drawRect(highlightBounds, 3.0f); // 3px thick border
+                
+                // Add a subtle inner glow effect
+                g.setColour(highlightColor.withAlpha(0.3f));
+                g.drawRect(highlightBounds.reduced(3.0f), 1.0f);
             }
         }
         
@@ -318,6 +399,23 @@ public:
     
     bool keyPressed(const juce::KeyPress& key) override
     {
+        // Handle arrow key navigation for bank switching (only when settings window is not visible)
+        if (!settingsWindow.isVisible())
+        {
+            // Only handle plain arrow keys (no modifiers) to avoid interfering with system shortcuts
+            if (key == juce::KeyPress::upKey && !key.getModifiers().isAnyModifierKeyDown())
+            {
+                cycleBankUp();
+                return true;
+            }
+            else if (key == juce::KeyPress::downKey && !key.getModifiers().isAnyModifierKeyDown())
+            {
+                cycleBankDown();
+                return true;
+            }
+        }
+        
+        // Pass other keys to keyboard controller for normal Q/A, W/S controls
         return keyboardController.handleKeyPressed(key);
     }
     
@@ -631,12 +729,63 @@ private:
             // Update color
             auto color = settingsWindow.getSliderColor(i);
             sliderControls[i]->setSliderColor(color);
+            
+            // Update step increment for quantization
+            double increment = settingsWindow.getIncrement(i);
+            sliderControls[i]->setStepIncrement(increment);
         }
         
         // Note: Using simple channel-based MIDI filtering
         
         // Auto-save whenever settings change
         saveCurrentState();
+    }
+    
+    // Arrow key bank navigation methods
+    void cycleBankUp()
+    {
+        int currentBank = bankManager.getActiveBank();
+        bool isEightMode = bankManager.isEightSliderMode();
+        
+        if (isEightMode)
+        {
+            // In 8-slider mode, toggle between bank pairs: A+B (0) ↔ C+D (2)
+            int newBank = (currentBank <= 1) ? 2 : 0;
+            bankManager.setActiveBank(newBank);
+        }
+        else
+        {
+            // In 4-slider mode, cycle through individual banks: A→B→C→D→A
+            int newBank = (currentBank + 1) % 4;
+            bankManager.setActiveBank(newBank);
+        }
+        
+        // Update visual button states
+        updateBankButtonStates();
+        repaint(); // Ensure visual updates
+    }
+    
+    void cycleBankDown()
+    {
+        int currentBank = bankManager.getActiveBank();
+        bool isEightMode = bankManager.isEightSliderMode();
+        
+        if (isEightMode)
+        {
+            // In 8-slider mode, toggle between bank pairs: A+B (0) ↔ C+D (2)
+            int newBank = (currentBank <= 1) ? 2 : 0;
+            bankManager.setActiveBank(newBank);
+        }
+        else
+        {
+            // In 4-slider mode, cycle through individual banks: D→C→B→A→D
+            int newBank = (currentBank + 3) % 4; // +3 is equivalent to -1 in mod 4
+            bankManager.setActiveBank(newBank);
+        }
+        
+        // Update visual button states
+        updateBankButtonStates();
+        repaint(); // Ensure visual updates
     }
     
     void applyPresetToSliders(const ControllerPreset& preset)
@@ -691,6 +840,11 @@ private:
         if (isInSettingsMode)
         {
             addAndMakeVisible(settingsWindow);
+        }
+        else
+        {
+            // Clear selection highlighting when settings window is closed
+            setSelectedSliderForEditing(-1);
         }
         
         resized(); // Re-layout components
@@ -906,6 +1060,7 @@ private:
     // State
     bool isInSettingsMode = false;
     bool isInLearnMode = false;
+    int selectedSliderForEditing = -1; // -1 means no selection, 0-15 for slider index
     
     
     // MIDI Input handling

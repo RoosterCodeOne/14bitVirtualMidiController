@@ -38,14 +38,16 @@ public:
     double getTargetDisplayValue() const;
     double getTargetMidiValue() const;
     
+    // Conversion methods (public for quantization system)
+    double midiToDisplay(double midiValue) const;
+    double displayToMidi(double displayValue) const;
+    
     // Callbacks for UI updates
     std::function<void(const juce::String&)> onDisplayTextChanged;
     std::function<void(const juce::String&)> onTargetTextChanged;
     
 private:
-    // Internal conversion methods
-    double midiToDisplay(double midiValue) const;
-    double displayToMidi(double displayValue) const;
+    // Internal formatting method
     juce::String formatValue(double value) const;
     
     // Member variables

@@ -52,6 +52,19 @@ public:
         sliderColor = newColor;
     }
     
+    // Quantization support
+    void setQuantizationEnabled(bool enabled)
+    {
+        quantizationEnabled = enabled;
+    }
+    
+    void setQuantizationIncrement(double increment, double displayMin, double displayMax)
+    {
+        quantizationIncrement = increment;
+        quantizationDisplayMin = displayMin;
+        quantizationDisplayMax = displayMax;
+    }
+    
     juce::Colour getSliderColor() const
     {
         return sliderColor;
@@ -168,19 +181,56 @@ public:
         g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
         
         auto tickArea = trackArea.reduced(0, 4);
-        int numTicks = 11; // Reduced for cleaner blueprint appearance
         
-        for (int i = 0; i <= numTicks; ++i)
+        if (quantizationEnabled && quantizationIncrement > 0.0)
         {
-            float y = tickArea.getY() + (i * tickArea.getHeight() / numTicks);
+            // Draw quantization step marks
+            double displayRange = std::abs(quantizationDisplayMax - quantizationDisplayMin);
+            if (displayRange > 0.001) // Ensure valid range
+            {
+                int numSteps = (int)std::floor(displayRange / quantizationIncrement);
+                numSteps = juce::jlimit(1, 50, numSteps); // Limit number of ticks for visual clarity
+                
+                g.setColour(BlueprintColors::active.withAlpha(0.8f)); // Use active color for quantization ticks
+                
+                for (int i = 0; i <= numSteps; ++i)
+                {
+                    if (numSteps > 0) // Avoid division by zero
+                    {
+                        float normalizedPos = (float)i / (float)numSteps;
+                        float y = tickArea.getBottom() - (normalizedPos * tickArea.getHeight());
+                        
+                        // Bounds check for y position
+                        if (y >= tickArea.getY() && y <= tickArea.getBottom())
+                        {
+                            // All quantization ticks are major ticks
+                            float tickLength = 8.0f;
+                            float tickWidth = 1.5f; // Slightly thicker for quantization
+                            
+                            // Quantization tick marks - left side with distinctive style
+                            g.fillRect(trackArea.getX() - tickLength - 2, y - tickWidth/2, tickLength, tickWidth);
+                        }
+                    }
+                }
+            }
+        }
+        else
+        {
+            // Draw standard aesthetic tick marks
+            int numTicks = 11; // Reduced for cleaner blueprint appearance
             
-            // Major ticks every 5, minor ticks in between
-            bool isMajor = (i % 5 == 0);
-            float tickLength = isMajor ? 8.0f : 4.0f;
-            float tickWidth = 1.0f; // Consistent thin lines
-            
-            // Technical tick marks - left side only for cleaner look
-            g.fillRect(trackArea.getX() - tickLength - 2, y - tickWidth/2, tickLength, tickWidth);
+            for (int i = 0; i <= numTicks; ++i)
+            {
+                float y = tickArea.getY() + (i * tickArea.getHeight() / numTicks);
+                
+                // Major ticks every 5, minor ticks in between
+                bool isMajor = (i % 5 == 0);
+                float tickLength = isMajor ? 8.0f : 4.0f;
+                float tickWidth = 1.0f; // Consistent thin lines
+                
+                // Technical tick marks - left side only for cleaner look
+                g.fillRect(trackArea.getX() - tickLength - 2, y - tickWidth/2, tickLength, tickWidth);
+            }
         }
     }
     
@@ -236,6 +286,10 @@ public:
 
 private:
     juce::Colour sliderColor;
+    bool quantizationEnabled = false;
+    double quantizationIncrement = 1.0;
+    double quantizationDisplayMin = 0.0;
+    double quantizationDisplayMax = 16383.0;
 };
 
 //==============================================================================

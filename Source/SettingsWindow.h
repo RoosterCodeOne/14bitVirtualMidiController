@@ -107,24 +107,6 @@ public:
 
         updatePresetFolderDisplay();
         
-        // Column headers for slider controls
-        addAndMakeVisible(ccValueHeaderLabel);
-        ccValueHeaderLabel.setText("CC Value", juce::dontSendNotification);
-        ccValueHeaderLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
-        ccValueHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-        ccValueHeaderLabel.setJustificationType(juce::Justification::centred);
-        
-        addAndMakeVisible(rangeHeaderLabel);
-        rangeHeaderLabel.setText("Range", juce::dontSendNotification);
-        rangeHeaderLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
-        rangeHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-        rangeHeaderLabel.setJustificationType(juce::Justification::centred);
-        
-        addAndMakeVisible(colorHeaderLabel);
-        colorHeaderLabel.setText("Color", juce::dontSendNotification);
-        colorHeaderLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
-        colorHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-        colorHeaderLabel.setJustificationType(juce::Justification::centred);
         
         addAndMakeVisible(resetToDefaultButton);
         resetToDefaultButton.setButtonText("Reset");
@@ -144,7 +126,7 @@ public:
         bankASelector.setJustificationType(juce::Justification::centred);
         bankASelector.setColour(juce::Label::backgroundColourId, BlueprintColors::active); // Blueprint active color
         bankASelector.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-        bankASelector.onClick = [this]() { setSelectedBank(0); };
+        bankASelector.onClick = [this]() { cycleSliderInBank(0); };
         
         addAndMakeVisible(bankBSelector);
         bankBSelector.setText("B", juce::dontSendNotification);
@@ -152,7 +134,7 @@ public:
         bankBSelector.setJustificationType(juce::Justification::centred);
         bankBSelector.setColour(juce::Label::backgroundColourId, BlueprintColors::inactive);
         bankBSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
-        bankBSelector.onClick = [this]() { setSelectedBank(1); };
+        bankBSelector.onClick = [this]() { cycleSliderInBank(1); };
         
         addAndMakeVisible(bankCSelector);
         bankCSelector.setText("C", juce::dontSendNotification);
@@ -160,7 +142,7 @@ public:
         bankCSelector.setJustificationType(juce::Justification::centred);
         bankCSelector.setColour(juce::Label::backgroundColourId, BlueprintColors::inactive);
         bankCSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
-        bankCSelector.onClick = [this]() { setSelectedBank(2); };
+        bankCSelector.onClick = [this]() { cycleSliderInBank(2); };
         
         addAndMakeVisible(bankDSelector);
         bankDSelector.setText("D", juce::dontSendNotification);
@@ -168,14 +150,45 @@ public:
         bankDSelector.setJustificationType(juce::Justification::centred);
         bankDSelector.setColour(juce::Label::backgroundColourId, BlueprintColors::inactive);
         bankDSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
-        bankDSelector.onClick = [this]() { setSelectedBank(3); };
+        bankDSelector.onClick = [this]() { cycleSliderInBank(3); };
+        
+        // Breadcrumb label
+        addAndMakeVisible(breadcrumbLabel);
+        breadcrumbLabel.setText("Bank A > Slider 1", juce::dontSendNotification);
+        breadcrumbLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        breadcrumbLabel.setColour(juce::Label::textColourId, BlueprintColors::active);
+        breadcrumbLabel.setJustificationType(juce::Justification::centredLeft);
+        
+        // Enable keyboard focus for arrow key handling
+        setWantsKeyboardFocus(true);
+        
+        // Initialize slider settings data with defaults
+        for (int i = 0; i < 16; ++i)
+        {
+            // Use the constructor to ensure proper initialization
+            sliderSettingsData[i] = SliderSettings();
+            sliderSettingsData[i].ccNumber = i;
+            
+            // Set default colors based on bank
+            int bankIndex = i / 4;
+            switch (bankIndex)
+            {
+                case 0: sliderSettingsData[i].colorId = 2; break; // Red
+                case 1: sliderSettingsData[i].colorId = 3; break; // Blue
+                case 2: sliderSettingsData[i].colorId = 4; break; // Green
+                case 3: sliderSettingsData[i].colorId = 5; break; // Yellow
+                default: sliderSettingsData[i].colorId = 1; break; // Default
+            }
+        }
+        
+        setupPerSliderControls();
     }
     
     void setVisible(bool shouldBeVisible) override
     {
         if (shouldBeVisible && !controlsInitialized)
         {
-            initializeSliderControls();
+            controlsInitialized = true;
         }
         
         if (shouldBeVisible)
@@ -230,9 +243,18 @@ public:
         
         // Calculate available height for dynamic spacing (no title space needed)
         int availableHeight = bounds.getHeight();
-        int fixedHeight = 10 + 16 + 6 + 22 + 6 + 20 + 10 + 16 + 5 + 16 + 7 + 20 + 10 + 22 + 8 + 22 + 8; // Updated padding values
+        int fixedHeight = 10 + 16 + 6 + 22 + 6 + 20 + 10 + 16 + 5 + 16 + 7 + 20 + 10 + 20 + 6 + 22 + 8; // Updated padding values + breadcrumb + bank
         if (controlsInitialized)
-            fixedHeight += 18 + 4 + (4 * 26) + (4 * 3) + 8; // Headers + gap + 4 slider rows at 26px each + row spacing + 8px bottom padding
+        {
+            // Calculate height for 4 sections with proper spacing
+            int section1Height = 20 + 16 + 22 + 16 + 22 + 8; // Header + CC label + input + mode label + buttons + minimal spacing
+            int section2Height = 20 + (16 + 2) * 3 + 8; // Header + 3 rows of controls (range combined) + minimal spacing
+            int section3Height = 20 + 16 + 22 + 8; // Header + mode label + buttons + minimal spacing
+            int section4Height = 20 + 16 + 60 + 22 + 8; // Header + color label + grid + reset button + minimal spacing
+            int sectionSpacing = 3 * 3; // 3 gaps between sections (further reduced)
+            
+            fixedHeight += section1Height + section2Height + section3Height + section4Height + sectionSpacing;
+        }
         
         int flexibleSpacing = juce::jmax(3, (availableHeight - fixedHeight) / 8); // Distribute remaining space
         
@@ -307,6 +329,12 @@ public:
         if (!controlsInitialized)
             return; // Don't layout controls that don't exist yet
         
+        // Breadcrumb label section
+        auto breadcrumbArea = bounds.removeFromTop(20);
+        breadcrumbLabel.setBounds(breadcrumbArea);
+        
+        bounds.removeFromTop(6); // Spacing after breadcrumb
+        
         // Bank selector section
         auto bankSelectorArea = bounds.removeFromTop(22);
         bankSelectorLabel.setBounds(bankSelectorArea.removeFromLeft(40));
@@ -324,40 +352,10 @@ public:
         
         bounds.removeFromTop(8); // Reduced spacing
         
-        // Column headers for slider controls - positioned above the slider rows
+        // Layout per-slider controls in 4 sections
         if (controlsInitialized)
         {
-            auto headerArea = bounds.removeFromTop(18); // Height for column headers
-            int availableWidth = headerArea.getWidth();
-            
-            // Calculate column positions to match layoutSliderRow
-            int sliderLabelWidth = juce::jmin(100, availableWidth / 5);
-            int ccInputWidth = juce::jmin(60, availableWidth / 8);
-            int rangeColumnWidth = juce::jmin(120, availableWidth / 3);
-            int colorWidth = juce::jmin(80, availableWidth / 5);
-            
-            // Skip slider label area
-            headerArea.removeFromLeft(sliderLabelWidth + 6);
-            
-            // CC Value header
-            ccValueHeaderLabel.setBounds(headerArea.removeFromLeft(ccInputWidth));
-            headerArea.removeFromLeft(8);
-            
-            // Range header
-            rangeHeaderLabel.setBounds(headerArea.removeFromLeft(rangeColumnWidth));
-            headerArea.removeFromLeft(8);
-            
-            // Color header
-            colorHeaderLabel.setBounds(headerArea.removeFromLeft(colorWidth));
-            
-            bounds.removeFromTop(4); // Small gap between headers and first row
-        }
-        
-        // Controls for current bank only (4 sliders) - more space now available
-        for (int i = 0; i < 4; ++i)
-        {
-            int sliderIndex = selectedBank * 4 + i;
-            layoutSliderRow(bounds, sliderIndex);
+            layoutPerSliderSections(bounds);
         }
         
         // Ensure 8px bottom padding for the last section
@@ -368,49 +366,27 @@ public:
     
     int getCCNumber(int sliderIndex) const
     {
-        if (!controlsInitialized) return sliderIndex;
-        
-        if (sliderIndex < ccInputs.size())
-        {
-            auto text = ccInputs[sliderIndex]->getText();
-            int ccNumber = text.getIntValue();
-            return juce::jlimit(0, 127, ccNumber);
-        }
+        if (sliderIndex >= 0 && sliderIndex < 16)
+            return sliderSettingsData[sliderIndex].ccNumber;
         return sliderIndex;
     }
     
     std::pair<double, double> getCustomRange(int sliderIndex) const
     {
-        if (!controlsInitialized) return {0.0, 16383.0};
-        
-        if (sliderIndex < minRangeInputs.size() && sliderIndex < maxRangeInputs.size())
+        if (sliderIndex >= 0 && sliderIndex < 16)
         {
-            double minVal = minRangeInputs[sliderIndex]->getText().getDoubleValue();
-            double maxVal = maxRangeInputs[sliderIndex]->getText().getDoubleValue();
-            return {minVal, maxVal};
+            const auto& settings = sliderSettingsData[sliderIndex];
+            return {settings.rangeMin, settings.rangeMax};
         }
         return {0.0, 16383.0};
     }
     
     juce::Colour getSliderColor(int sliderIndex) const
     {
-        if (!controlsInitialized)
+        if (sliderIndex >= 0 && sliderIndex < 16)
         {
-            // Return default bank colors
-            int bankIndex = sliderIndex / 4;
-            switch (bankIndex)
-            {
-                case 0: return juce::Colours::red;
-                case 1: return juce::Colours::blue;
-                case 2: return juce::Colours::green;
-                case 3: return juce::Colours::yellow;
-                default: return juce::Colours::cyan;
-            }
-        }
-        
-        if (sliderIndex < colorCombos.size())
-        {
-            switch (colorCombos[sliderIndex]->getSelectedId())
+            int colorId = sliderSettingsData[sliderIndex].colorId;
+            switch (colorId)
             {
                 case 2: return juce::Colours::red;
                 case 3: return juce::Colours::blue;
@@ -447,48 +423,18 @@ public:
         preset.name = "Current State";
         preset.midiChannel = getMidiChannel();
         
-        // IMPORTANT: Only read settings if controls are initialized
-        if (controlsInitialized)
+        // Read from internal slider settings data
+        for (int i = 0; i < 16; ++i)
         {
-            for (int i = 0; i < 16; ++i)
+            if (i < preset.sliders.size())
             {
-                if (i < preset.sliders.size())
-                {
-                    preset.sliders.getReference(i).ccNumber = getCCNumber(i);
-                    auto range = getCustomRange(i);
-                    preset.sliders.getReference(i).minRange = range.first;
-                    preset.sliders.getReference(i).maxRange = range.second;
-                    
-                    // Get color ID from combo
-                    if (i < colorCombos.size())
-                        preset.sliders.getReference(i).colorId = colorCombos[i]->getSelectedId();
-                    
-                    // Note: currentValue, isLocked, delayTime, attackTime need to be set by caller from actual sliders
-                }
-            }
-        }
-        else
-        {
-            // If controls aren't initialized, provide defaults
-            for (int i = 0; i < 16; ++i)
-            {
-                if (i < preset.sliders.size())
-                {
-                    preset.sliders.getReference(i).ccNumber = i; // Default CC numbers
-                    preset.sliders.getReference(i).minRange = 0.0;
-                    preset.sliders.getReference(i).maxRange = 16383.0;
-                    
-                    // Set default colors based on bank
-                    int bankIndex = i / 4;
-                    switch (bankIndex)
-                    {
-                        case 0: preset.sliders.getReference(i).colorId = 2; break; // Red
-                        case 1: preset.sliders.getReference(i).colorId = 3; break; // Blue
-                        case 2: preset.sliders.getReference(i).colorId = 4; break; // Green
-                        case 3: preset.sliders.getReference(i).colorId = 5; break; // Yellow
-                        default: preset.sliders.getReference(i).colorId = 1; break; // Default
-                    }
-                }
+                const auto& settings = sliderSettingsData[i];
+                preset.sliders.getReference(i).ccNumber = settings.ccNumber;
+                preset.sliders.getReference(i).minRange = settings.rangeMin;
+                preset.sliders.getReference(i).maxRange = settings.rangeMax;
+                preset.sliders.getReference(i).colorId = settings.colorId;
+                
+                // Note: currentValue, isLocked, delayTime, attackTime need to be set by caller from actual sliders
             }
         }
         
@@ -496,28 +442,25 @@ public:
     }
     void applyPreset(const ControllerPreset& preset)
     {
-        if (!controlsInitialized)
-            return;
-            
         // Apply MIDI channel
         midiChannelCombo.setSelectedId(preset.midiChannel, juce::dontSendNotification);
         
-        // Apply slider settings
+        // Apply slider settings to internal data
         for (int i = 0; i < juce::jmin(16, preset.sliders.size()); ++i)
         {
             const auto& sliderPreset = preset.sliders[i];
+            auto& settings = sliderSettingsData[i];
             
-            if (i < ccInputs.size())
-                ccInputs[i]->setText(juce::String(sliderPreset.ccNumber), juce::dontSendNotification);
-                
-            if (i < minRangeInputs.size())
-                minRangeInputs[i]->setText(juce::String(sliderPreset.minRange), juce::dontSendNotification);
-                
-            if (i < maxRangeInputs.size())
-                maxRangeInputs[i]->setText(juce::String(sliderPreset.maxRange), juce::dontSendNotification);
-                
-            if (i < colorCombos.size())
-                colorCombos[i]->setSelectedId(sliderPreset.colorId, juce::dontSendNotification);
+            settings.ccNumber = sliderPreset.ccNumber;
+            settings.rangeMin = sliderPreset.minRange;
+            settings.rangeMax = sliderPreset.maxRange;
+            settings.colorId = sliderPreset.colorId;
+        }
+        
+        // Update controls for currently selected slider
+        if (controlsInitialized)
+        {
+            updateControlsForSelectedSlider();
         }
         
         // Notify that settings changed
@@ -526,6 +469,41 @@ public:
     }
     
     PresetManager& getPresetManager() { return presetManager; }
+    
+    // Per-slider selection methods
+    int getSelectedSlider() const { return selectedSlider; }
+    int getSelectedBank() const { return selectedBank; }
+    void selectSlider(int sliderIndex) { setSelectedSlider(sliderIndex); }
+    
+    // New per-slider settings access methods
+    bool is14BitOutput(int sliderIndex) const
+    {
+        if (sliderIndex >= 0 && sliderIndex < 16)
+            return sliderSettingsData[sliderIndex].is14Bit;
+        return true;
+    }
+    
+    
+    double getIncrement(int sliderIndex) const
+    {
+        if (sliderIndex >= 0 && sliderIndex < 16)
+            return sliderSettingsData[sliderIndex].increment;
+        return 1.0;
+    }
+    
+    bool useDeadzone(int sliderIndex) const
+    {
+        if (sliderIndex >= 0 && sliderIndex < 16)
+            return sliderSettingsData[sliderIndex].useDeadzone;
+        return true;
+    }
+    
+    juce::String getDisplayUnit(int sliderIndex) const
+    {
+        if (sliderIndex >= 0 && sliderIndex < 16)
+            return sliderSettingsData[sliderIndex].displayUnit;
+        return juce::String();
+    }
     
     // BPM management methods
     void setBPM(double bpm)
@@ -556,6 +534,7 @@ public:
     std::function<void()> onSettingsChanged;
     std::function<void(const ControllerPreset&)> onPresetLoaded; // For slider values and lock states
     std::function<void(double)> onBPMChanged; // For BPM changes
+    std::function<void(int)> onSelectedSliderChanged; // For per-slider selection notifications
     
 private:
     bool controlsInitialized;
@@ -583,19 +562,62 @@ private:
     juce::Label bankSelectorLabel;
     ClickableLabel bankASelector, bankBSelector, bankCSelector, bankDSelector;
     int selectedBank = 0;
+    int selectedSlider = 0; // Currently selected slider (0-15)
     
-    // Column headers for slider controls
-    juce::Label ccValueHeaderLabel;
-    juce::Label rangeHeaderLabel;
-    juce::Label colorHeaderLabel;
+    // Breadcrumb navigation
+    juce::Label breadcrumbLabel;
     
-    juce::OwnedArray<juce::Label> sliderLabels;
-    juce::OwnedArray<juce::TextEditor> ccInputs;
-    juce::OwnedArray<juce::Label> rangeLabels;
-    juce::OwnedArray<juce::TextEditor> minRangeInputs;
-    juce::OwnedArray<juce::TextEditor> maxRangeInputs;
-    juce::OwnedArray<juce::Label> colorLabels;
-    juce::OwnedArray<juce::ComboBox> colorCombos;
+    // Section headers
+    juce::Label section1Header, section2Header, section3Header, section4Header;
+    
+    // Section 1 - Core MIDI
+    juce::Label ccNumberLabel;
+    juce::TextEditor ccNumberInput;
+    juce::Label outputModeLabel;
+    juce::ToggleButton output7BitButton, output14BitButton;
+    
+    // Section 2 - Display & Range
+    juce::Label rangeLabel;
+    juce::TextEditor rangeMinInput, rangeMaxInput;
+    juce::Label rangeDashLabel;
+    juce::Label displayUnitLabel;
+    juce::TextEditor displayUnitInput;
+    juce::Label incrementsLabel;
+    juce::TextEditor incrementsInput;
+    
+    // Section 3 - Input Behavior
+    juce::Label inputModeLabel;
+    juce::ToggleButton deadzoneButton, directButton;
+    
+    // Section 4 - Visual
+    juce::Label colorPickerLabel;
+    juce::OwnedArray<juce::TextButton> colorButtons; // 4x2 grid
+    juce::TextButton resetSliderButton;
+    
+    // Data storage for all 16 sliders
+    struct SliderSettings {
+        int ccNumber = 0;
+        bool is14Bit = true;
+        double rangeMin = 0.0;
+        double rangeMax = 16383.0;
+        juce::String displayUnit;
+        double increment = 1.0;
+        bool useDeadzone = true;
+        int colorId = 1;
+        
+        SliderSettings()
+        {
+            ccNumber = 0;
+            is14Bit = true;
+            rangeMin = 0.0;
+            rangeMax = 16383.0;
+            displayUnit = juce::String();
+            increment = 1.0;
+            useDeadzone = true;
+            colorId = 1;
+        }
+    };
+    SliderSettings sliderSettingsData[16];
     
     void refreshPresetList()
     {
@@ -716,34 +738,34 @@ private:
         // Reset MIDI channel
         midiChannelCombo.setSelectedId(1, juce::dontSendNotification);
         
-        // Reset all slider settings to defaults
+        // Reset all slider settings to defaults in internal data
+        for (int i = 0; i < 16; ++i)
+        {
+            auto& settings = sliderSettingsData[i];
+            settings.ccNumber = i;
+            settings.is14Bit = true;
+            settings.rangeMin = 0.0;
+            settings.rangeMax = 16383.0;
+            settings.displayUnit = juce::String();
+            settings.increment = 1.0;
+            settings.useDeadzone = true;
+            
+            // Set default colors based on bank
+            int bankIndex = i / 4;
+            switch (bankIndex)
+            {
+                case 0: settings.colorId = 2; break; // Red
+                case 1: settings.colorId = 3; break; // Blue
+                case 2: settings.colorId = 4; break; // Green
+                case 3: settings.colorId = 5; break; // Yellow
+                default: settings.colorId = 1; break; // Default
+            }
+        }
+        
+        // Update controls for currently selected slider
         if (controlsInitialized)
         {
-            for (int i = 0; i < 16; ++i)
-            {
-                if (i < ccInputs.size())
-                    ccInputs[i]->setText(juce::String(i), juce::dontSendNotification);
-                    
-                if (i < minRangeInputs.size())
-                    minRangeInputs[i]->setText("0", juce::dontSendNotification);
-                    
-                if (i < maxRangeInputs.size())
-                    maxRangeInputs[i]->setText("16383", juce::dontSendNotification);
-                    
-                if (i < colorCombos.size())
-                {
-                    // Set default colors based on bank
-                    int bankIndex = i / 4;
-                    switch (bankIndex)
-                    {
-                        case 0: colorCombos[i]->setSelectedId(2, juce::dontSendNotification); break; // Red
-                        case 1: colorCombos[i]->setSelectedId(3, juce::dontSendNotification); break; // Blue
-                        case 2: colorCombos[i]->setSelectedId(4, juce::dontSendNotification); break; // Green
-                        case 3: colorCombos[i]->setSelectedId(5, juce::dontSendNotification); break; // Yellow
-                        default: colorCombos[i]->setSelectedId(1, juce::dontSendNotification); break; // Default
-                    }
-                }
-            }
+            updateControlsForSelectedSlider();
         }
         
         // Notify that settings changed
@@ -758,224 +780,576 @@ private:
         }
     }
 
-    void layoutSliderRow(juce::Rectangle<int>& bounds, int sliderIndex)
-    {
-        auto row = bounds.removeFromTop(26); // Reduced height since no per-row labels
-        int availableWidth = row.getWidth();
-        
-        // Calculate column widths to align with headers
-        int sliderLabelWidth = juce::jmin(100, availableWidth / 5);
-        int ccInputWidth = juce::jmin(60, availableWidth / 8);
-        int rangeColumnWidth = juce::jmin(120, availableWidth / 3); // Space for both min and max inputs
-        int colorWidth = juce::jmin(80, availableWidth / 5);
-        
-        // Slider X: (just the slider number label)
-        sliderLabels[sliderIndex]->setBounds(row.removeFromLeft(sliderLabelWidth));
-        row.removeFromLeft(6); // Gap
-        
-        // CC Value input (aligned with CC Value header)
-        ccInputs[sliderIndex]->setBounds(row.removeFromLeft(ccInputWidth));
-        row.removeFromLeft(8); // Gap
-        
-        // Range inputs (aligned with Range header)
-        auto rangeArea = row.removeFromLeft(rangeColumnWidth);
-        int rangeInputWidth = (rangeColumnWidth - 8) / 2; // Split range area in half with 8px gap
-        minRangeInputs[sliderIndex]->setBounds(rangeArea.removeFromLeft(rangeInputWidth));
-        rangeArea.removeFromLeft(8); // Gap between min and max
-        maxRangeInputs[sliderIndex]->setBounds(rangeArea);
-        
-        row.removeFromLeft(8); // Gap
-        
-        // Color combo (aligned with Color header)
-        colorCombos[sliderIndex]->setBounds(row.removeFromLeft(colorWidth));
-        
-        bounds.removeFromTop(3); // Reduced row spacing
-    }
     
-    void initializeSliderControls()
+    
+    bool keyPressed(const juce::KeyPress& key) override
     {
-        // Create controls for all 16 sliders
-        for (int i = 0; i < 16; ++i)
+        if (key == juce::KeyPress::escapeKey)
         {
-            // SLIDER X: label (simplified - no "CC Value:" text)
-            auto* sliderLabel = new juce::Label();
-            sliderLabels.add(sliderLabel);
-            addAndMakeVisible(sliderLabel);
-            sliderLabel->setText("Slider " + juce::String(i + 1) + ":", juce::dontSendNotification);
-            sliderLabel->setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-            
-            // CC input
-            auto* ccInput = new juce::TextEditor();
-            ccInputs.add(ccInput);
-            addAndMakeVisible(ccInput);
-            ccInput->setText(juce::String(i), juce::dontSendNotification);
-            ccInput->setInputRestrictions(3, "0123456789");
-            ccInput->setTooltip("MIDI CC number (0-127)");
-            ccInput->setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
-            ccInput->setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
-            ccInput->setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
-            ccInput->onReturnKey = [this, ccInput]() { validateCCInput(ccInput); };
-            ccInput->onFocusLost = [this, ccInput]() { validateCCInput(ccInput); };
-            
-            // Range: label (kept for compatibility but will be hidden)
-            auto* rangeLabel = new juce::Label();
-            rangeLabels.add(rangeLabel);
-            addAndMakeVisible(rangeLabel);
-            rangeLabel->setText("", juce::dontSendNotification); // Empty text since header replaces it
-            rangeLabel->setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-            
-            // Min range input
-            auto* minInput = new juce::TextEditor();
-            minRangeInputs.add(minInput);
-            addAndMakeVisible(minInput);
-            minInput->setText("0");
-            minInput->setInputRestrictions(0, "-0123456789.");
-            minInput->setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
-            minInput->setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
-            minInput->setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
-            minInput->onReturnKey = [this, minInput]() { validateRangeInput(minInput); };
-            minInput->onFocusLost = [this, minInput]() { validateRangeInput(minInput); };
-            
-            // Max range input
-            auto* maxInput = new juce::TextEditor();
-            maxRangeInputs.add(maxInput);
-            addAndMakeVisible(maxInput);
-            maxInput->setText("16383");
-            maxInput->setInputRestrictions(0, "-0123456789.");
-            maxInput->setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
-            maxInput->setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
-            maxInput->setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
-            maxInput->onReturnKey = [this, maxInput]() { validateRangeInput(maxInput); };
-            maxInput->onFocusLost = [this, maxInput]() { validateRangeInput(maxInput); };
-            
-            // Color: label (kept for compatibility but will be hidden)
-            auto* colorLabel = new juce::Label();
-            colorLabels.add(colorLabel);
-            addAndMakeVisible(colorLabel);
-            colorLabel->setText("", juce::dontSendNotification); // Empty text since header replaces it
-            colorLabel->setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-            
-            // Color selector
-            auto* colorCombo = new juce::ComboBox();
-            colorCombos.add(colorCombo);
-            addAndMakeVisible(colorCombo);
-            colorCombo->setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background);
-            colorCombo->setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary);
-            colorCombo->setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines);
-            
-            colorCombo->addItem("Default", 1);
-            colorCombo->addItem("Red", 2);
-            colorCombo->addItem("Blue", 3);
-            colorCombo->addItem("Green", 4);
-            colorCombo->addItem("Yellow", 5);
-            colorCombo->addItem("Purple", 6);
-            colorCombo->addItem("Orange", 7);
-            colorCombo->addItem("Cyan", 8);
-            colorCombo->addItem("White", 9);
-            
-            colorCombo->setSelectedId(1);
-            
-            // Add callback to notify when color changes
-            colorCombo->onChange = [this]() {
-                if (onSettingsChanged)
-                    onSettingsChanged();
-            };
+            setVisible(false);
+            return true;
+        }
+        else if (key == juce::KeyPress::upKey)
+        {
+            // Up: Switch between banks A→B→C→D→A, reset to first slider in bank
+            int newBank = (selectedSlider / 4 + 3) % 4; // Previous bank
+            setSelectedSlider(newBank * 4);
+            return true;
+        }
+        else if (key == juce::KeyPress::downKey)
+        {
+            // Down: Switch between banks A→B→C→D→A, reset to first slider in bank
+            int newBank = (selectedSlider / 4 + 1) % 4; // Next bank
+            setSelectedSlider(newBank * 4);
+            return true;
+        }
+        else if (key == juce::KeyPress::leftKey)
+        {
+            // Left: Previous slider (wrap around)
+            int newSlider = (selectedSlider + 15) % 16;
+            setSelectedSlider(newSlider);
+            return true;
+        }
+        else if (key == juce::KeyPress::rightKey)
+        {
+            // Right: Next slider (wrap around)
+            int newSlider = (selectedSlider + 1) % 16;
+            setSelectedSlider(newSlider);
+            return true;
         }
         
-        controlsInitialized = true;
-        
-        // Set initial bank visibility
-        setSelectedBank(0);
-        
-        resized();
-        repaint();
-        
-        if (onSettingsChanged)
-            onSettingsChanged();
+        return Component::keyPressed(key);
     }
     
-    void setSelectedBank(int bank)
+    void cycleSliderInBank(int bankIndex)
     {
-        selectedBank = bank;
+        int bankStart = bankIndex * 4;
+        int bankEnd = bankStart + 3;
         
-        // Update bank selector button appearances
-        bankASelector.setColour(juce::Label::backgroundColourId, bank == 0 ? juce::Colours::red : juce::Colours::darkgrey);
-        bankASelector.setColour(juce::Label::textColourId, bank == 0 ? juce::Colours::white : juce::Colours::lightgrey);
+        // If currently selected slider is in this bank, cycle to next slider in bank
+        if (selectedSlider >= bankStart && selectedSlider <= bankEnd)
+        {
+            int nextSlider = selectedSlider + 1;
+            if (nextSlider > bankEnd)
+                nextSlider = bankStart; // Wrap to start of bank
+            setSelectedSlider(nextSlider);
+        }
+        else
+        {
+            // Jump to first slider in this bank
+            setSelectedSlider(bankStart);
+        }
+    }
+    
+    void setSelectedSlider(int sliderIndex)
+    {
+        if (sliderIndex < 0 || sliderIndex >= 16)
+            return;
+            
+        selectedSlider = sliderIndex;
+        selectedBank = selectedSlider / 4;
         
-        bankBSelector.setColour(juce::Label::backgroundColourId, bank == 1 ? juce::Colours::blue : juce::Colours::darkgrey);
-        bankBSelector.setColour(juce::Label::textColourId, bank == 1 ? juce::Colours::white : juce::Colours::lightgrey);
+        updateBreadcrumbLabel();
+        updateBankButtonAppearance();
+        updateSliderVisibility();
         
-        bankCSelector.setColour(juce::Label::backgroundColourId, bank == 2 ? juce::Colours::green : juce::Colours::darkgrey);
-        bankCSelector.setColour(juce::Label::textColourId, bank == 2 ? juce::Colours::white : juce::Colours::lightgrey);
-        
-        bankDSelector.setColour(juce::Label::backgroundColourId, bank == 3 ? juce::Colours::yellow : juce::Colours::darkgrey);
-        bankDSelector.setColour(juce::Label::textColourId, bank == 3 ? juce::Colours::black : juce::Colours::lightgrey);
-        
-        // Show/hide appropriate slider controls
+        // Update controls for the newly selected slider
         if (controlsInitialized)
         {
-            // Show column headers when any slider is visible
-            bool hasVisibleSliders = false;
+            updateControlsForSelectedSlider();
+        }
+        
+        if (onSelectedSliderChanged)
+            onSelectedSliderChanged(selectedSlider);
+    }
+    
+    void updateBreadcrumbLabel()
+    {
+        char bankLetter = 'A' + selectedBank;
+        int sliderInBank = (selectedSlider % 4) + 1;
+        juce::String breadcrumbText = juce::String("Bank ") + juce::String::charToString(bankLetter) + 
+                                     juce::String(" > Slider ") + juce::String(sliderInBank);
+        breadcrumbLabel.setText(breadcrumbText, juce::dontSendNotification);
+    }
+    
+    void updateBankButtonAppearance()
+    {
+        // Update bank selector button appearances to show which bank contains selected slider
+        bankASelector.setColour(juce::Label::backgroundColourId, selectedBank == 0 ? BlueprintColors::active : BlueprintColors::inactive);
+        bankASelector.setColour(juce::Label::textColourId, selectedBank == 0 ? BlueprintColors::textPrimary : BlueprintColors::textSecondary);
+        
+        bankBSelector.setColour(juce::Label::backgroundColourId, selectedBank == 1 ? BlueprintColors::active : BlueprintColors::inactive);
+        bankBSelector.setColour(juce::Label::textColourId, selectedBank == 1 ? BlueprintColors::textPrimary : BlueprintColors::textSecondary);
+        
+        bankCSelector.setColour(juce::Label::backgroundColourId, selectedBank == 2 ? BlueprintColors::active : BlueprintColors::inactive);
+        bankCSelector.setColour(juce::Label::textColourId, selectedBank == 2 ? BlueprintColors::textPrimary : BlueprintColors::textSecondary);
+        
+        bankDSelector.setColour(juce::Label::backgroundColourId, selectedBank == 3 ? BlueprintColors::active : BlueprintColors::inactive);
+        bankDSelector.setColour(juce::Label::textColourId, selectedBank == 3 ? BlueprintColors::textPrimary : BlueprintColors::textSecondary);
+        
+        repaint();
+    }
+    
+    void setupPerSliderControls()
+    {
+        // Section 1 - Core MIDI
+        addAndMakeVisible(section1Header);
+        section1Header.setText("Core MIDI", juce::dontSendNotification);
+        section1Header.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        section1Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        
+        addAndMakeVisible(ccNumberLabel);
+        ccNumberLabel.setText("MIDI CC Number:", juce::dontSendNotification);
+        ccNumberLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        
+        addAndMakeVisible(ccNumberInput);
+        ccNumberInput.setInputRestrictions(3, "0123456789");
+        ccNumberInput.setTooltip("MIDI CC number (0-127)");
+        ccNumberInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
+        ccNumberInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
+        ccNumberInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
+        ccNumberInput.onReturnKey = [this]() { ccNumberInput.moveKeyboardFocusToSibling(true); };
+        ccNumberInput.onFocusLost = [this]() { validateAndApplyCCNumber(); };
+        
+        addAndMakeVisible(outputModeLabel);
+        outputModeLabel.setText("Output Mode:", juce::dontSendNotification);
+        outputModeLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        
+        addAndMakeVisible(output7BitButton);
+        output7BitButton.setButtonText("7-bit");
+        output7BitButton.setRadioGroupId(1);
+        output7BitButton.onClick = [this]() { applyOutputMode(); };
+        
+        addAndMakeVisible(output14BitButton);
+        output14BitButton.setButtonText("14-bit");
+        output14BitButton.setRadioGroupId(1);
+        output14BitButton.setToggleState(true, juce::dontSendNotification);
+        output14BitButton.onClick = [this]() { applyOutputMode(); };
+        
+        // Section 2 - Display & Range
+        addAndMakeVisible(section2Header);
+        section2Header.setText("Display & Range", juce::dontSendNotification);
+        section2Header.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        section2Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        
+        addAndMakeVisible(rangeLabel);
+        rangeLabel.setText("Range:", juce::dontSendNotification);
+        rangeLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        
+        addAndMakeVisible(rangeMinInput);
+        rangeMinInput.setInputRestrictions(0, "-0123456789.");
+        rangeMinInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
+        rangeMinInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
+        rangeMinInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
+        rangeMinInput.onReturnKey = [this]() { rangeMinInput.moveKeyboardFocusToSibling(true); };
+        rangeMinInput.onFocusLost = [this]() { validateAndApplyRange(); };
+        
+        addAndMakeVisible(rangeDashLabel);
+        rangeDashLabel.setText("-", juce::dontSendNotification);
+        rangeDashLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        rangeDashLabel.setJustificationType(juce::Justification::centred);
+        
+        addAndMakeVisible(rangeMaxInput);
+        rangeMaxInput.setInputRestrictions(0, "-0123456789.");
+        rangeMaxInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
+        rangeMaxInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
+        rangeMaxInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
+        rangeMaxInput.onReturnKey = [this]() { rangeMaxInput.moveKeyboardFocusToSibling(true); };
+        rangeMaxInput.onFocusLost = [this]() { validateAndApplyRange(); };
+        
+        addAndMakeVisible(displayUnitLabel);
+        displayUnitLabel.setText("Display Unit:", juce::dontSendNotification);
+        displayUnitLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        
+        addAndMakeVisible(displayUnitInput);
+        displayUnitInput.setInputRestrictions(4); // 4 character limit
+        displayUnitInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
+        displayUnitInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
+        displayUnitInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
+        displayUnitInput.onReturnKey = [this]() { displayUnitInput.moveKeyboardFocusToSibling(true); };
+        displayUnitInput.onFocusLost = [this]() { applyDisplayUnit(); };
+        
+        
+        addAndMakeVisible(incrementsLabel);
+        incrementsLabel.setText("Custom Steps:", juce::dontSendNotification);
+        incrementsLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        
+        addAndMakeVisible(incrementsInput);
+        incrementsInput.setInputRestrictions(0, "0123456789.");
+        incrementsInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
+        incrementsInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
+        incrementsInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
+        incrementsInput.onReturnKey = [this]() { incrementsInput.moveKeyboardFocusToSibling(true); };
+        incrementsInput.onFocusLost = [this]() { applyIncrements(); };
+        
+        // Section 3 - Input Behavior
+        addAndMakeVisible(section3Header);
+        section3Header.setText("Input Behavior", juce::dontSendNotification);
+        section3Header.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        section3Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        
+        addAndMakeVisible(inputModeLabel);
+        inputModeLabel.setText("MIDI Input Mode:", juce::dontSendNotification);
+        inputModeLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        
+        addAndMakeVisible(deadzoneButton);
+        deadzoneButton.setButtonText("Deadzone");
+        deadzoneButton.setRadioGroupId(2);
+        deadzoneButton.setToggleState(true, juce::dontSendNotification);
+        deadzoneButton.onClick = [this]() { applyInputMode(); };
+        
+        addAndMakeVisible(directButton);
+        directButton.setButtonText("Direct");
+        directButton.setRadioGroupId(2);
+        directButton.onClick = [this]() { applyInputMode(); };
+        
+        // Section 4 - Visual
+        addAndMakeVisible(section4Header);
+        section4Header.setText("Visual", juce::dontSendNotification);
+        section4Header.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        section4Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        
+        addAndMakeVisible(colorPickerLabel);
+        colorPickerLabel.setText("Color:", juce::dontSendNotification);
+        colorPickerLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        
+        // Create 4x2 color picker grid
+        const juce::Colour colors[] = {
+            juce::Colours::red, juce::Colours::blue, juce::Colours::green, juce::Colours::yellow,
+            juce::Colours::purple, juce::Colours::orange, juce::Colours::cyan, juce::Colours::white
+        };
+        
+        for (int i = 0; i < 8; ++i)
+        {
+            auto* colorButton = new juce::TextButton();
+            colorButtons.add(colorButton);
+            addAndMakeVisible(colorButton);
+            colorButton->setColour(juce::TextButton::buttonColourId, colors[i]);
+            colorButton->onClick = [this, i]() { selectColor(i + 2); }; // +2 because colorId starts at 2
+        }
+        
+        addAndMakeVisible(resetSliderButton);
+        resetSliderButton.setButtonText("Reset Slider");
+        resetSliderButton.setLookAndFeel(&customButtonLookAndFeel);
+        resetSliderButton.onClick = [this]() { resetCurrentSlider(); };
+        
+        // Only update controls if they're properly initialized
+        if (controlsInitialized)
+        {
+            updateControlsForSelectedSlider();
+        }
+    }
+    
+    void validateAndApplyCCNumber()
+    {
+        auto text = ccNumberInput.getText();
+        if (text.isEmpty())
+        {
+            ccNumberInput.setText("0", juce::dontSendNotification);
+            text = "0";
+        }
+        
+        int ccNumber = juce::jlimit(0, 127, text.getIntValue());
+        ccNumberInput.setText(juce::String(ccNumber), juce::dontSendNotification);
+        
+        if (selectedSlider >= 0 && selectedSlider < 16)
+        {
+            sliderSettingsData[selectedSlider].ccNumber = ccNumber;
+            if (onSettingsChanged) onSettingsChanged();
+        }
+    }
+    
+    void applyOutputMode()
+    {
+        if (selectedSlider >= 0 && selectedSlider < 16)
+        {
+            sliderSettingsData[selectedSlider].is14Bit = output14BitButton.getToggleState();
+            if (onSettingsChanged) onSettingsChanged();
+        }
+    }
+    
+    void validateAndApplyRange()
+    {
+        auto minText = rangeMinInput.getText();
+        auto maxText = rangeMaxInput.getText();
+        
+        if (minText.isEmpty()) { rangeMinInput.setText("0", juce::dontSendNotification); minText = "0"; }
+        if (maxText.isEmpty()) { rangeMaxInput.setText("16383", juce::dontSendNotification); maxText = "16383"; }
+        
+        double minVal = minText.getDoubleValue();
+        double maxVal = maxText.getDoubleValue();
+        
+        // Ensure min < max
+        if (minVal >= maxVal) 
+        {
+            maxVal = minVal + 1;
+            rangeMaxInput.setText(juce::String(maxVal, 2), juce::dontSendNotification);
+        }
+        
+        if (selectedSlider >= 0 && selectedSlider < 16)
+        {
+            sliderSettingsData[selectedSlider].rangeMin = minVal;
+            sliderSettingsData[selectedSlider].rangeMax = maxVal;
+            if (onSettingsChanged) onSettingsChanged();
+        }
+    }
+    
+    
+    void applyIncrements()
+    {
+        auto text = incrementsInput.getText();
+        if (text.isEmpty()) { incrementsInput.setText("1", juce::dontSendNotification); text = "1"; }
+        
+        double increment = juce::jmax(0.001, text.getDoubleValue());
+        incrementsInput.setText(juce::String(increment, 3), juce::dontSendNotification);
+        
+        if (selectedSlider >= 0 && selectedSlider < 16)
+        {
+            sliderSettingsData[selectedSlider].increment = increment;
+            if (onSettingsChanged) onSettingsChanged();
+        }
+    }
+    
+    void applyInputMode()
+    {
+        if (selectedSlider >= 0 && selectedSlider < 16)
+        {
+            sliderSettingsData[selectedSlider].useDeadzone = deadzoneButton.getToggleState();
+            if (onSettingsChanged) onSettingsChanged();
+        }
+    }
+    
+    void selectColor(int colorId)
+    {
+        if (selectedSlider >= 0 && selectedSlider < 16)
+        {
+            sliderSettingsData[selectedSlider].colorId = colorId;
+            updateColorButtonSelection();
+            if (onSettingsChanged) onSettingsChanged();
+        }
+    }
+    
+    void resetCurrentSlider()
+    {
+        if (selectedSlider >= 0 && selectedSlider < 16)
+        {
+            auto& settings = sliderSettingsData[selectedSlider];
+            settings.ccNumber = selectedSlider;
+            settings.is14Bit = true;
+            settings.rangeMin = 0.0;
+            settings.rangeMax = 16383.0;
+            settings.displayUnit = juce::String();
+            settings.increment = 1.0;
+            settings.useDeadzone = true;
             
-            for (int i = 0; i < 16; ++i)
+            // Set default color based on bank
+            int bankIndex = selectedSlider / 4;
+            switch (bankIndex)
             {
-                bool shouldBeVisible = (i >= selectedBank * 4) && (i < (selectedBank + 1) * 4);
-                
-                if (shouldBeVisible)
-                    hasVisibleSliders = true;
-                
-                if (i < sliderLabels.size()) sliderLabels[i]->setVisible(shouldBeVisible);
-                if (i < ccInputs.size()) ccInputs[i]->setVisible(shouldBeVisible);
-                if (i < rangeLabels.size()) rangeLabels[i]->setVisible(false); // Always hidden - replaced by header
-                if (i < minRangeInputs.size()) minRangeInputs[i]->setVisible(shouldBeVisible);
-                if (i < maxRangeInputs.size()) maxRangeInputs[i]->setVisible(shouldBeVisible);
-                if (i < colorLabels.size()) colorLabels[i]->setVisible(false); // Always hidden - replaced by header
-                if (i < colorCombos.size()) colorCombos[i]->setVisible(shouldBeVisible);
+                case 0: settings.colorId = 2; break; // Red
+                case 1: settings.colorId = 3; break; // Blue
+                case 2: settings.colorId = 4; break; // Green
+                case 3: settings.colorId = 5; break; // Yellow
+                default: settings.colorId = 1; break; // Default
             }
             
-            // Show/hide column headers based on whether any sliders are visible
-            ccValueHeaderLabel.setVisible(hasVisibleSliders);
-            rangeHeaderLabel.setVisible(hasVisibleSliders);
-            colorHeaderLabel.setVisible(hasVisibleSliders);
+            updateControlsForSelectedSlider();
+            if (onSettingsChanged) onSettingsChanged();
         }
+    }
+    
+    void updateControlsForSelectedSlider()
+    {
+        if (selectedSlider < 0 || selectedSlider >= 16) return;
+        
+        const auto& settings = sliderSettingsData[selectedSlider];
+        
+        // Update all controls with current slider's settings - with safety checks
+        ccNumberInput.setText(juce::String(settings.ccNumber), juce::dontSendNotification);
+        output14BitButton.setToggleState(settings.is14Bit, juce::dontSendNotification);
+        output7BitButton.setToggleState(!settings.is14Bit, juce::dontSendNotification);
+        
+        rangeMinInput.setText(juce::String(settings.rangeMin, 2), juce::dontSendNotification);
+        rangeMaxInput.setText(juce::String(settings.rangeMax, 2), juce::dontSendNotification);
+        displayUnitInput.setText(settings.displayUnit, juce::dontSendNotification);
+        incrementsInput.setText(juce::String(settings.increment, 3), juce::dontSendNotification);
+        
+        deadzoneButton.setToggleState(settings.useDeadzone, juce::dontSendNotification);
+        directButton.setToggleState(!settings.useDeadzone, juce::dontSendNotification);
+        
+        updateColorButtonSelection();
+    }
+    
+    void applyDisplayUnit()
+    {
+        if (selectedSlider >= 0 && selectedSlider < 16)
+        {
+            sliderSettingsData[selectedSlider].displayUnit = displayUnitInput.getText();
+            if (onSettingsChanged) onSettingsChanged();
+        }
+    }
+    
+    void updateColorButtonSelection()
+    {
+        if (selectedSlider < 0 || selectedSlider >= 16) return;
+        
+        int selectedColorId = sliderSettingsData[selectedSlider].colorId;
+        
+        // Reset all color button appearances
+        for (int i = 0; i < colorButtons.size(); ++i)
+        {
+            auto* button = colorButtons[i];
+            bool isSelected = (i + 2) == selectedColorId; // +2 because colorId starts at 2
+            
+            if (isSelected)
+            {
+                // Add selection indication by darkening the button
+                const juce::Colour colors[] = {
+                    juce::Colours::red, juce::Colours::blue, juce::Colours::green, juce::Colours::yellow,
+                    juce::Colours::purple, juce::Colours::orange, juce::Colours::cyan, juce::Colours::white
+                };
+                button->setColour(juce::TextButton::buttonColourId, colors[i].darker(0.3f));
+                button->setButtonText("X"); // Add X for selection
+            }
+            else
+            {
+                // Reset to original color
+                const juce::Colour colors[] = {
+                    juce::Colours::red, juce::Colours::blue, juce::Colours::green, juce::Colours::yellow,
+                    juce::Colours::purple, juce::Colours::orange, juce::Colours::cyan, juce::Colours::white
+                };
+                button->setColour(juce::TextButton::buttonColourId, colors[i]);
+                button->setButtonText(""); // Remove checkmark
+            }
+        }
+    }
+    
+    void layoutPerSliderSections(juce::Rectangle<int>& bounds)
+    {
+        const int sectionSpacing = 3; // Further reduced to prevent overflow
+        const int controlSpacing = 2; // Further reduced spacing
+        const int labelHeight = 16;
+        const int inputHeight = 22;
+        const int headerHeight = 20;
+        
+        // Section 1 - Core MIDI
+        auto section1Bounds = bounds.removeFromTop(headerHeight + labelHeight + inputHeight + labelHeight + inputHeight + controlSpacing * 2);
+        
+        section1Header.setBounds(section1Bounds.removeFromTop(headerHeight));
+        section1Bounds.removeFromTop(controlSpacing);
+        
+        // CC Number row
+        auto ccRow = section1Bounds.removeFromTop(labelHeight);
+        ccNumberLabel.setBounds(ccRow.removeFromLeft(120));
+        ccRow.removeFromLeft(8);
+        ccNumberInput.setBounds(ccRow.removeFromLeft(80));
+        
+        section1Bounds.removeFromTop(controlSpacing);
+        
+        // Output mode row
+        auto outputRow = section1Bounds.removeFromTop(inputHeight);
+        outputModeLabel.setBounds(outputRow.removeFromLeft(120));
+        outputRow.removeFromLeft(8);
+        output7BitButton.setBounds(outputRow.removeFromLeft(60));
+        outputRow.removeFromLeft(8);
+        output14BitButton.setBounds(outputRow.removeFromLeft(60));
+        
+        bounds.removeFromTop(sectionSpacing);
+        
+        // Section 2 - Display & Range
+        auto section2Bounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 3 + controlSpacing);
+        
+        section2Header.setBounds(section2Bounds.removeFromTop(headerHeight));
+        section2Bounds.removeFromTop(controlSpacing);
+        
+        // Range row (combined min - max on one line)
+        auto rangeRow = section2Bounds.removeFromTop(labelHeight);
+        rangeLabel.setBounds(rangeRow.removeFromLeft(50));
+        rangeRow.removeFromLeft(4);
+        rangeMinInput.setBounds(rangeRow.removeFromLeft(80));
+        rangeRow.removeFromLeft(2);
+        rangeDashLabel.setBounds(rangeRow.removeFromLeft(10));
+        rangeRow.removeFromLeft(2);
+        rangeMaxInput.setBounds(rangeRow.removeFromLeft(80));
+        
+        section2Bounds.removeFromTop(controlSpacing);
+        
+        // Display Unit row
+        auto unitRow = section2Bounds.removeFromTop(labelHeight);
+        displayUnitLabel.setBounds(unitRow.removeFromLeft(120));
+        unitRow.removeFromLeft(8);
+        displayUnitInput.setBounds(unitRow.removeFromLeft(60));
+        
+        section2Bounds.removeFromTop(controlSpacing);
+        
+        // Increments row
+        auto incrementRow = section2Bounds.removeFromTop(labelHeight);
+        incrementsLabel.setBounds(incrementRow.removeFromLeft(120));
+        incrementRow.removeFromLeft(8);
+        incrementsInput.setBounds(incrementRow.removeFromLeft(100));
+        
+        bounds.removeFromTop(sectionSpacing);
+        
+        // Section 3 - Input Behavior
+        auto section3Bounds = bounds.removeFromTop(headerHeight + labelHeight + inputHeight + controlSpacing);
+        
+        section3Header.setBounds(section3Bounds.removeFromTop(headerHeight));
+        section3Bounds.removeFromTop(controlSpacing);
+        
+        auto inputModeRow = section3Bounds.removeFromTop(labelHeight);
+        inputModeLabel.setBounds(inputModeRow.removeFromLeft(120));
+        inputModeRow.removeFromLeft(8);
+        deadzoneButton.setBounds(inputModeRow.removeFromLeft(80));
+        inputModeRow.removeFromLeft(8);
+        directButton.setBounds(inputModeRow.removeFromLeft(60));
+        
+        bounds.removeFromTop(sectionSpacing);
+        
+        // Section 4 - Visual
+        auto section4Bounds = bounds.removeFromTop(headerHeight + labelHeight + 60 + inputHeight + controlSpacing); // 60px for color grid, minimal spacing
+        
+        section4Header.setBounds(section4Bounds.removeFromTop(headerHeight));
+        section4Bounds.removeFromTop(controlSpacing);
+        
+        colorPickerLabel.setBounds(section4Bounds.removeFromTop(labelHeight));
+        section4Bounds.removeFromTop(controlSpacing);
+        
+        // Color picker grid (4x2)
+        auto colorArea = section4Bounds.removeFromTop(60);
+        const int buttonSize = 25;
+        const int buttonGap = 8;
+        
+        for (int row = 0; row < 2; ++row)
+        {
+            for (int col = 0; col < 4; ++col)
+            {
+                int index = row * 4 + col;
+                if (index < colorButtons.size())
+                {
+                    int x = col * (buttonSize + buttonGap);
+                    int y = row * (buttonSize + buttonGap);
+                    colorButtons[index]->setBounds(x, y + colorArea.getY(), buttonSize, buttonSize);
+                }
+            }
+        }
+        
+        section4Bounds.removeFromTop(controlSpacing);
+        resetSliderButton.setBounds(section4Bounds.removeFromTop(inputHeight).removeFromLeft(120));
+    }
+    
+    void updateSliderVisibility()
+    {
+        if (!controlsInitialized)
+            return;
+            
+        // The new per-slider controls are always visible when controlsInitialized is true
+        // Individual controls are updated via updateControlsForSelectedSlider()
         
         resized();
         repaint();
     }
     
-    void validateCCInput(juce::TextEditor* input)
-    {
-        auto text = input->getText();
-        if (text.isEmpty())
-        {
-            input->setText("0", juce::dontSendNotification);
-            return;
-        }
-        
-        int ccNumber = text.getIntValue();
-        ccNumber = juce::jlimit(0, 127, ccNumber);
-        input->setText(juce::String(ccNumber), juce::dontSendNotification);
-        
-        if (onSettingsChanged)
-            onSettingsChanged();
-    }
     
-    void validateRangeInput(juce::TextEditor* input)
-    {
-        auto text = input->getText();
-        if (text.isEmpty())
-        {
-            input->setText("0", juce::dontSendNotification);
-            return;
-        }
-        
-        double value = text.getDoubleValue();
-        value = juce::jlimit(-999999.0, 999999.0, value);
-        input->setText(juce::String(value, 2), juce::dontSendNotification);
-        
-        if (onSettingsChanged)
-            onSettingsChanged();
-    }
     
     void drawSectionBackgrounds(juce::Graphics& g)
     {
@@ -983,9 +1357,9 @@ private:
         
         // Calculate section bounds using same logic as resized()
         int availableHeight = bounds.getHeight();
-        int fixedHeight = 10 + 16 + 6 + 22 + 6 + 20 + 10 + 16 + 5 + 16 + 7 + 20 + 10 + 22 + 8 + 22 + 8; // Updated padding values
+        int fixedHeight = 10 + 16 + 6 + 22 + 6 + 20 + 10 + 16 + 5 + 16 + 7 + 20 + 10 + 20 + 6 + 22 + 8; // Updated padding values
         if (controlsInitialized)
-            fixedHeight += 18 + 4 + (4 * 26) + (4 * 3) + 8;
+            fixedHeight += 18 + 4 + 26 + 8;
         
         int flexibleSpacing = juce::jmax(3, (availableHeight - fixedHeight) / 8);
         
@@ -1014,10 +1388,19 @@ private:
         // Skip flexible spacing
         bounds.removeFromTop(flexibleSpacing);
         
-        // Bottom section (MIDI Channel + Bank + Slider controls) - blueprint background and outline style
-        auto bottomSectionHeight = 10 + 22 + 8 + 22 + 8; // Updated MIDI + spacing + Bank
+        // Bottom section (MIDI Channel + Breadcrumb + Bank + Slider controls) - blueprint background and outline style
+        auto bottomSectionHeight = 10 + 22 + 8 + 20 + 6 + 22 + 8; // Updated MIDI + spacing + breadcrumb + bank
         if (controlsInitialized)
-            bottomSectionHeight += 18 + 4 + (4 * 26) + (4 * 3) + 8; // Headers + sliders
+        {
+            // Calculate height for 4 sections with proper spacing
+            int section1Height = 20 + 16 + 22 + 16 + 22 + 8; // Header + CC label + input + mode label + buttons + minimal spacing
+            int section2Height = 20 + (16 + 2) * 3 + 8; // Header + 3 rows of controls (range combined) + minimal spacing
+            int section3Height = 20 + 16 + 22 + 8; // Header + mode label + buttons + minimal spacing
+            int section4Height = 20 + 16 + 60 + 22 + 8; // Header + color label + grid + reset button + minimal spacing
+            int sectionSpacing = 3 * 3; // 3 gaps between sections (further reduced)
+            
+            bottomSectionHeight += section1Height + section2Height + section3Height + section4Height + sectionSpacing;
+        }
         
         auto bottomSectionBounds = bounds.removeFromTop(bottomSectionHeight);
         bottomSectionBounds = bottomSectionBounds.expanded(5, 0).withTrimmedTop(1).withBottom(bottomSectionBounds.getBottom() + 5); // 5px left/right margin, 1px top gap, extend bottom by 5px
