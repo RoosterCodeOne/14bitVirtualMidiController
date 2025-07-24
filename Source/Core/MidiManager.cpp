@@ -164,6 +164,34 @@ void MidiManager::sendCC14Bit(int channel, int ccNumber, int value14bit)
     }
 }
 
+void MidiManager::sendCC14BitWithSlider(int sliderNumber, int channel, int ccNumber, int value14bit)
+{
+    if (!midiOutput) return;
+    
+    // Convert 14-bit value to MSB and LSB
+    int msb = (value14bit >> 7) & 0x7F;
+    int lsb = value14bit & 0x7F;
+    
+    // Send MSB
+    juce::MidiMessage msbMessage = juce::MidiMessage::controllerEvent(channel, ccNumber, msb);
+    midiOutput->sendMessageNow(msbMessage);
+    
+    // Send LSB
+    if (ccNumber < 96)
+    {
+        juce::MidiMessage lsbMessage = juce::MidiMessage::controllerEvent(channel, ccNumber + 32, lsb);
+        midiOutput->sendMessageNow(lsbMessage);
+    }
+    
+    // Notify MIDI monitor of outgoing message
+    if (onMidiSent)
+    {
+        juce::MessageManager::callAsync([this, sliderNumber, channel, ccNumber, msb, lsb, value14bit]() {
+            onMidiSent(sliderNumber, channel, ccNumber, msb, lsb, value14bit);
+        });
+    }
+}
+
 //==============================================================================
 void MidiManager::saveDevicePreference()
 {
@@ -242,6 +270,14 @@ void MidiManager::handleIncomingMidiMessage(juce::MidiInput* source, const juce:
         {
             juce::MessageManager::callAsync([this, channel, ccNumber, ccValue]() {
                 onMidiReceived(channel, ccNumber, ccValue);
+            });
+        }
+        
+        // Notify MIDI monitor about received MIDI
+        if (onMidiReceiveForMonitor)
+        {
+            juce::MessageManager::callAsync([this, channel, ccNumber, ccValue]() {
+                onMidiReceiveForMonitor(channel, ccNumber, ccValue, "External", -1);
             });
         }
     }

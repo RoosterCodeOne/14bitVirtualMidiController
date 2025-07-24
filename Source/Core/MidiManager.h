@@ -24,6 +24,7 @@ public:
     
     // MIDI communication
     void sendCC14Bit(int channel, int ccNumber, int value14bit);
+    void sendCC14BitWithSlider(int sliderNumber, int channel, int ccNumber, int value14bit);
     
     // Device preferences
     void saveDevicePreference();
@@ -34,6 +35,10 @@ public:
     std::function<void()> onDeviceConnectionChanged;
     std::function<void(const juce::String& deviceName, bool connected)> onConnectionStatusChanged;
     std::function<juce::File()> getPresetDirectory;
+    
+    // MIDI Monitor callbacks
+    std::function<void(int sliderNumber, int midiChannel, int ccNumber, int msbValue, int lsbValue, int combinedValue)> onMidiSent;
+    std::function<void(int midiChannel, int ccNumber, int value, const juce::String& source, int targetSlider)> onMidiReceiveForMonitor;
     
     // Activity indicator support
     bool getMidiInputActivity() const { return midiInputActivity; }

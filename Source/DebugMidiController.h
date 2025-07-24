@@ -5,6 +5,7 @@
 #include "SimpleSliderControl.h"
 #include "SettingsWindow.h"
 #include "MidiLearnWindow.h"
+#include "MidiMonitorWindow.h"
 #include "Core/MidiManager.h"
 #include "Core/KeyboardController.h"
 #include "Core/BankManager.h"
@@ -25,7 +26,7 @@ public:
             auto* sliderControl = new SimpleSliderControl(i, [this](int sliderIndex, int value) {
                 int midiChannel = settingsWindow.getMidiChannel();
                 int ccNumber = settingsWindow.getCCNumber(sliderIndex);
-                midiManager.sendCC14Bit(midiChannel, ccNumber, value);
+                midiManager.sendCC14BitWithSlider(sliderIndex + 1, midiChannel, ccNumber, value);
                 
                 // Trigger MIDI activity indicator AFTER successful MIDI send
                 if (sliderIndex < sliderControls.size())
@@ -100,6 +101,14 @@ public:
             toggleLearnMode();
         };
         
+        // MIDI Monitor button - blueprint style
+        addAndMakeVisible(monitorButton);
+        monitorButton.setButtonText("MIDI Monitor");
+        monitorButton.setLookAndFeel(&customButtonLookAndFeel);
+        monitorButton.onClick = [this]() {
+            toggleMidiMonitor();
+        };
+        
         // Settings window
         addChildComponent(settingsWindow);
         settingsWindow.onSettingsChanged = [this]() { 
@@ -128,6 +137,9 @@ public:
         };
         
         // MIDI device selection callbacks will be set up in setupMidiManager()
+        
+        // MIDI Monitor window
+        midiMonitorWindow = std::make_unique<MidiMonitorWindow>();
         
         // Movement speed tooltip - blueprint style
         addAndMakeVisible(movementSpeedLabel);
@@ -187,6 +199,7 @@ public:
         
         settingsButton.setLookAndFeel(nullptr);
         learnButton.setLookAndFeel(nullptr);
+        monitorButton.setLookAndFeel(nullptr);
         modeButton.setLookAndFeel(nullptr);
         
         // MIDI cleanup is handled by MidiManager destructor
@@ -372,7 +385,7 @@ public:
                                                             isInSettingsMode, isInLearnMode);
         
         // Position top area components using MainControllerLayout
-        mainLayout.layoutTopAreaComponents(layoutBounds.topArea, settingsButton, learnButton,
+        mainLayout.layoutTopAreaComponents(layoutBounds.topArea, settingsButton, learnButton, monitorButton,
                                           bankAButton, bankBButton, bankCButton, bankDButton,
                                           modeButton, showingLabel);
         
@@ -503,6 +516,17 @@ public:
             midiLearnWindow.setSelectedDevice(midiManager.getSelectedDeviceName());
             midiLearnWindow.setConnectionStatus(midiManager.getSelectedDeviceName(), midiManager.isInputConnected());
         }
+        
+        // Set up MIDI monitor callbacks
+        midiManager.onMidiSent = [this](int sliderNumber, int midiChannel, int ccNumber, int msbValue, int lsbValue, int combinedValue) {
+            if (midiMonitorWindow)
+                midiMonitorWindow->logOutgoingMessage(sliderNumber, midiChannel, ccNumber, msbValue, lsbValue, combinedValue);
+        };
+        
+        midiManager.onMidiReceiveForMonitor = [this](int midiChannel, int ccNumber, int value, const juce::String& source, int targetSlider) {
+            if (midiMonitorWindow)
+                midiMonitorWindow->logIncomingMessage(midiChannel, ccNumber, value, source, targetSlider);
+        };
     }
     
     void setupBankManager()
@@ -629,6 +653,13 @@ public:
         // Set up MIDI tooltip update callback
         midi7BitController.onMidiTooltipUpdate = [this](int sliderIndex, int channel, int ccNumber, int ccValue) {
             updateMidiTooltip(sliderIndex, channel, ccNumber, ccValue);
+            
+            // Also log to MIDI monitor if it's a learn mode message
+            if (midiMonitorWindow && midi7BitController.isInLearnMode())
+            {
+                juce::String source = "Learn Mode";
+                midiMonitorWindow->logIncomingMessage(channel, ccNumber, ccValue, source, sliderIndex + 1);
+            }
         };
         
         // Set up slider activity trigger callback
@@ -1030,6 +1061,33 @@ private:
         resized();
     }
     
+    void toggleMidiMonitor()
+    {
+        if (midiMonitorWindow)
+        {
+            if (midiMonitorWindow->isVisible())
+            {
+                midiMonitorWindow->setVisible(false);
+                monitorButton.setButtonText("MIDI Monitor");
+            }
+            else
+            {
+                midiMonitorWindow->setVisible(true);
+                midiMonitorWindow->toFront(true);
+                monitorButton.setButtonText("Hide Monitor");
+                
+                // Position the window next to the main window
+                if (auto* topLevel = getTopLevelComponent())
+                {
+                    auto mainBounds = topLevel->getBounds();
+                    auto monitorBounds = juce::Rectangle<int>(600, 400);
+                    monitorBounds.setPosition(mainBounds.getRight() + 10, mainBounds.getY());
+                    midiMonitorWindow->setBounds(monitorBounds);
+                }
+            }
+        }
+    }
+    
     // Note: Complex CC-based filtering removed in favor of simple channel-based approach
     
     
@@ -1038,11 +1096,13 @@ private:
     juce::TextButton settingsButton;
     juce::TextButton modeButton;
     juce::TextButton learnButton;
+    juce::TextButton monitorButton;
     juce::ToggleButton bankAButton, bankBButton, bankCButton, bankDButton;
     CustomButtonLookAndFeel customButtonLookAndFeel;
     juce::Label showingLabel;
     SettingsWindow settingsWindow;
     MidiLearnWindow midiLearnWindow;
+    std::unique_ptr<MidiMonitorWindow> midiMonitorWindow;
     juce::Label movementSpeedLabel;
     juce::Label windowSizeLabel;
     

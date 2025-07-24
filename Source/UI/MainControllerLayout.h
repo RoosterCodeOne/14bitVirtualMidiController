@@ -91,10 +91,11 @@ public:
         }
     }
     
-    // Layout top area components (settings, learn, banks, mode)
+    // Layout top area components (settings, learn, monitor, banks, mode)
     void layoutTopAreaComponents(const juce::Rectangle<int>& topAreaBounds,
                                juce::Component& settingsButton,
                                juce::Component& learnButton,
+                               juce::Component& monitorButton,
                                juce::Component& bankAButton,
                                juce::Component& bankBButton,
                                juce::Component& bankCButton,
@@ -110,6 +111,10 @@ public:
         // Learn button - positioned closer to settings button
         int learnButtonX = settingsButtonX + 105;
         learnButton.setBounds(learnButtonX, settingsButtonY, 50, 20);
+        
+        // MIDI Monitor button - positioned next to Learn button
+        int monitorButtonX = learnButtonX + 55;
+        monitorButton.setBounds(monitorButtonX, settingsButtonY, 90, 20);
         
         // Bank buttons - positioned as 2x2 grid in top right of top area
         const int buttonWidth = 35;
