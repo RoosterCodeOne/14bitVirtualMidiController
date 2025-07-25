@@ -16,6 +16,8 @@ public:
     
     void paint(juce::Graphics& g) override;
     void resized() override;
+    bool keyPressed(const juce::KeyPress& key) override;
+    void mouseDown(const juce::MouseEvent& event) override;
     
     // Public interface for main window coordination
     void updateControlsForSelectedSlider(int sliderIndex);
@@ -45,6 +47,8 @@ public:
     std::function<void(double)> onBPMChanged;
     std::function<void(int)> onBankSelected;
     std::function<void(int)> onSliderSettingChanged;
+    std::function<void(int)> onSliderSelectionChanged; // For cycling without saving settings
+    std::function<void()> onRequestFocus; // Callback to request focus restoration
     
 private:
     SettingsWindow* parentWindow;
@@ -126,6 +130,9 @@ inline ControllerSettingsTab::ControllerSettingsTab(SettingsWindow* parent)
     setupControllerControls();
     setupBankSelector();
     setupPerSliderControls();
+    
+    // Enable keyboard focus for tab
+    setWantsKeyboardFocus(true);
 }
 
 inline ControllerSettingsTab::~ControllerSettingsTab()
@@ -203,6 +210,33 @@ inline void ControllerSettingsTab::resized()
     layoutPerSliderSections(bounds);
 }
 
+inline bool ControllerSettingsTab::keyPressed(const juce::KeyPress& key)
+{
+    // Since we can't call parentWindow->keyPressed() due to incomplete type,
+    // we need to handle common navigation keys here and let others bubble up
+    if (key == juce::KeyPress::escapeKey || 
+        key == juce::KeyPress::upKey || 
+        key == juce::KeyPress::downKey ||
+        key == juce::KeyPress::leftKey ||
+        key == juce::KeyPress::rightKey)
+    {
+        // Let parent handle these navigation keys
+        return false; // Allow parent to handle
+    }
+    return Component::keyPressed(key);
+}
+
+inline void ControllerSettingsTab::mouseDown(const juce::MouseEvent& event)
+{
+    // Handle mouse event normally
+    Component::mouseDown(event);
+    
+    // Restore focus to parent SettingsWindow after mouse click
+    // This ensures keyboard navigation continues to work
+    if (onRequestFocus)
+        onRequestFocus();
+}
+
 inline void ControllerSettingsTab::setupControllerControls()
 {
     // MIDI Channel controls
@@ -220,6 +254,8 @@ inline void ControllerSettingsTab::setupControllerControls()
     midiChannelCombo.onChange = [this]() {
         if (onSettingsChanged)
             onSettingsChanged();
+        // Restore focus to parent after combo selection
+        if (onRequestFocus) onRequestFocus();
     };
     
     // BPM controls
@@ -241,6 +277,8 @@ inline void ControllerSettingsTab::setupControllerControls()
     bpmSlider.onValueChange = [this]() {
         if (onBPMChanged)
             onBPMChanged(bpmSlider.getValue());
+        // Restore focus to parent after slider adjustment
+        if (onRequestFocus) onRequestFocus();
     };
     
     addAndMakeVisible(syncStatusLabel);
@@ -264,38 +302,54 @@ inline void ControllerSettingsTab::setupBankSelector()
     bankSelectorLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold));
     bankSelectorLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
-    // Bank selector buttons
+    // Bank selector buttons with proper colors
     addAndMakeVisible(bankASelector);
     bankASelector.setText("A", juce::dontSendNotification);
     bankASelector.setFont(juce::FontOptions(14.0f, juce::Font::bold));
     bankASelector.setJustificationType(juce::Justification::centred);
-    bankASelector.setColour(juce::Label::backgroundColourId, BlueprintColors::active);
+    bankASelector.setColour(juce::Label::backgroundColourId, juce::Colours::red); // Start with A selected
     bankASelector.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-    bankASelector.onClick = [this]() { cycleSliderInBank(0); };
+    bankASelector.onClick = [this]() { 
+        cycleSliderInBank(0);
+        // Restore focus to parent after bank selection
+        if (onRequestFocus) onRequestFocus();
+    };
     
     addAndMakeVisible(bankBSelector);
     bankBSelector.setText("B", juce::dontSendNotification);
     bankBSelector.setFont(juce::FontOptions(14.0f, juce::Font::bold));
     bankBSelector.setJustificationType(juce::Justification::centred);
-    bankBSelector.setColour(juce::Label::backgroundColourId, BlueprintColors::inactive);
+    bankBSelector.setColour(juce::Label::backgroundColourId, juce::Colours::blue.withAlpha(0.3f)); // Inactive blue
     bankBSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
-    bankBSelector.onClick = [this]() { cycleSliderInBank(1); };
+    bankBSelector.onClick = [this]() { 
+        cycleSliderInBank(1);
+        // Restore focus to parent after bank selection
+        if (onRequestFocus) onRequestFocus();
+    };
     
     addAndMakeVisible(bankCSelector);
     bankCSelector.setText("C", juce::dontSendNotification);
     bankCSelector.setFont(juce::FontOptions(14.0f, juce::Font::bold));
     bankCSelector.setJustificationType(juce::Justification::centred);
-    bankCSelector.setColour(juce::Label::backgroundColourId, BlueprintColors::inactive);
+    bankCSelector.setColour(juce::Label::backgroundColourId, juce::Colours::green.withAlpha(0.3f)); // Inactive green
     bankCSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
-    bankCSelector.onClick = [this]() { cycleSliderInBank(2); };
+    bankCSelector.onClick = [this]() { 
+        cycleSliderInBank(2);
+        // Restore focus to parent after bank selection
+        if (onRequestFocus) onRequestFocus();
+    };
     
     addAndMakeVisible(bankDSelector);
     bankDSelector.setText("D", juce::dontSendNotification);
     bankDSelector.setFont(juce::FontOptions(14.0f, juce::Font::bold));
     bankDSelector.setJustificationType(juce::Justification::centred);
-    bankDSelector.setColour(juce::Label::backgroundColourId, BlueprintColors::inactive);
+    bankDSelector.setColour(juce::Label::backgroundColourId, juce::Colours::yellow.withAlpha(0.3f)); // Inactive yellow
     bankDSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
-    bankDSelector.onClick = [this]() { cycleSliderInBank(3); };
+    bankDSelector.onClick = [this]() { 
+        cycleSliderInBank(3);
+        // Restore focus to parent after bank selection
+        if (onRequestFocus) onRequestFocus();
+    };
 }
 
 inline void ControllerSettingsTab::setupPerSliderControls()
@@ -326,13 +380,19 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     addAndMakeVisible(output7BitButton);
     output7BitButton.setButtonText("7-bit");
     output7BitButton.setRadioGroupId(1);
-    output7BitButton.onClick = [this]() { applyOutputMode(); };
+    output7BitButton.onClick = [this]() { 
+        applyOutputMode();
+        if (onRequestFocus) onRequestFocus();
+    };
     
     addAndMakeVisible(output14BitButton);
     output14BitButton.setButtonText("14-bit");
     output14BitButton.setRadioGroupId(1);
     output14BitButton.setToggleState(true, juce::dontSendNotification);
-    output14BitButton.onClick = [this]() { applyOutputMode(); };
+    output14BitButton.onClick = [this]() { 
+        applyOutputMode();
+        if (onRequestFocus) onRequestFocus();
+    };
     
     // Section 2 - Display & Range
     addAndMakeVisible(section2Header);
@@ -403,12 +463,18 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     deadzoneButton.setButtonText("Deadzone");
     deadzoneButton.setRadioGroupId(2);
     deadzoneButton.setToggleState(true, juce::dontSendNotification);
-    deadzoneButton.onClick = [this]() { applyInputMode(); };
+    deadzoneButton.onClick = [this]() { 
+        applyInputMode();
+        if (onRequestFocus) onRequestFocus();
+    };
     
     addAndMakeVisible(directButton);
     directButton.setButtonText("Direct");
     directButton.setRadioGroupId(2);
-    directButton.onClick = [this]() { applyInputMode(); };
+    directButton.onClick = [this]() { 
+        applyInputMode();
+        if (onRequestFocus) onRequestFocus();
+    };
     
     // Section 4 - Visual
     addAndMakeVisible(section4Header);
@@ -432,13 +498,21 @@ inline void ControllerSettingsTab::setupPerSliderControls()
         colorButtons.add(colorButton);
         addAndMakeVisible(colorButton);
         colorButton->setColour(juce::TextButton::buttonColourId, colors[i]);
-        colorButton->onClick = [this, i]() { selectColor(i + 2); };
+        colorButton->onClick = [this, i]() { 
+            selectColor(i + 2);
+            // Restore focus to parent after color selection
+            if (onRequestFocus) onRequestFocus();
+        };
     }
     
     addAndMakeVisible(resetSliderButton);
     resetSliderButton.setButtonText("Reset Slider");
     resetSliderButton.setLookAndFeel(&customButtonLookAndFeel);
-    resetSliderButton.onClick = [this]() { resetCurrentSlider(); };
+    resetSliderButton.onClick = [this]() { 
+        resetCurrentSlider();
+        // Restore focus to parent after reset
+        if (onRequestFocus) onRequestFocus();
+    };
 }
 
 inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>& bounds)
@@ -694,9 +768,28 @@ inline void ControllerSettingsTab::resetCurrentSlider()
 
 inline void ControllerSettingsTab::cycleSliderInBank(int bankIndex)
 {
+    int currentBank = selectedSlider / 4;
+    
+    if (currentBank == bankIndex)
+    {
+        // Same bank clicked - cycle to next slider in bank (A1→A2→A3→A4→A1)
+        int sliderInBank = selectedSlider % 4;
+        int nextSliderInBank = (sliderInBank + 1) % 4; // Cycle within bank
+        selectedSlider = bankIndex * 4 + nextSliderInBank;
+    }
+    else
+    {
+        // Different bank clicked - select first slider in that bank
+        selectedSlider = bankIndex * 4; // First slider in bank (0, 4, 8, or 12)
+    }
+    
     selectedBank = bankIndex;
     updateBreadcrumbLabel();
     updateBankSelectorAppearance(bankIndex);
+    
+    // Notify parent that slider selection has changed (without saving current settings)
+    if (onSliderSelectionChanged)
+        onSliderSelectionChanged(selectedSlider);
     
     if (onBankSelected)
         onBankSelected(bankIndex);
@@ -705,26 +798,39 @@ inline void ControllerSettingsTab::cycleSliderInBank(int bankIndex)
 inline void ControllerSettingsTab::updateBreadcrumbLabel()
 {
     char bankLetter = 'A' + selectedBank;
-    int sliderInBank = (selectedSlider % 4) + 1;
-    breadcrumbLabel.setText("Bank " + juce::String(bankLetter) + " > Slider " + juce::String(sliderInBank),
+    int sliderNumber = selectedSlider + 1; // Convert 0-indexed to 1-indexed
+    breadcrumbLabel.setText("Bank " + juce::String::charToString(bankLetter) + " > Slider " + juce::String(sliderNumber),
                            juce::dontSendNotification);
+    breadcrumbLabel.repaint();
 }
 
 inline void ControllerSettingsTab::updateBankSelectorAppearance(int selectedBankIndex)
 {
     selectedBank = selectedBankIndex;
     
-    bankASelector.setColour(juce::Label::backgroundColourId, selectedBank == 0 ? BlueprintColors::active : BlueprintColors::inactive);
+    // Bank A - Red
+    auto bankAColor = selectedBank == 0 ? juce::Colours::red : juce::Colours::red.withAlpha(0.3f);
+    bankASelector.setColour(juce::Label::backgroundColourId, bankAColor);
     bankASelector.setColour(juce::Label::textColourId, selectedBank == 0 ? BlueprintColors::textPrimary : BlueprintColors::textSecondary);
+    bankASelector.repaint();
     
-    bankBSelector.setColour(juce::Label::backgroundColourId, selectedBank == 1 ? BlueprintColors::active : BlueprintColors::inactive);
+    // Bank B - Blue
+    auto bankBColor = selectedBank == 1 ? juce::Colours::blue : juce::Colours::blue.withAlpha(0.3f);
+    bankBSelector.setColour(juce::Label::backgroundColourId, bankBColor);
     bankBSelector.setColour(juce::Label::textColourId, selectedBank == 1 ? BlueprintColors::textPrimary : BlueprintColors::textSecondary);
+    bankBSelector.repaint();
     
-    bankCSelector.setColour(juce::Label::backgroundColourId, selectedBank == 2 ? BlueprintColors::active : BlueprintColors::inactive);
+    // Bank C - Green
+    auto bankCColor = selectedBank == 2 ? juce::Colours::green : juce::Colours::green.withAlpha(0.3f);
+    bankCSelector.setColour(juce::Label::backgroundColourId, bankCColor);
     bankCSelector.setColour(juce::Label::textColourId, selectedBank == 2 ? BlueprintColors::textPrimary : BlueprintColors::textSecondary);
+    bankCSelector.repaint();
     
-    bankDSelector.setColour(juce::Label::backgroundColourId, selectedBank == 3 ? BlueprintColors::active : BlueprintColors::inactive);
+    // Bank D - Yellow
+    auto bankDColor = selectedBank == 3 ? juce::Colours::yellow : juce::Colours::yellow.withAlpha(0.3f);
+    bankDSelector.setColour(juce::Label::backgroundColourId, bankDColor);
     bankDSelector.setColour(juce::Label::textColourId, selectedBank == 3 ? BlueprintColors::textPrimary : BlueprintColors::textSecondary);
+    bankDSelector.repaint();
 }
 
 inline void ControllerSettingsTab::updateControlsForSelectedSlider(int sliderIndex)

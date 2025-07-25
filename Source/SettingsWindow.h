@@ -96,6 +96,7 @@ private:
     void initializeSliderData();
     void setSelectedSlider(int sliderIndex);
     void updateControlsForSelectedSlider();
+    void saveCurrentSliderSettings();
     void validateAndApplyCCNumber(int value);
     void applyOutputMode(bool is14Bit);
     void validateAndApplyRange(double minVal, double maxVal);
@@ -137,6 +138,9 @@ inline void SettingsWindow::setupTabs()
     tabbedComponent->setTabBarDepth(30);
     tabbedComponent->setOutline(0);
     
+    // Disable keyboard focus for tabbed component to prevent it from intercepting arrow keys
+    tabbedComponent->setWantsKeyboardFocus(false);
+    
     // Create tab instances
     controllerTab = std::make_unique<ControllerSettingsTab>(this);
     presetTab = std::make_unique<PresetManagementTab>(this, presetManager);
@@ -168,29 +172,46 @@ inline void SettingsWindow::setupCommunication()
     
     controllerTab->onBankSelected = [this](int bankIndex) {
         selectedBank = bankIndex;
-        setSelectedSlider(bankIndex * 4); // Select first slider in bank
+        // Don't call setSelectedSlider here - the selectedSlider is already set
+        // by the cycling logic in cycleSliderInBank() and onSliderSettingChanged callback
+        // Just notify parent about bank change for any external coordination
+        if (onSelectedSliderChanged)
+            onSelectedSliderChanged(selectedSlider);
     };
     
-    controllerTab->onSliderSettingChanged = [this](int sliderIndex) {
-        selectedSlider = sliderIndex;
-        
-        // Update internal data with current values from the tab
-        if (sliderIndex >= 0 && sliderIndex < 16)
+    controllerTab->onRequestFocus = [this]() {
+        // Only request focus if this window is visible and doesn't already have focus
+        if (isVisible() && isShowing() && !hasKeyboardFocus(true))
         {
-            auto& settings = sliderSettingsData[sliderIndex];
-            settings.ccNumber = controllerTab->getCurrentCCNumber();
-            settings.is14Bit = controllerTab->getCurrentIs14Bit();
-            settings.rangeMin = controllerTab->getCurrentRangeMin();
-            settings.rangeMax = controllerTab->getCurrentRangeMax();
-            settings.displayUnit = controllerTab->getCurrentDisplayUnit();
-            settings.increment = controllerTab->getCurrentIncrement();
-            settings.useDeadzone = controllerTab->getCurrentUseDeadzone();
-            settings.colorId = controllerTab->getCurrentColorId();
+            // Use a simple approach: request focus to be transferred to this component
+            // This is safer than grabKeyboardFocus as it works with JUCE's focus system
+            toFront(true); // Bring to front and give focus
         }
-        
-        updateControlsForSelectedSlider();
+    };
+    
+    // Callback for when individual settings are changed (save current settings)
+    controllerTab->onSliderSettingChanged = [this](int sliderIndex) {
+        // Save current slider's settings when individual controls are modified
+        // Note: sliderIndex should be the currently selected slider, not a new slider
+        saveCurrentSliderSettings();
         if (onSettingsChanged)
             onSettingsChanged();
+    };
+    
+    // Callback for when slider selection changes (bank cycling, etc.)
+    controllerTab->onSliderSelectionChanged = [this](int sliderIndex) {
+        // Save current slider settings before switching
+        saveCurrentSliderSettings();
+        
+        // Update selected slider
+        selectedSlider = sliderIndex;
+        selectedBank = selectedSlider / 4;
+        
+        // Load new slider's settings
+        updateControlsForSelectedSlider();
+        
+        if (onSelectedSliderChanged)
+            onSelectedSliderChanged(selectedSlider);
     };
     
     // Preset tab callbacks
@@ -217,6 +238,7 @@ inline void SettingsWindow::setupCommunication()
         // Reset all slider settings to defaults
         initializeSliderData();
         controllerTab->updateControlsForSelectedSlider(selectedSlider);
+        controllerTab->updateBankSelectorAppearance(selectedBank);
         
         if (onSettingsChanged)
             onSettingsChanged();
@@ -268,6 +290,9 @@ inline void SettingsWindow::setVisible(bool shouldBeVisible)
     if (shouldBeVisible)
     {
         presetTab->refreshPresetList();
+        // Ensure keyboard focus is properly set when window becomes visible
+        // Use toFront instead of grabKeyboardFocus for safer focus management
+        toFront(true);
     }
     
     Component::setVisible(shouldBeVisible);
@@ -472,16 +497,18 @@ inline bool SettingsWindow::keyPressed(const juce::KeyPress& key)
     }
     else if (key == juce::KeyPress::leftKey)
     {
-        // Left: Previous slider (wrap around)
-        int newSlider = (selectedSlider + 15) % 16;
-        setSelectedSlider(newSlider);
+        // Left: Navigate to previous slider globally (cross-bank navigation with wraparound)
+        // Examples: 4→3, 4→3 (B1→A4), 0→15 (A1→D4)
+        int newSlider = (selectedSlider + 15) % 16; // Previous slider globally (wraparound from 0 to 15)
+        setSelectedSlider(newSlider); // Automatically switches banks and updates visual feedback
         return true;
     }
     else if (key == juce::KeyPress::rightKey)
     {
-        // Right: Next slider (wrap around)
-        int newSlider = (selectedSlider + 1) % 16;
-        setSelectedSlider(newSlider);
+        // Right: Navigate to next slider globally (cross-bank navigation with wraparound)  
+        // Examples: 3→4, 3→4 (A4→B1), 15→0 (D4→A1)
+        int newSlider = (selectedSlider + 1) % 16; // Next slider globally (wraparound from 15 to 0)
+        setSelectedSlider(newSlider); // Automatically switches banks and updates visual feedback
         return true;
     }
     
@@ -501,6 +528,23 @@ inline void SettingsWindow::setSelectedSlider(int sliderIndex)
     
     if (onSelectedSliderChanged)
         onSelectedSliderChanged(selectedSlider);
+}
+
+inline void SettingsWindow::saveCurrentSliderSettings()
+{
+    if (controlsInitialized && selectedSlider >= 0 && selectedSlider < 16)
+    {
+        // Save current UI values to the current slider's data
+        auto& settings = sliderSettingsData[selectedSlider];
+        settings.ccNumber = controllerTab->getCurrentCCNumber();
+        settings.is14Bit = controllerTab->getCurrentIs14Bit();
+        settings.rangeMin = controllerTab->getCurrentRangeMin();
+        settings.rangeMax = controllerTab->getCurrentRangeMax();
+        settings.displayUnit = controllerTab->getCurrentDisplayUnit();
+        settings.increment = controllerTab->getCurrentIncrement();
+        settings.useDeadzone = controllerTab->getCurrentUseDeadzone();
+        settings.colorId = controllerTab->getCurrentColorId();
+    }
 }
 
 inline void SettingsWindow::updateControlsForSelectedSlider()

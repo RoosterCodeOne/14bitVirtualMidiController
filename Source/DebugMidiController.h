@@ -35,7 +35,8 @@ public:
             
             // Add click handler for learn mode
             sliderControl->onSliderClick = [this, i]() {
-                DBG("Slider " << i << " clicked. isLearningMode=" << (int)midi7BitController.isInLearnMode());
+                DBG("Slider " << i << " clicked. isLearningMode=" << (int)midi7BitController.isInLearnMode() << ", isInSettingsMode=" << (int)isInSettingsMode);
+                
                 if (midi7BitController.isInLearnMode())
                 {
                     DBG("Setting up learn for slider " << i);
@@ -50,9 +51,18 @@ public:
                     
                     learnButton.setButtonText("Move Controller");
                 }
+                else if (isInSettingsMode)
+                {
+                    // Settings mode: select slider for editing
+                    DBG("Settings mode: selecting slider " << i << " for editing");
+                    setSelectedSliderForEditing(i);
+                    
+                    // Update settings window to show this slider's configuration
+                    settingsWindow.selectSlider(i);
+                }
                 else
                 {
-                    DBG("Slider clicked but not in learn mode");
+                    DBG("Slider clicked but not in learn or settings mode");
                 }
             };
             
@@ -871,6 +881,14 @@ private:
         if (isInSettingsMode)
         {
             addAndMakeVisible(settingsWindow);
+            
+            // Initialize selection with first visible slider for immediate highlighting
+            int firstVisibleSlider = bankManager.getVisibleSliderIndex(0);
+            if (firstVisibleSlider >= 0)
+            {
+                setSelectedSliderForEditing(firstVisibleSlider);
+                settingsWindow.selectSlider(firstVisibleSlider);
+            }
         }
         else
         {

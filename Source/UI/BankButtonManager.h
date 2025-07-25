@@ -54,11 +54,12 @@ public:
                                const juce::Colour& bankCColor,
                                const juce::Colour& bankDColor) const
     {
-        // Update toggle states for bank buttons
-        bankAButton.setToggleState(activeBank == 0, juce::dontSendNotification);
-        bankBButton.setToggleState(activeBank == 1, juce::dontSendNotification);
-        bankCButton.setToggleState(activeBank == 2, juce::dontSendNotification);
-        bankDButton.setToggleState(activeBank == 3, juce::dontSendNotification);
+        // Update toggle states based on whether bank color is active (not darkgrey)
+        // This supports both 4-slider mode (single bank) and 8-slider mode (paired banks)
+        bankAButton.setToggleState(bankAColor != juce::Colours::darkgrey, juce::dontSendNotification);
+        bankBButton.setToggleState(bankBColor != juce::Colours::darkgrey, juce::dontSendNotification);
+        bankCButton.setToggleState(bankCColor != juce::Colours::darkgrey, juce::dontSendNotification);
+        bankDButton.setToggleState(bankDColor != juce::Colours::darkgrey, juce::dontSendNotification);
         
         // Apply bank-specific colors to buttons
         customButtonLookAndFeel.setButtonColor(&bankAButton, bankAColor);
