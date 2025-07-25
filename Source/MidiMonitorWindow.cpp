@@ -164,6 +164,15 @@ MidiMonitorWindow::~MidiMonitorWindow()
 void MidiMonitorWindow::closeButtonPressed()
 {
     setVisible(false);
+    if (onVisibilityChanged)
+        onVisibilityChanged(false);
+}
+
+void MidiMonitorWindow::visibilityChanged()
+{
+    juce::DocumentWindow::visibilityChanged();
+    if (onVisibilityChanged)
+        onVisibilityChanged(isVisible());
 }
 
 //==============================================================================

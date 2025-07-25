@@ -30,6 +30,9 @@ void BankManager::setActiveBank(int bankIndex)
         
     if (onBankColorsChanged)
         onBankColorsChanged(getCurrentBankColors());
+        
+    if (onBankSelectionChanged)
+        onBankSelectionChanged(bankIndex);
 }
 
 void BankManager::setSliderMode(bool isEightSliderMode)

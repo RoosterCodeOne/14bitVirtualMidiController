@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 #include "PresetManager.h"
 #include "CustomLookAndFeel.h"
+#include "Core/SliderDisplayManager.h"
 #include "UI/ControllerSettingsTab.h"
 #include "UI/PresetManagementTab.h"
 
@@ -32,12 +33,15 @@ public:
     int getSelectedSlider() const { return selectedSlider; }
     int getSelectedBank() const { return selectedBank; }
     void selectSlider(int sliderIndex);
+    void updateBankSelection(int bankIndex);
     
     // New per-slider settings access methods
     bool is14BitOutput(int sliderIndex) const;
     double getIncrement(int sliderIndex) const;
     bool useDeadzone(int sliderIndex) const;
     juce::String getDisplayUnit(int sliderIndex) const;
+    SliderOrientation getSliderOrientation(int sliderIndex) const;
+    BipolarSettings getBipolarSettings(int sliderIndex) const;
     
     // BPM management methods
     void setBPM(double bpm);
@@ -49,6 +53,7 @@ public:
     std::function<void(const ControllerPreset&)> onPresetLoaded;
     std::function<void(double)> onBPMChanged;
     std::function<void(int)> onSelectedSliderChanged;
+    std::function<void(int)> onBankSelectionChanged;
     
     // Keyboard handling
     bool keyPressed(const juce::KeyPress& key) override;
@@ -64,6 +69,7 @@ private:
     int selectedBank = 0;
     int selectedSlider = 0;
     bool controlsInitialized = false;
+    bool updatingFromMainWindow = false;
     
     // Data storage for all 16 sliders
     struct SliderSettings {
@@ -75,6 +81,8 @@ private:
         double increment = 1.0;
         bool useDeadzone = true;
         int colorId = 1;
+        SliderOrientation orientation = SliderOrientation::Normal;
+        BipolarSettings bipolarSettings;
         
         SliderSettings()
         {
@@ -86,6 +94,8 @@ private:
             increment = 1.0;
             useDeadzone = true;
             colorId = 1;
+            orientation = SliderOrientation::Normal;
+            bipolarSettings = BipolarSettings((rangeMin + rangeMax) / 2.0);
         }
     };
     SliderSettings sliderSettingsData[16];
@@ -177,6 +187,11 @@ inline void SettingsWindow::setupCommunication()
         // Just notify parent about bank change for any external coordination
         if (onSelectedSliderChanged)
             onSelectedSliderChanged(selectedSlider);
+            
+        // Notify main window about bank selection change for bidirectional sync
+        // But only if this change is not coming from the main window
+        if (onBankSelectionChanged && !updatingFromMainWindow)
+            onBankSelectionChanged(bankIndex);
     };
     
     controllerTab->onRequestFocus = [this]() {
@@ -431,6 +446,21 @@ inline void SettingsWindow::selectSlider(int sliderIndex)
     setSelectedSlider(sliderIndex);
 }
 
+inline void SettingsWindow::updateBankSelection(int bankIndex)
+{
+    // Update the controller tab's bank selection to match main window
+    // Set flag to prevent circular callback
+    updatingFromMainWindow = true;
+    selectedBank = bankIndex;
+    
+    if (controllerTab)
+    {
+        controllerTab->updateBankSelectorAppearance(bankIndex);
+    }
+    
+    updatingFromMainWindow = false;
+}
+
 inline bool SettingsWindow::is14BitOutput(int sliderIndex) const
 {
     if (sliderIndex >= 0 && sliderIndex < 16)
@@ -457,6 +487,20 @@ inline juce::String SettingsWindow::getDisplayUnit(int sliderIndex) const
     if (sliderIndex >= 0 && sliderIndex < 16)
         return sliderSettingsData[sliderIndex].displayUnit;
     return juce::String();
+}
+
+inline SliderOrientation SettingsWindow::getSliderOrientation(int sliderIndex) const
+{
+    if (sliderIndex >= 0 && sliderIndex < 16)
+        return sliderSettingsData[sliderIndex].orientation;
+    return SliderOrientation::Normal;
+}
+
+inline BipolarSettings SettingsWindow::getBipolarSettings(int sliderIndex) const
+{
+    if (sliderIndex >= 0 && sliderIndex < 16)
+        return sliderSettingsData[sliderIndex].bipolarSettings;
+    return BipolarSettings();
 }
 
 inline void SettingsWindow::setBPM(double bpm)

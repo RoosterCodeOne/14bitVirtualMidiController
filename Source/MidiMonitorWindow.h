@@ -112,6 +112,10 @@ public:
     ~MidiMonitorWindow();
     
     void closeButtonPressed() override;
+    void visibilityChanged() override;
+    
+    // Visibility change callback
+    std::function<void(bool isVisible)> onVisibilityChanged;
     
     // Message logging methods (thread-safe)
     void logOutgoingMessage(int sliderNumber, int midiChannel, int ccNumber, int msbValue, int lsbValue, int combinedValue);

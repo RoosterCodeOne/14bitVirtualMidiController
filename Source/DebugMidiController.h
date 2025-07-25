@@ -131,6 +131,12 @@ public:
             // Update visual highlighting when slider selection changes in settings
             setSelectedSliderForEditing(sliderIndex);
         };
+        settingsWindow.onBankSelectionChanged = [this](int bankIndex) {
+            // Update main window bank selection when changed from settings window
+            updatingFromSettingsWindow = true;
+            bankManager.setActiveBank(bankIndex);
+            updatingFromSettingsWindow = false;
+        };
         
         // MIDI Learn window
         addChildComponent(midiLearnWindow);
@@ -150,6 +156,11 @@ public:
         
         // MIDI Monitor window
         midiMonitorWindow = std::make_unique<MidiMonitorWindow>();
+        
+        // Set up visibility change callback
+        midiMonitorWindow->onVisibilityChanged = [this](bool isVisible) {
+            updateMonitorButtonText(isVisible);
+        };
         
         // Movement speed tooltip - blueprint style
         addAndMakeVisible(movementSpeedLabel);
@@ -571,6 +582,15 @@ public:
             updateBankButtonStates();
         };
         
+        bankManager.onBankSelectionChanged = [this](int bankIndex) {
+            // Notify settings window about bank selection change
+            // But only if this change is not coming from the settings window
+            if (settingsWindow.isVisible() && !updatingFromSettingsWindow)
+            {
+                settingsWindow.updateBankSelection(bankIndex);
+            }
+        };
+        
         // Set initial bank button colors
         updateBankButtonStates();
     }
@@ -716,6 +736,11 @@ private:
             if (sliderIndex < sliderControls.size())
                 sliderControls[sliderIndex]->setVisible(true);
         }
+    }
+    
+    void updateMonitorButtonText(bool isVisible)
+    {
+        monitorButton.setButtonText(isVisible ? "Hide Monitor" : "MIDI Monitor");
     }
     
     void updateBankButtonStates()
@@ -876,7 +901,8 @@ private:
         
         windowManager.toggleSettingsWindow(getTopLevelComponent(), settingsWindow, &midiLearnWindow,
                                           isInSettingsMode, isInLearnMode, bankManager.isEightSliderMode(),
-                                          350, onLearnModeExit);
+                                          350, onLearnModeExit, 
+                                          [this]() { return bankManager.getActiveBank(); });
         
         if (isInSettingsMode)
         {
@@ -1086,13 +1112,19 @@ private:
             if (midiMonitorWindow->isVisible())
             {
                 midiMonitorWindow->setVisible(false);
-                monitorButton.setButtonText("MIDI Monitor");
+                // Callback will be automatically triggered by closeButtonPressed override
+                // or we can trigger it manually here for programmatic closing
+                if (midiMonitorWindow->onVisibilityChanged)
+                    midiMonitorWindow->onVisibilityChanged(false);
             }
             else
             {
                 midiMonitorWindow->setVisible(true);
                 midiMonitorWindow->toFront(true);
-                monitorButton.setButtonText("Hide Monitor");
+                
+                // Trigger callback for showing the window
+                if (midiMonitorWindow->onVisibilityChanged)
+                    midiMonitorWindow->onVisibilityChanged(true);
                 
                 // Position the window next to the main window
                 if (auto* topLevel = getTopLevelComponent())
@@ -1139,6 +1171,7 @@ private:
     bool isInSettingsMode = false;
     bool isInLearnMode = false;
     int selectedSliderForEditing = -1; // -1 means no selection, 0-15 for slider index
+    bool updatingFromSettingsWindow = false; // Flag to prevent circular callbacks
     
     
     // MIDI Input handling

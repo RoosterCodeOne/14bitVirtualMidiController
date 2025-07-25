@@ -4,6 +4,29 @@
 
 //==============================================================================
 /**
+ * Defines the display orientation modes for sliders
+ */
+enum class SliderOrientation
+{
+    Normal,    // 0 at bottom, max at top (default)
+    Inverted,  // 0 at top, max at bottom
+    Bipolar    // Custom center point with +/- ranges
+};
+
+/**
+ * Settings for bipolar display mode
+ */
+struct BipolarSettings
+{
+    double centerValue = 0.0;      // User-defined center point
+    bool showCenterLine = true;    // Visual center indicator
+    
+    BipolarSettings() = default;
+    BipolarSettings(double center) : centerValue(center) {}
+};
+
+//==============================================================================
+/**
  * SliderDisplayManager handles complex mapping between custom display ranges and internal 14-bit MIDI values
  * Extracted from SimpleSliderControl to provide clean separation of display logic from UI presentation
  */
@@ -14,6 +37,12 @@ public:
     
     // Range configuration
     void setDisplayRange(double minValue, double maxValue);
+    
+    // Orientation configuration
+    void setOrientation(SliderOrientation orientation);
+    void setBipolarSettings(const BipolarSettings& settings);
+    SliderOrientation getOrientation() const;
+    BipolarSettings getBipolarSettings() const;
     
     // Value management
     void setMidiValue(double midiValue);
@@ -55,6 +84,10 @@ private:
     double displayMax = 16383.0;
     double currentMidiValue = 0.0;
     double targetDisplayValue = 0.0;
+    
+    // Orientation settings
+    SliderOrientation orientation = SliderOrientation::Normal;
+    BipolarSettings bipolarSettings;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SliderDisplayManager)
 };

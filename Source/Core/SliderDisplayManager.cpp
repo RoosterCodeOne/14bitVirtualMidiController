@@ -24,6 +24,50 @@ void SliderDisplayManager::setDisplayRange(double minValue, double maxValue)
     DBG("SliderDisplayManager: Set display range " << minValue << " to " << maxValue);
 }
 
+//==============================================================================
+void SliderDisplayManager::setOrientation(SliderOrientation newOrientation)
+{
+    orientation = newOrientation;
+    
+    // If switching to bipolar mode, set default center to middle of range
+    if (orientation == SliderOrientation::Bipolar)
+    {
+        if (bipolarSettings.centerValue < displayMin || bipolarSettings.centerValue > displayMax)
+        {
+            bipolarSettings.centerValue = displayMin + ((displayMax - displayMin) / 2.0);
+        }
+    }
+    
+    // Trigger callbacks to update UI
+    if (onDisplayTextChanged)
+        onDisplayTextChanged(getFormattedDisplayValue());
+    if (onTargetTextChanged)
+        onTargetTextChanged(getFormattedTargetValue());
+}
+
+void SliderDisplayManager::setBipolarSettings(const BipolarSettings& settings)
+{
+    bipolarSettings = settings;
+    // Ensure center value is within display range
+    bipolarSettings.centerValue = juce::jlimit(displayMin, displayMax, bipolarSettings.centerValue);
+    
+    // Trigger callbacks to update UI
+    if (onDisplayTextChanged)
+        onDisplayTextChanged(getFormattedDisplayValue());
+    if (onTargetTextChanged)
+        onTargetTextChanged(getFormattedTargetValue());
+}
+
+SliderOrientation SliderDisplayManager::getOrientation() const
+{
+    return orientation;
+}
+
+BipolarSettings SliderDisplayManager::getBipolarSettings() const
+{
+    return bipolarSettings;
+}
+
 void SliderDisplayManager::setMidiValue(double midiValue)
 {
     currentMidiValue = clampMidiValue(midiValue);
@@ -67,11 +111,39 @@ double SliderDisplayManager::getDisplayMax() const
 //==============================================================================
 juce::String SliderDisplayManager::getFormattedDisplayValue() const
 {
-    return formatValue(getDisplayValue());
+    double displayValue = getDisplayValue();
+    
+    if (orientation == SliderOrientation::Bipolar)
+    {
+        double relativeValue = displayValue - bipolarSettings.centerValue;
+        juce::String formattedValue = formatValue(std::abs(relativeValue));
+        
+        if (std::abs(relativeValue) < 0.01)
+            return "0";
+        else if (relativeValue > 0)
+            return "+" + formattedValue;
+        else
+            return "-" + formattedValue;
+    }
+    
+    return formatValue(displayValue);
 }
 
 juce::String SliderDisplayManager::getFormattedTargetValue() const
 {
+    if (orientation == SliderOrientation::Bipolar)
+    {
+        double relativeValue = targetDisplayValue - bipolarSettings.centerValue;
+        juce::String formattedValue = formatValue(std::abs(relativeValue));
+        
+        if (std::abs(relativeValue) < 0.01)
+            return "0";
+        else if (relativeValue > 0)
+            return "+" + formattedValue;
+        else
+            return "-" + formattedValue;
+    }
+    
     return formatValue(targetDisplayValue);
 }
 

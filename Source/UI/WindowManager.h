@@ -2,6 +2,9 @@
 #pragma once
 #include <JuceHeader.h>
 
+// Forward declarations
+class SettingsWindow;
+
 //==============================================================================
 class WindowManager
 {
@@ -43,7 +46,8 @@ public:
                             bool& isInLearnMode,
                             bool isEightSliderMode,
                             int settingsPanelWidth,
-                            std::function<void()> onLearnModeExit = nullptr) const
+                            std::function<void()> onLearnModeExit = nullptr,
+                            std::function<int()> getCurrentBank = nullptr) const
     {
         // Close learn mode if it's open
         if (isInLearnMode && onLearnModeExit)
@@ -70,6 +74,17 @@ public:
                 // Show settings window
                 settingsWindow.setVisible(true);
                 settingsWindow.toFront(true);
+                
+                // Sync bank selection when settings window is first shown
+                if (getCurrentBank)
+                {
+                    int currentBank = getCurrentBank();
+                    // Cast to SettingsWindow to access updateBankSelection method
+                    if (auto* settings = dynamic_cast<SettingsWindow*>(&settingsWindow))
+                    {
+                        settings->updateBankSelection(currentBank);
+                    }
+                }
             }
             else
             {

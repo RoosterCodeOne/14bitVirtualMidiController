@@ -34,6 +34,7 @@ public:
     std::function<void()> onBankChanged;
     std::function<void()> onModeChanged;
     std::function<void(const BankColors&)> onBankColorsChanged;
+    std::function<void(int bankIndex)> onBankSelectionChanged;
     
 private:
     // Internal state

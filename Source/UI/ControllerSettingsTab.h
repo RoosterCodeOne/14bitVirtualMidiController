@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 #include "../CustomLookAndFeel.h"
 #include "../SimpleSliderControl.h"
+#include "../Core/SliderDisplayManager.h"
 
 // Forward declaration
 class SettingsWindow;
@@ -24,7 +25,8 @@ public:
     void updateBankSelectorAppearance(int selectedBank);
     void applyPreset(const ControllerPreset& preset);
     void setSliderSettings(int ccNumber, bool is14Bit, double rangeMin, double rangeMax, 
-                          const juce::String& displayUnit, double increment, bool useDeadzone, int colorId);
+                          const juce::String& displayUnit, double increment, bool useDeadzone, int colorId,
+                          SliderOrientation orientation = SliderOrientation::Normal, double centerValue = 0.0);
     
     // Access methods for main window
     int getMidiChannel() const { return midiChannelCombo.getSelectedId(); }
@@ -41,6 +43,8 @@ public:
     double getCurrentIncrement() const { return incrementsInput.getText().getDoubleValue(); }
     bool getCurrentUseDeadzone() const { return deadzoneButton.getToggleState(); }
     int getCurrentColorId() const { return currentColorId; }
+    SliderOrientation getCurrentOrientation() const { return static_cast<SliderOrientation>(orientationCombo.getSelectedId() - 1); }
+    double getCurrentCenterValue() const { return centerValueInput.getText().getDoubleValue(); }
     
     // Callback functions for communication with parent
     std::function<void()> onSettingsChanged;
@@ -90,6 +94,10 @@ private:
     juce::TextEditor displayUnitInput;
     juce::Label incrementsLabel;
     juce::TextEditor incrementsInput;
+    juce::Label orientationLabel;
+    juce::ComboBox orientationCombo;
+    juce::Label centerValueLabel;
+    juce::TextEditor centerValueInput;
     
     // Section 3 - Input Behavior
     juce::Label inputModeLabel;
@@ -116,6 +124,8 @@ private:
     void applyDisplayUnit();
     void applyIncrements();
     void applyInputMode();
+    void applyOrientation();
+    void validateAndApplyCenterValue();
     void selectColor(int colorId);
     void resetCurrentSlider();
     
@@ -449,6 +459,38 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     incrementsInput.onReturnKey = [this]() { incrementsInput.moveKeyboardFocusToSibling(true); };
     incrementsInput.onFocusLost = [this]() { applyIncrements(); };
     
+    // Orientation controls
+    addAndMakeVisible(orientationLabel);
+    orientationLabel.setText("Orientation:", juce::dontSendNotification);
+    orientationLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    
+    addAndMakeVisible(orientationCombo);
+    orientationCombo.addItem("Normal", static_cast<int>(SliderOrientation::Normal) + 1);
+    orientationCombo.addItem("Inverted", static_cast<int>(SliderOrientation::Inverted) + 1);
+    orientationCombo.addItem("Bipolar", static_cast<int>(SliderOrientation::Bipolar) + 1);
+    orientationCombo.setSelectedId(static_cast<int>(SliderOrientation::Normal) + 1);
+    orientationCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background);
+    orientationCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary);
+    orientationCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines);
+    orientationCombo.onChange = [this]() { 
+        applyOrientation();
+        if (onRequestFocus) onRequestFocus();
+    };
+    
+    addAndMakeVisible(centerValueLabel);
+    centerValueLabel.setText("Center Value:", juce::dontSendNotification);
+    centerValueLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    centerValueLabel.setVisible(false); // Initially hidden
+    
+    addAndMakeVisible(centerValueInput);
+    centerValueInput.setInputRestrictions(0, "-0123456789.");
+    centerValueInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
+    centerValueInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
+    centerValueInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
+    centerValueInput.onReturnKey = [this]() { centerValueInput.moveKeyboardFocusToSibling(true); };
+    centerValueInput.onFocusLost = [this]() { validateAndApplyCenterValue(); };
+    centerValueInput.setVisible(false); // Initially hidden
+    
     // Section 3 - Input Behavior
     addAndMakeVisible(section3Header);
     section3Header.setText("Input Behavior", juce::dontSendNotification);
@@ -547,8 +589,8 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     
     bounds.removeFromTop(sectionSpacing);
     
-    // Section 2 - Display & Range
-    auto section2Bounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 3 + controlSpacing);
+    // Section 2 - Display & Range (expanded for orientation controls)
+    auto section2Bounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 5 + controlSpacing);
     
     section2Header.setBounds(section2Bounds.removeFromTop(headerHeight));
     section2Bounds.removeFromTop(controlSpacing);
@@ -578,6 +620,22 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     incrementsLabel.setBounds(incrementRow.removeFromLeft(120));
     incrementRow.removeFromLeft(8);
     incrementsInput.setBounds(incrementRow.removeFromLeft(100));
+    
+    section2Bounds.removeFromTop(controlSpacing);
+    
+    // Orientation row
+    auto orientationRow = section2Bounds.removeFromTop(labelHeight);
+    orientationLabel.setBounds(orientationRow.removeFromLeft(120));
+    orientationRow.removeFromLeft(8);
+    orientationCombo.setBounds(orientationRow.removeFromLeft(80));
+    
+    section2Bounds.removeFromTop(controlSpacing);
+    
+    // Center value row (only visible for bipolar mode)
+    auto centerRow = section2Bounds.removeFromTop(labelHeight);
+    centerValueLabel.setBounds(centerRow.removeFromLeft(120));
+    centerRow.removeFromLeft(8);
+    centerValueInput.setBounds(centerRow.removeFromLeft(80));
     
     bounds.removeFromTop(sectionSpacing);
     
@@ -736,6 +794,53 @@ inline void ControllerSettingsTab::selectColor(int colorId)
         onSliderSettingChanged(selectedSlider);
 }
 
+inline void ControllerSettingsTab::applyOrientation()
+{
+    SliderOrientation newOrientation = getCurrentOrientation();
+    
+    // Show/hide center value controls based on orientation
+    bool showCenterValue = (newOrientation == SliderOrientation::Bipolar);
+    centerValueLabel.setVisible(showCenterValue);
+    centerValueInput.setVisible(showCenterValue);
+    
+    // Set default center value if switching to bipolar
+    if (showCenterValue && centerValueInput.getText().isEmpty())
+    {
+        double minVal = rangeMinInput.getText().getDoubleValue();
+        double maxVal = rangeMaxInput.getText().getDoubleValue();
+        double defaultCenter = (minVal + maxVal) / 2.0;
+        centerValueInput.setText(juce::String(defaultCenter, 2), juce::dontSendNotification);
+    }
+    
+    if (onSliderSettingChanged)
+        onSliderSettingChanged(selectedSlider);
+}
+
+inline void ControllerSettingsTab::validateAndApplyCenterValue()
+{
+    auto text = centerValueInput.getText();
+    if (text.isEmpty())
+    {
+        // Set to middle of range if empty
+        double minVal = rangeMinInput.getText().getDoubleValue();
+        double maxVal = rangeMaxInput.getText().getDoubleValue();
+        double defaultCenter = (minVal + maxVal) / 2.0;
+        centerValueInput.setText(juce::String(defaultCenter, 2), juce::dontSendNotification);
+    }
+    else
+    {
+        // Clamp to range
+        double centerValue = text.getDoubleValue();
+        double minVal = rangeMinInput.getText().getDoubleValue();
+        double maxVal = rangeMaxInput.getText().getDoubleValue();
+        centerValue = juce::jlimit(minVal, maxVal, centerValue);
+        centerValueInput.setText(juce::String(centerValue, 2), juce::dontSendNotification);
+    }
+    
+    if (onSliderSettingChanged)
+        onSliderSettingChanged(selectedSlider);
+}
+
 inline void ControllerSettingsTab::resetCurrentSlider()
 {
     // Reset all controls to defaults for the current slider
@@ -748,6 +853,12 @@ inline void ControllerSettingsTab::resetCurrentSlider()
     incrementsInput.setText("1", juce::dontSendNotification);
     deadzoneButton.setToggleState(true, juce::dontSendNotification);
     directButton.setToggleState(false, juce::dontSendNotification);
+    
+    // Reset orientation to normal
+    orientationCombo.setSelectedId(static_cast<int>(SliderOrientation::Normal) + 1, juce::dontSendNotification);
+    centerValueLabel.setVisible(false);
+    centerValueInput.setVisible(false);
+    centerValueInput.setText("8191.5", juce::dontSendNotification); // Middle of 0-16383
     
     // Set default color based on bank
     int bankIndex = selectedSlider / 4;
@@ -847,7 +958,8 @@ inline void ControllerSettingsTab::updateControlsForSelectedSlider(int sliderInd
 
 inline void ControllerSettingsTab::setSliderSettings(int ccNumber, bool is14Bit, double rangeMin, double rangeMax, 
                                                     const juce::String& displayUnit, double increment, 
-                                                    bool useDeadzone, int colorId)
+                                                    bool useDeadzone, int colorId,
+                                                    SliderOrientation orientation, double centerValue)
 {
     // Update all controls with the provided settings (without triggering callbacks)
     ccNumberInput.setText(juce::String(ccNumber), juce::dontSendNotification);
@@ -859,6 +971,15 @@ inline void ControllerSettingsTab::setSliderSettings(int ccNumber, bool is14Bit,
     incrementsInput.setText(juce::String(increment, 3), juce::dontSendNotification);
     deadzoneButton.setToggleState(useDeadzone, juce::dontSendNotification);
     directButton.setToggleState(!useDeadzone, juce::dontSendNotification);
+    
+    // Update orientation settings
+    orientationCombo.setSelectedId(static_cast<int>(orientation) + 1, juce::dontSendNotification);
+    centerValueInput.setText(juce::String(centerValue, 2), juce::dontSendNotification);
+    
+    // Show/hide center value controls based on orientation
+    bool showCenterValue = (orientation == SliderOrientation::Bipolar);
+    centerValueLabel.setVisible(showCenterValue);
+    centerValueInput.setVisible(showCenterValue);
     
     // Update color selection
     currentColorId = colorId;
