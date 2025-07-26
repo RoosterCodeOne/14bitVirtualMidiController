@@ -319,9 +319,11 @@ public:
                 // Set slider color
                 lookAndFeel.setSliderColor(sliderControl->getSliderColor());
                 
-                // Draw the track with current slider value for progressive fill
+                // Draw the track with current slider value for progressive fill - WITH ORIENTATION SUPPORT
+                SliderOrientation orientation = sliderControl->getOrientation();
+                double bipolarCenter = sliderControl->getBipolarSettings().centerValue;
                 lookAndFeel.drawSliderTrack(g, trackBounds.toFloat(), sliderControl->getSliderColor(), 
-                                          sliderControl->getValue(), 0.0, 16383.0);
+                                          sliderControl->getValue(), 0.0, 16383.0, orientation, bipolarCenter);
                 
                 // Draw tick marks
                 lookAndFeel.drawTickMarks(g, trackBounds.toFloat());
@@ -799,6 +801,17 @@ private:
             // Update step increment for quantization
             double increment = settingsWindow.getIncrement(i);
             sliderControls[i]->setStepIncrement(increment);
+            
+            // Update orientation - THIS IS THE KEY FIX FOR ORIENTATION PERSISTENCE
+            SliderOrientation orientation = settingsWindow.getSliderOrientation(i);
+            sliderControls[i]->setOrientation(orientation);
+            
+            // Update bipolar settings if in bipolar mode
+            if (orientation == SliderOrientation::Bipolar)
+            {
+                BipolarSettings bipolarSettings = settingsWindow.getBipolarSettings(i);
+                sliderControls[i]->setBipolarSettings(bipolarSettings);
+            }
         }
         
         // Note: Using simple channel-based MIDI filtering
@@ -877,6 +890,17 @@ private:
                 sliderControls[i]->setAttackTime(sliderPreset.attackTime);
                 sliderControls[i]->setReturnTime(sliderPreset.returnTime);
                 sliderControls[i]->setCurveValue(sliderPreset.curveValue);
+                
+                // Apply orientation from preset - CRITICAL FOR PRESET ORIENTATION PERSISTENCE
+                SliderOrientation orientation = static_cast<SliderOrientation>(sliderPreset.orientation);
+                sliderControls[i]->setOrientation(orientation);
+                
+                // Apply bipolar settings if in bipolar mode
+                if (orientation == SliderOrientation::Bipolar)
+                {
+                    BipolarSettings bipolarSettings(sliderPreset.bipolarCenter);
+                    sliderControls[i]->setBipolarSettings(bipolarSettings);
+                }
             }
         }
         
@@ -983,6 +1007,10 @@ private:
                 preset.sliders.getReference(i).attackTime = sliderControls[i]->getAttackTime();
                 preset.sliders.getReference(i).returnTime = sliderControls[i]->getReturnTime();
                 preset.sliders.getReference(i).curveValue = sliderControls[i]->getCurveValue();
+                
+                // Save orientation and bipolar settings to preset - CRITICAL FOR PRESET PERSISTENCE
+                preset.sliders.getReference(i).orientation = static_cast<int>(sliderControls[i]->getOrientation());
+                preset.sliders.getReference(i).bipolarCenter = sliderControls[i]->getBipolarSettings().centerValue;
             }
         }
         

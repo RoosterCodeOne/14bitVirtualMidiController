@@ -249,6 +249,32 @@ public:
         automationControlPanel.setTargetValue(displayManager.getDisplayValue());
     }
     
+    // Set slider orientation - this is crucial for fixing orientation persistence
+    void setOrientation(SliderOrientation orientation)
+    {
+        displayManager.setOrientation(orientation);
+        repaint(); // Force visual update for orientation changes
+    }
+    
+    // Set bipolar settings - required for bipolar center calculation
+    void setBipolarSettings(const BipolarSettings& settings)
+    {
+        displayManager.setBipolarSettings(settings);
+        repaint(); // Force visual update for bipolar changes
+    }
+    
+    // Get current orientation
+    SliderOrientation getOrientation() const
+    {
+        return displayManager.getOrientation();
+    }
+    
+    // Get current bipolar settings
+    BipolarSettings getBipolarSettings() const
+    {
+        return displayManager.getBipolarSettings();
+    }
+    
     // Set slider color
     void setSliderColor(juce::Colour color)
     {

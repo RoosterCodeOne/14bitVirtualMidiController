@@ -97,6 +97,13 @@ private:
             orientation = SliderOrientation::Normal;
             bipolarSettings = BipolarSettings((rangeMin + rangeMax) / 2.0);
         }
+        
+        // Update bipolar center when range changes
+        void updateBipolarCenter() {
+            if (orientation == SliderOrientation::Bipolar) {
+                bipolarSettings.centerValue = (rangeMin + rangeMax) / 2.0;
+            }
+        }
     };
     SliderSettings sliderSettingsData[16];
     
@@ -116,6 +123,7 @@ private:
     void selectColor(int colorId);
     void resetCurrentSlider();
     void cycleSliderInBank(int bankIndex);
+    void applyOrientationToSlider(int sliderIndex); // Apply orientation to actual slider
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SettingsWindow)
 };
@@ -280,6 +288,8 @@ inline void SettingsWindow::initializeSliderData()
         settings.displayUnit = juce::String();
         settings.increment = 1.0;
         settings.useDeadzone = true;
+        settings.orientation = SliderOrientation::Normal;
+        settings.bipolarSettings = BipolarSettings((settings.rangeMin + settings.rangeMax) / 2.0);
         
         // Set default colors based on bank
         int bankIndex = i / 4;
@@ -406,6 +416,8 @@ inline ControllerPreset SettingsWindow::getCurrentPreset() const
             preset.sliders.getReference(i).minRange = settings.rangeMin;
             preset.sliders.getReference(i).maxRange = settings.rangeMax;
             preset.sliders.getReference(i).colorId = settings.colorId;
+            preset.sliders.getReference(i).orientation = static_cast<int>(settings.orientation);
+            preset.sliders.getReference(i).bipolarCenter = settings.bipolarSettings.centerValue;
         }
     }
     
@@ -427,6 +439,14 @@ inline void SettingsWindow::applyPreset(const ControllerPreset& preset)
         settings.rangeMin = sliderPreset.minRange;
         settings.rangeMax = sliderPreset.maxRange;
         settings.colorId = sliderPreset.colorId;
+        settings.orientation = static_cast<SliderOrientation>(sliderPreset.orientation);
+        settings.bipolarSettings.centerValue = sliderPreset.bipolarCenter;
+        
+        // Update bipolar center based on new range
+        settings.updateBipolarCenter();
+        
+        // Apply orientation to the actual slider
+        applyOrientationToSlider(i);
     }
     
     // Update controls for currently selected slider
@@ -588,6 +608,14 @@ inline void SettingsWindow::saveCurrentSliderSettings()
         settings.increment = controllerTab->getCurrentIncrement();
         settings.useDeadzone = controllerTab->getCurrentUseDeadzone();
         settings.colorId = controllerTab->getCurrentColorId();
+        settings.orientation = controllerTab->getCurrentOrientation();
+        settings.bipolarSettings.centerValue = controllerTab->getCurrentCenterValue();
+        
+        // Update bipolar center if range changed
+        settings.updateBipolarCenter();
+        
+        // Apply orientation to the actual slider
+        applyOrientationToSlider(selectedSlider);
     }
 }
 
@@ -606,10 +634,20 @@ inline void SettingsWindow::updateControlsForSelectedSlider()
             settings.displayUnit,
             settings.increment,
             settings.useDeadzone,
-            settings.colorId
+            settings.colorId,
+            settings.orientation,
+            settings.bipolarSettings.centerValue
         );
         
         controllerTab->updateControlsForSelectedSlider(selectedSlider);
         controllerTab->updateBankSelectorAppearance(selectedBank);
     }
+}
+
+inline void SettingsWindow::applyOrientationToSlider(int sliderIndex)
+{
+    // This method triggers the main controller to update slider orientations
+    // The actual application happens in DebugMidiController::updateSliderSettings()
+    if (onSettingsChanged)
+        onSettingsChanged();
 }

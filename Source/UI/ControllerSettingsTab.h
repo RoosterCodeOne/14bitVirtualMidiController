@@ -750,6 +750,13 @@ inline void ControllerSettingsTab::validateAndApplyRange()
         rangeMaxInput.setText(juce::String(maxVal, 2), juce::dontSendNotification);
     }
     
+    // Update bipolar center if in bipolar mode
+    if (getCurrentOrientation() == SliderOrientation::Bipolar)
+    {
+        double newCenter = (minVal + maxVal) / 2.0;
+        centerValueInput.setText(juce::String(newCenter, 2), juce::dontSendNotification);
+    }
+    
     if (onSliderSettingChanged)
         onSliderSettingChanged(selectedSlider);
 }
@@ -804,12 +811,17 @@ inline void ControllerSettingsTab::applyOrientation()
     centerValueInput.setVisible(showCenterValue);
     
     // Set default center value if switching to bipolar
-    if (showCenterValue && centerValueInput.getText().isEmpty())
+    if (showCenterValue)
     {
         double minVal = rangeMinInput.getText().getDoubleValue();
         double maxVal = rangeMaxInput.getText().getDoubleValue();
-        double defaultCenter = (minVal + maxVal) / 2.0;
-        centerValueInput.setText(juce::String(defaultCenter, 2), juce::dontSendNotification);
+        
+        // Always recalculate center when switching to bipolar mode
+        if (centerValueInput.getText().isEmpty() || newOrientation == SliderOrientation::Bipolar)
+        {
+            double defaultCenter = (minVal + maxVal) / 2.0;
+            centerValueInput.setText(juce::String(defaultCenter, 2), juce::dontSendNotification);
+        }
     }
     
     if (onSliderSettingChanged)

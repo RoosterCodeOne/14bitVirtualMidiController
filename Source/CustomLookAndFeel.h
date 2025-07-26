@@ -2,6 +2,7 @@
 #pragma once
 #include <JuceHeader.h>
 #include <map>
+#include "Core/SliderDisplayManager.h"
 
 // Blueprint color palette
 namespace BlueprintColors
@@ -142,7 +143,7 @@ public:
     }
     
     // Public drawing methods for external use
-    void drawSliderTrack(juce::Graphics& g, juce::Rectangle<float> trackArea, juce::Colour trackColor, double sliderValue = 1.0, double minValue = 0.0, double maxValue = 16383.0)
+    void drawSliderTrack(juce::Graphics& g, juce::Rectangle<float> trackArea, juce::Colour trackColor, double sliderValue = 1.0, double minValue = 0.0, double maxValue = 16383.0, SliderOrientation orientation = SliderOrientation::Normal, double bipolarCenter = 8191.5)
     {
         // Blueprint-style rectangular track
         auto track = trackArea.reduced(2, 4);
@@ -151,24 +152,94 @@ public:
         g.setColour(BlueprintColors::background);
         g.fillRect(track);
         
-        // Calculate normalized fill level (0.0 = empty, 1.0 = full)
-        double normalizedValue = juce::jlimit(0.0, 1.0, (sliderValue - minValue) / (maxValue - minValue));
-        
-        // Progressive fill from bottom up
-        if (normalizedValue > 0.0)
+        // Handle different orientations for visual display
+        if (orientation == SliderOrientation::Normal)
         {
-            float fillHeight = track.getHeight() * normalizedValue;
-            auto fillArea = track.removeFromBottom(fillHeight);
+            // Calculate normalized fill level (0.0 = empty, 1.0 = full)
+            double normalizedValue = juce::jlimit(0.0, 1.0, (sliderValue - minValue) / (maxValue - minValue));
             
-            // Gradient fill from dark to bright cyan
-            juce::ColourGradient fillGradient(
-                BlueprintColors::background, fillArea.getTopLeft(),
-                trackColor, fillArea.getBottomRight(),
-                false
-            );
+            // Progressive fill from bottom up (normal orientation)
+            if (normalizedValue > 0.0)
+            {
+                float fillHeight = track.getHeight() * normalizedValue;
+                auto fillArea = track.removeFromBottom(fillHeight);
+                
+                // Gradient fill from dark to bright cyan
+                juce::ColourGradient fillGradient(
+                    BlueprintColors::background, fillArea.getTopLeft(),
+                    trackColor, fillArea.getBottomRight(),
+                    false
+                );
+                
+                g.setGradientFill(fillGradient);
+                g.fillRect(fillArea);
+            }
+        }
+        else if (orientation == SliderOrientation::Inverted)
+        {
+            // Calculate normalized fill level (0.0 = empty, 1.0 = full)
+            double normalizedValue = juce::jlimit(0.0, 1.0, (sliderValue - minValue) / (maxValue - minValue));
             
-            g.setGradientFill(fillGradient);
-            g.fillRect(fillArea);
+            // Progressive fill from top down (inverted orientation)
+            if (normalizedValue > 0.0)
+            {
+                float fillHeight = track.getHeight() * normalizedValue;
+                auto fillArea = track.removeFromTop(fillHeight);
+                
+                // Gradient fill from bright to dark (inverted gradient)
+                juce::ColourGradient fillGradient(
+                    trackColor, fillArea.getTopLeft(),
+                    BlueprintColors::background, fillArea.getBottomRight(),
+                    false
+                );
+                
+                g.setGradientFill(fillGradient);
+                g.fillRect(fillArea);
+            }
+        }
+        else if (orientation == SliderOrientation::Bipolar)
+        {
+            // Bipolar mode: fill from center point outward
+            double normalizedCenter = juce::jlimit(0.0, 1.0, (bipolarCenter - minValue) / (maxValue - minValue));
+            double normalizedValue = juce::jlimit(0.0, 1.0, (sliderValue - minValue) / (maxValue - minValue));
+            
+            float centerY = track.getY() + track.getHeight() * (1.0 - normalizedCenter);
+            
+            // Draw center line
+            g.setColour(trackColor.withAlpha(0.8f));
+            g.fillRect(juce::Rectangle<float>(track.getX(), centerY - 1.0f, track.getWidth(), 2.0f));
+            
+            // Fill from center to current value
+            if (normalizedValue != normalizedCenter)
+            {
+                float valueY = track.getY() + track.getHeight() * (1.0 - normalizedValue);
+                juce::Rectangle<float> fillArea;
+                
+                if (normalizedValue > normalizedCenter)
+                {
+                    // Fill upward from center
+                    fillArea = juce::Rectangle<float>(track.getX(), valueY, track.getWidth(), centerY - valueY);
+                }
+                else
+                {
+                    // Fill downward from center
+                    fillArea = juce::Rectangle<float>(track.getX(), centerY, track.getWidth(), valueY - centerY);
+                }
+                
+                // Bipolar gradient fill
+                juce::Point<float> gradientEnd = normalizedValue > normalizedCenter ? 
+                    juce::Point<float>(fillArea.getCentreX(), fillArea.getY()) :
+                    juce::Point<float>(fillArea.getCentreX(), fillArea.getBottom());
+                    
+                juce::ColourGradient fillGradient(
+                    BlueprintColors::background.withAlpha(0.5f), fillArea.getCentre(),
+                    trackColor, gradientEnd,
+                    false
+                );
+                
+                g.setGradientFill(fillGradient);
+                g.fillRect(fillArea);
+            }
         }
         
         // Technical outline
@@ -208,7 +279,7 @@ public:
                             float tickWidth = 1.5f; // Slightly thicker for quantization
                             
                             // Quantization tick marks - left side with distinctive style
-                            g.fillRect(trackArea.getX() - tickLength - 2, y - tickWidth/2, tickLength, tickWidth);
+                            g.fillRect(juce::Rectangle<float>(trackArea.getX() - tickLength - 2, y - tickWidth/2, tickLength, tickWidth));
                         }
                     }
                 }
