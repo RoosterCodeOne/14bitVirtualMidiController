@@ -103,6 +103,25 @@ public:
         setValue(newValue);
     }
     
+    void mouseDoubleClick(const juce::MouseEvent& event) override
+    {
+        // Reset to default value based on knob type (determined by label)
+        double defaultValue = 0.0; // Default for most knobs
+        
+        if (label.containsIgnoreCase("ATTACK"))
+            defaultValue = 1.0; // Attack default: 1.0 seconds (fast attack)
+        else if (label.containsIgnoreCase("CURVE") || label.containsIgnoreCase("SLOPE"))
+            defaultValue = 1.0; // Curve/Slope default: 1.0 (linear)
+        else
+            defaultValue = 0.0; // Delay and Return default: 0.0 seconds
+        
+        // Clamp to valid range
+        defaultValue = juce::jlimit(minVal, maxVal, defaultValue);
+        
+        // Set the value which will trigger the callback and repaint
+        setValue(defaultValue);
+    }
+    
 private:
     juce::String label;
     double minVal, maxVal, currentValue;

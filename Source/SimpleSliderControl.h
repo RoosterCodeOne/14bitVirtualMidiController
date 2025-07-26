@@ -285,6 +285,16 @@ public:
             parent->repaint();
     }
     
+    // Update slider display name
+    void setDisplayName(const juce::String& name)
+    {
+        if (name.isEmpty())
+            sliderNumberLabel.setText(juce::String(index + 1), juce::dontSendNotification); // Just the number
+        else
+            sliderNumberLabel.setText(name, juce::dontSendNotification); // Custom name
+        sliderNumberLabel.repaint();
+    }
+    
     // Set step increment for quantization
     void setStepIncrement(double increment)
     {
@@ -474,6 +484,51 @@ public:
         
         // Pass to base class for normal handling
         juce::Component::mouseUp(event);
+    }
+    
+    void mouseDoubleClick(const juce::MouseEvent& event) override
+    {
+        // Don't reset if slider is locked
+        if (lockState) return;
+        
+        // Don't interfere if automation is currently running
+        if (automationEngine.isSliderAutomating(index)) return;
+        
+        double resetValue;
+        SliderOrientation orientation = displayManager.getOrientation();
+        
+        switch (orientation)
+        {
+            case SliderOrientation::Normal:
+                // Reset to minimum value (bottom position)
+                resetValue = displayManager.displayToMidi(displayManager.getDisplayMin());
+                break;
+                
+            case SliderOrientation::Inverted:
+                // Reset to maximum value (top position) 
+                resetValue = displayManager.displayToMidi(displayManager.getDisplayMax());
+                break;
+                
+            case SliderOrientation::Bipolar:
+                // Reset to center value (middle position)
+                resetValue = displayManager.displayToMidi(displayManager.getBipolarSettings().centerValue);
+                break;
+                
+            default:
+                // Fallback to minimum
+                resetValue = displayManager.displayToMidi(displayManager.getDisplayMin());
+                break;
+        }
+        
+        // Clamp to valid MIDI range
+        resetValue = juce::jlimit(0.0, 16383.0, resetValue);
+        
+        // Set the value with notification to trigger MIDI output and UI updates
+        mainSlider.setValue(resetValue, juce::sendNotification);
+        
+        // Trigger parent repaint to update visual thumb position
+        if (auto* parent = getParentComponent())
+            parent->repaint();
     }
     
     // Set learn markers visibility

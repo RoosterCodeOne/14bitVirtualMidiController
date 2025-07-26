@@ -17,6 +17,7 @@ struct SliderPreset
     double curveValue = 1.0;
     int orientation = 0; // 0=Normal, 1=Inverted, 2=Bipolar
     double bipolarCenter = 8191.5; // Default center value
+    juce::String customName = "";
     
     juce::var toVar() const
     {
@@ -33,6 +34,7 @@ struct SliderPreset
         obj->setProperty("curveValue", curveValue);
         obj->setProperty("orientation", orientation);
         obj->setProperty("bipolarCenter", bipolarCenter);
+        obj->setProperty("customName", customName);
 
         return juce::var(obj);
     }
@@ -53,6 +55,7 @@ struct SliderPreset
             curveValue = obj->hasProperty("curveValue") ? (double)obj->getProperty("curveValue") : 1.0;
             orientation = obj->hasProperty("orientation") ? (int)obj->getProperty("orientation") : 0;
             bipolarCenter = obj->hasProperty("bipolarCenter") ? (double)obj->getProperty("bipolarCenter") : 8191.5;
+            customName = obj->hasProperty("customName") ? obj->getProperty("customName").toString() : "";
 
         }
     }

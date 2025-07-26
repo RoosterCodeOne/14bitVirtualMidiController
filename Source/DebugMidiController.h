@@ -798,6 +798,10 @@ private:
             auto color = settingsWindow.getSliderColor(i);
             sliderControls[i]->setSliderColor(color);
             
+            // Update display name
+            juce::String displayName = settingsWindow.getSliderDisplayName(i);
+            sliderControls[i]->setDisplayName(displayName);
+            
             // Update step increment for quantization
             double increment = settingsWindow.getIncrement(i);
             sliderControls[i]->setStepIncrement(increment);

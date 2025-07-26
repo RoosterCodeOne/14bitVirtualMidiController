@@ -26,7 +26,8 @@ public:
     void applyPreset(const ControllerPreset& preset);
     void setSliderSettings(int ccNumber, bool is14Bit, double rangeMin, double rangeMax, 
                           const juce::String& displayUnit, double increment, bool useDeadzone, int colorId,
-                          SliderOrientation orientation = SliderOrientation::Normal, double centerValue = 0.0);
+                          SliderOrientation orientation = SliderOrientation::Normal, double centerValue = 0.0,
+                          const juce::String& customName = "");
     
     // Access methods for main window
     int getMidiChannel() const { return midiChannelCombo.getSelectedId(); }
@@ -45,6 +46,7 @@ public:
     int getCurrentColorId() const { return currentColorId; }
     SliderOrientation getCurrentOrientation() const { return static_cast<SliderOrientation>(orientationCombo.getSelectedId() - 1); }
     double getCurrentCenterValue() const { return centerValueInput.getText().getDoubleValue(); }
+    juce::String getCurrentCustomName() const { return nameInput.getText(); }
     
     // Callback functions for communication with parent
     std::function<void()> onSettingsChanged;
@@ -76,6 +78,10 @@ private:
     
     // Breadcrumb navigation
     juce::Label breadcrumbLabel;
+    
+    // Name input controls
+    juce::Label nameLabel;
+    juce::TextEditor nameInput;
     
     // Section headers
     juce::Label section1Header, section2Header, section3Header, section4Header;
@@ -111,6 +117,7 @@ private:
     // Private methods
     void setupControllerControls();
     void setupBankSelector();
+    void setupNameControls();
     void setupPerSliderControls();
     void layoutPerSliderSections(juce::Rectangle<int>& bounds);
     void cycleSliderInBank(int bankIndex);
@@ -126,6 +133,7 @@ private:
     void applyInputMode();
     void applyOrientation();
     void validateAndApplyCenterValue();
+    void applyCustomName();
     void selectColor(int colorId);
     void resetCurrentSlider();
     
@@ -139,6 +147,7 @@ inline ControllerSettingsTab::ControllerSettingsTab(SettingsWindow* parent)
 {
     setupControllerControls();
     setupBankSelector();
+    setupNameControls();
     setupPerSliderControls();
     
     // Enable keyboard focus for tab
@@ -160,8 +169,8 @@ inline void ControllerSettingsTab::paint(juce::Graphics& g)
     // Draw section backgrounds similar to original
     auto bounds = getLocalBounds().reduced(15);
     
-    // Controller section background
-    auto controllerSectionBounds = bounds.removeFromTop(10 + 22 + 6 + 22 + 8 + 20 + 6 + 22 + 8);
+    // Controller section background (updated to include name section)
+    auto controllerSectionBounds = bounds.removeFromTop(10 + 22 + 6 + 22 + 8 + 20 + 6 + 22 + 8 + 22 + 8);
     controllerSectionBounds = controllerSectionBounds.expanded(5, 0).withTrimmedBottom(1);
     
     g.setColour(BlueprintColors::sectionBackground);
@@ -213,6 +222,14 @@ inline void ControllerSettingsTab::resized()
     bankCSelector.setBounds(bankSelectorArea.removeFromLeft(bankButtonWidth));
     bankSelectorArea.removeFromLeft(7);
     bankDSelector.setBounds(bankSelectorArea.removeFromLeft(bankButtonWidth));
+    
+    bounds.removeFromTop(8);
+    
+    // Name section
+    auto nameArea = bounds.removeFromTop(22);
+    nameLabel.setBounds(nameArea.removeFromLeft(60));
+    nameArea.removeFromLeft(8);
+    nameInput.setBounds(nameArea.removeFromLeft(200));
     
     bounds.removeFromTop(8);
     
@@ -360,6 +377,24 @@ inline void ControllerSettingsTab::setupBankSelector()
         // Restore focus to parent after bank selection
         if (onRequestFocus) onRequestFocus();
     };
+}
+
+inline void ControllerSettingsTab::setupNameControls()
+{
+    // Name label
+    addAndMakeVisible(nameLabel);
+    nameLabel.setText("Name:", juce::dontSendNotification);
+    nameLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    
+    // Name input
+    addAndMakeVisible(nameInput);
+    nameInput.setInputRestrictions(20); // 20 character limit
+    nameInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
+    nameInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
+    nameInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
+    nameInput.onReturnKey = [this]() { nameInput.moveKeyboardFocusToSibling(true); };
+    nameInput.onFocusLost = [this]() { applyCustomName(); };
+    nameInput.onTextChange = [this]() { applyCustomName(); };
 }
 
 inline void ControllerSettingsTab::setupPerSliderControls()
@@ -853,6 +888,15 @@ inline void ControllerSettingsTab::validateAndApplyCenterValue()
         onSliderSettingChanged(selectedSlider);
 }
 
+inline void ControllerSettingsTab::applyCustomName()
+{
+    // Get the custom name and notify parent
+    juce::String customName = nameInput.getText();
+    
+    if (onSliderSettingChanged)
+        onSliderSettingChanged(selectedSlider);
+}
+
 inline void ControllerSettingsTab::resetCurrentSlider()
 {
     // Reset all controls to defaults for the current slider
@@ -865,6 +909,7 @@ inline void ControllerSettingsTab::resetCurrentSlider()
     incrementsInput.setText("1", juce::dontSendNotification);
     deadzoneButton.setToggleState(true, juce::dontSendNotification);
     directButton.setToggleState(false, juce::dontSendNotification);
+    nameInput.setText("", juce::dontSendNotification);
     
     // Reset orientation to normal
     orientationCombo.setSelectedId(static_cast<int>(SliderOrientation::Normal) + 1, juce::dontSendNotification);
@@ -921,8 +966,13 @@ inline void ControllerSettingsTab::cycleSliderInBank(int bankIndex)
 inline void ControllerSettingsTab::updateBreadcrumbLabel()
 {
     char bankLetter = 'A' + selectedBank;
-    int sliderNumber = selectedSlider + 1; // Convert 0-indexed to 1-indexed
-    breadcrumbLabel.setText("Bank " + juce::String::charToString(bankLetter) + " > Slider " + juce::String(sliderNumber),
+    juce::String sliderName = "Slider " + juce::String(selectedSlider + 1); // Default name
+    
+    // Use custom name if available from current UI input
+    if (!nameInput.getText().isEmpty())
+        sliderName = nameInput.getText();
+    
+    breadcrumbLabel.setText("Bank " + juce::String::charToString(bankLetter) + " > " + sliderName,
                            juce::dontSendNotification);
     breadcrumbLabel.repaint();
 }
@@ -971,7 +1021,8 @@ inline void ControllerSettingsTab::updateControlsForSelectedSlider(int sliderInd
 inline void ControllerSettingsTab::setSliderSettings(int ccNumber, bool is14Bit, double rangeMin, double rangeMax, 
                                                     const juce::String& displayUnit, double increment, 
                                                     bool useDeadzone, int colorId,
-                                                    SliderOrientation orientation, double centerValue)
+                                                    SliderOrientation orientation, double centerValue,
+                                                    const juce::String& customName)
 {
     // Update all controls with the provided settings (without triggering callbacks)
     ccNumberInput.setText(juce::String(ccNumber), juce::dontSendNotification);
@@ -992,6 +1043,9 @@ inline void ControllerSettingsTab::setSliderSettings(int ccNumber, bool is14Bit,
     bool showCenterValue = (orientation == SliderOrientation::Bipolar);
     centerValueLabel.setVisible(showCenterValue);
     centerValueInput.setVisible(showCenterValue);
+    
+    // Update custom name
+    nameInput.setText(customName, juce::dontSendNotification);
     
     // Update color selection
     currentColorId = colorId;

@@ -42,6 +42,7 @@ public:
     juce::String getDisplayUnit(int sliderIndex) const;
     SliderOrientation getSliderOrientation(int sliderIndex) const;
     BipolarSettings getBipolarSettings(int sliderIndex) const;
+    juce::String getSliderDisplayName(int sliderIndex) const;
     
     // BPM management methods
     void setBPM(double bpm);
@@ -83,6 +84,7 @@ private:
         int colorId = 1;
         SliderOrientation orientation = SliderOrientation::Normal;
         BipolarSettings bipolarSettings;
+        juce::String customName = "";
         
         SliderSettings()
         {
@@ -96,6 +98,7 @@ private:
             colorId = 1;
             orientation = SliderOrientation::Normal;
             bipolarSettings = BipolarSettings((rangeMin + rangeMax) / 2.0);
+            customName = "";
         }
         
         // Update bipolar center when range changes
@@ -260,7 +263,9 @@ inline void SettingsWindow::setupCommunication()
     presetTab->onResetToDefaults = [this]() {
         // Reset all slider settings to defaults
         initializeSliderData();
-        controllerTab->updateControlsForSelectedSlider(selectedSlider);
+        
+        // Force immediate refresh of settings controls for current slider
+        updateControlsForSelectedSlider();
         controllerTab->updateBankSelectorAppearance(selectedBank);
         
         if (onSettingsChanged)
@@ -290,6 +295,7 @@ inline void SettingsWindow::initializeSliderData()
         settings.useDeadzone = true;
         settings.orientation = SliderOrientation::Normal;
         settings.bipolarSettings = BipolarSettings((settings.rangeMin + settings.rangeMax) / 2.0);
+        settings.customName = ""; // Clear custom names on reset
         
         // Set default colors based on bank
         int bankIndex = i / 4;
@@ -418,6 +424,7 @@ inline ControllerPreset SettingsWindow::getCurrentPreset() const
             preset.sliders.getReference(i).colorId = settings.colorId;
             preset.sliders.getReference(i).orientation = static_cast<int>(settings.orientation);
             preset.sliders.getReference(i).bipolarCenter = settings.bipolarSettings.centerValue;
+            preset.sliders.getReference(i).customName = settings.customName;
         }
     }
     
@@ -441,6 +448,7 @@ inline void SettingsWindow::applyPreset(const ControllerPreset& preset)
         settings.colorId = sliderPreset.colorId;
         settings.orientation = static_cast<SliderOrientation>(sliderPreset.orientation);
         settings.bipolarSettings.centerValue = sliderPreset.bipolarCenter;
+        settings.customName = sliderPreset.customName;
         
         // Update bipolar center based on new range
         settings.updateBipolarCenter();
@@ -538,6 +546,15 @@ inline void SettingsWindow::setSyncStatus(bool isExternal, double externalBPM)
     controllerTab->setSyncStatus(isExternal, externalBPM);
 }
 
+inline juce::String SettingsWindow::getSliderDisplayName(int sliderIndex) const
+{
+    if (sliderIndex >= 0 && sliderIndex < 16)
+    {
+        return sliderSettingsData[sliderIndex].customName; // Return custom name or empty string
+    }
+    return "";
+}
+
 inline bool SettingsWindow::keyPressed(const juce::KeyPress& key)
 {
     if (key == juce::KeyPress::escapeKey)
@@ -610,6 +627,7 @@ inline void SettingsWindow::saveCurrentSliderSettings()
         settings.colorId = controllerTab->getCurrentColorId();
         settings.orientation = controllerTab->getCurrentOrientation();
         settings.bipolarSettings.centerValue = controllerTab->getCurrentCenterValue();
+        settings.customName = controllerTab->getCurrentCustomName();
         
         // Update bipolar center if range changed
         settings.updateBipolarCenter();
@@ -636,7 +654,8 @@ inline void SettingsWindow::updateControlsForSelectedSlider()
             settings.useDeadzone,
             settings.colorId,
             settings.orientation,
-            settings.bipolarSettings.centerValue
+            settings.bipolarSettings.centerValue,
+            settings.customName
         );
         
         controllerTab->updateControlsForSelectedSlider(selectedSlider);
