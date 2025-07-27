@@ -206,6 +206,7 @@ public:
     
     double getValue() const { return mainSlider.getValue(); }
     double getDisplayValue() const { return displayManager.getDisplayValue(); }
+    double getCenterValue() const { return displayManager.getCenterValue(); }
     bool isInSnapZone(double displayValue) const { return displayManager.isInSnapZone(displayValue); }
     
     void setTimeMode(TimeMode mode)
@@ -591,7 +592,7 @@ public:
                 
             case SliderOrientation::Bipolar:
                 // Reset to center value (middle position)
-                resetValue = displayManager.displayToMidi(displayManager.getBipolarSettings().centerValue);
+                resetValue = displayManager.displayToMidi(displayManager.getCenterValue());
                 break;
                 
             default:
@@ -635,7 +636,7 @@ public:
         // Simple logic: if in snap zone, snap to center
         if (displayManager.isInSnapZone(currentDisplayValue))
         {
-            double centerDisplayValue = bipolarSettings.centerValue;
+            double centerDisplayValue = displayManager.getCenterValue();
             double centerMidiValue = displayManager.displayToMidi(centerDisplayValue);
             
             // Set the value programmatically

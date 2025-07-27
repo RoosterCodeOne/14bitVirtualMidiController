@@ -95,14 +95,7 @@ void SliderDisplayManager::setOrientation(SliderOrientation newOrientation)
 {
     orientation = newOrientation;
     
-    // If switching to bipolar mode, set default center to middle of range
-    if (orientation == SliderOrientation::Bipolar)
-    {
-        if (bipolarSettings.centerValue < displayMin || bipolarSettings.centerValue > displayMax)
-        {
-            bipolarSettings.centerValue = displayMin + ((displayMax - displayMin) / 2.0);
-        }
-    }
+    // No manual center value setting needed - it's automatically calculated
     
     // Trigger callbacks to update UI
     if (onDisplayTextChanged)
@@ -114,8 +107,7 @@ void SliderDisplayManager::setOrientation(SliderOrientation newOrientation)
 void SliderDisplayManager::setBipolarSettings(const BipolarSettings& settings)
 {
     bipolarSettings = settings;
-    // Ensure center value is within display range
-    bipolarSettings.centerValue = juce::jlimit(displayMin, displayMax, bipolarSettings.centerValue);
+    // No center value validation needed - it's automatically calculated
     
     // Trigger callbacks to update UI
     if (onDisplayTextChanged)
@@ -181,15 +173,17 @@ juce::String SliderDisplayManager::getFormattedDisplayValue() const
     
     if (orientation == SliderOrientation::Bipolar)
     {
-        double relativeValue = displayValue - bipolarSettings.centerValue;
+        // Bipolar display: show values relative to center (±X format)
+        // This is purely for display - does NOT affect MIDI output mapping
+        double relativeValue = displayValue - getCenterValue();
         juce::String formattedValue = formatValue(std::abs(relativeValue));
         
         if (std::abs(relativeValue) < 0.01)
-            return "0";
+            return "0";  // At center
         else if (relativeValue > 0)
-            return "+" + formattedValue;
+            return "+" + formattedValue;  // Above center
         else
-            return "-" + formattedValue;
+            return "-" + formattedValue;  // Below center
     }
     
     return formatValue(displayValue);
@@ -199,7 +193,7 @@ juce::String SliderDisplayManager::getFormattedTargetValue() const
 {
     if (orientation == SliderOrientation::Bipolar)
     {
-        double relativeValue = targetDisplayValue - bipolarSettings.centerValue;
+        double relativeValue = targetDisplayValue - getCenterValue();
         juce::String formattedValue = formatValue(std::abs(relativeValue));
         
         if (std::abs(relativeValue) < 0.01)
@@ -248,6 +242,7 @@ double SliderDisplayManager::getTargetMidiValue() const
 double SliderDisplayManager::midiToDisplay(double midiValue) const
 {
     // Convert MIDI value (0-16383) to display value based on custom range
+    // NOTE: This conversion is independent of bipolar centerValue - linear mapping across full range
     double normalized = midiValue / 16383.0;
     return displayMin + (normalized * (displayMax - displayMin));
 }
@@ -255,6 +250,8 @@ double SliderDisplayManager::midiToDisplay(double midiValue) const
 double SliderDisplayManager::displayToMidi(double displayValue) const
 {
     // Convert display value to MIDI value (0-16383)
+    // NOTE: This conversion is independent of bipolar centerValue - linear mapping across full range
+    // For bipolar mode: centerValue affects display formatting only, not MIDI output
     double normalized = (displayValue - displayMin) / (displayMax - displayMin);
     return juce::jlimit(0.0, 16383.0, normalized * 16383.0);
 }
@@ -381,7 +378,7 @@ bool SliderDisplayManager::isInSnapZone(double displayValue) const
         return false;
         
     double threshold = getSnapThreshold();
-    return std::abs(displayValue - bipolarSettings.centerValue) <= threshold;
+    return std::abs(displayValue - getCenterValue()) <= threshold;
 }
 
 double SliderDisplayManager::getSnapThreshold() const
@@ -391,4 +388,10 @@ double SliderDisplayManager::getSnapThreshold() const
         
     double displayRange = std::abs(displayMax - displayMin);
     return displayRange * bipolarSettings.getSnapThresholdPercent();
+}
+
+double SliderDisplayManager::getCenterValue() const
+{
+    // Always return the middle of the display range
+    return displayMin + ((displayMax - displayMin) / 2.0);
 }

@@ -200,6 +200,7 @@ public:
         else if (orientation == SliderOrientation::Bipolar)
         {
             // Bipolar mode: fill from center point outward
+            // Center line position based on bipolarCenter's position within the display range
             double normalizedCenter = juce::jlimit(0.0, 1.0, (bipolarCenter - minValue) / (maxValue - minValue));
             double normalizedValue = juce::jlimit(0.0, 1.0, (sliderValue - minValue) / (maxValue - minValue));
             

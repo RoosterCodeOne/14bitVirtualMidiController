@@ -321,7 +321,7 @@ public:
                 
                 // Draw the track with current slider value for progressive fill - WITH ORIENTATION SUPPORT
                 SliderOrientation orientation = sliderControl->getOrientation();
-                double bipolarCenter = sliderControl->getBipolarSettings().centerValue;
+                double bipolarCenter = sliderControl->getCenterValue();
                 
                 // Check if in snap zone for visual feedback
                 bool isInSnapZone = false;
@@ -911,7 +911,7 @@ private:
                 // Apply bipolar settings if in bipolar mode
                 if (orientation == SliderOrientation::Bipolar)
                 {
-                    BipolarSettings bipolarSettings(sliderPreset.bipolarCenter);
+                    BipolarSettings bipolarSettings; // Center value now auto-calculated
                     sliderControls[i]->setBipolarSettings(bipolarSettings);
                 }
             }
@@ -1021,9 +1021,9 @@ private:
                 preset.sliders.getReference(i).returnTime = sliderControls[i]->getReturnTime();
                 preset.sliders.getReference(i).curveValue = sliderControls[i]->getCurveValue();
                 
-                // Save orientation and bipolar settings to preset - CRITICAL FOR PRESET PERSISTENCE
+                // Save orientation to preset - CRITICAL FOR PRESET PERSISTENCE
                 preset.sliders.getReference(i).orientation = static_cast<int>(sliderControls[i]->getOrientation());
-                preset.sliders.getReference(i).bipolarCenter = sliderControls[i]->getBipolarSettings().centerValue;
+                // bipolarCenter removed - now automatically calculated from range
             }
         }
         

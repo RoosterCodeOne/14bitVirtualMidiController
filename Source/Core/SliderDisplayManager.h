@@ -25,16 +25,20 @@ enum class SnapThreshold
 
 /**
  * Settings for bipolar display mode
+ * 
+ * IMPORTANT: Bipolar mode uses a Display-Centric approach where:
+ * - Center is automatically calculated as the middle of the display range
+ * - MIDI mapping remains linear across the full display range
+ * - Display formatting shows values relative to auto-calculated center (±X format)
+ * - Visual center line position is always at the middle of the range
  */
 struct BipolarSettings
 {
-    double centerValue = 0.0;         // User-defined center point
     bool showCenterLine = true;       // Visual center indicator
     bool snapToCenter = true;         // Enable snap-to-center feature
     SnapThreshold snapThreshold = SnapThreshold::Medium;  // Snap sensitivity
     
     BipolarSettings() = default;
-    BipolarSettings(double center) : centerValue(center) {}
     
     // Get snap threshold as percentage of range
     double getSnapThresholdPercent() const 
@@ -97,7 +101,8 @@ public:
     double midiToDisplay(double midiValue) const;
     double displayToMidi(double displayValue) const;
     
-    // Bipolar snap-to-center methods
+    // Bipolar methods
+    double getCenterValue() const;        // Get automatically calculated center (middle of range)
     bool isInSnapZone(double displayValue) const;
     double getSnapThreshold() const;
     

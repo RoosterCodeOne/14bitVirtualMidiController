@@ -97,16 +97,12 @@ private:
             useDeadzone = true;
             colorId = 1;
             orientation = SliderOrientation::Normal;
-            bipolarSettings = BipolarSettings((rangeMin + rangeMax) / 2.0);
+            bipolarSettings = BipolarSettings(); // Center value now auto-calculated
             customName = "";
         }
         
         // Update bipolar center when range changes
-        void updateBipolarCenter() {
-            if (orientation == SliderOrientation::Bipolar) {
-                bipolarSettings.centerValue = (rangeMin + rangeMax) / 2.0;
-            }
-        }
+        // updateBipolarCenter() method removed - center value is now automatically calculated
     };
     SliderSettings sliderSettingsData[16];
     
@@ -294,7 +290,7 @@ inline void SettingsWindow::initializeSliderData()
         settings.increment = 1.0;
         settings.useDeadzone = true;
         settings.orientation = SliderOrientation::Normal;
-        settings.bipolarSettings = BipolarSettings((settings.rangeMin + settings.rangeMax) / 2.0);
+        settings.bipolarSettings = BipolarSettings(); // Center value now auto-calculated
         settings.customName = ""; // Clear custom names on reset
         
         // Set default colors based on bank
@@ -423,7 +419,7 @@ inline ControllerPreset SettingsWindow::getCurrentPreset() const
             preset.sliders.getReference(i).maxRange = settings.rangeMax;
             preset.sliders.getReference(i).colorId = settings.colorId;
             preset.sliders.getReference(i).orientation = static_cast<int>(settings.orientation);
-            preset.sliders.getReference(i).bipolarCenter = settings.bipolarSettings.centerValue;
+            // bipolarCenter removed - now automatically calculated from range
             preset.sliders.getReference(i).customName = settings.customName;
         }
     }
@@ -447,11 +443,8 @@ inline void SettingsWindow::applyPreset(const ControllerPreset& preset)
         settings.rangeMax = sliderPreset.maxRange;
         settings.colorId = sliderPreset.colorId;
         settings.orientation = static_cast<SliderOrientation>(sliderPreset.orientation);
-        settings.bipolarSettings.centerValue = sliderPreset.bipolarCenter;
+        // bipolarCenter removed - now automatically calculated from range
         settings.customName = sliderPreset.customName;
-        
-        // Update bipolar center based on new range
-        settings.updateBipolarCenter();
         
         // Apply orientation to the actual slider
         applyOrientationToSlider(i);
@@ -626,12 +619,11 @@ inline void SettingsWindow::saveCurrentSliderSettings()
         settings.useDeadzone = controllerTab->getCurrentUseDeadzone();
         settings.colorId = controllerTab->getCurrentColorId();
         settings.orientation = controllerTab->getCurrentOrientation();
-        settings.bipolarSettings.centerValue = controllerTab->getCurrentCenterValue();
+        // bipolarSettings.centerValue removed - now automatically calculated
         settings.bipolarSettings.snapThreshold = controllerTab->getCurrentSnapThreshold();
         settings.customName = controllerTab->getCurrentCustomName();
         
-        // Update bipolar center if range changed
-        settings.updateBipolarCenter();
+        // Bipolar center automatically calculated - no manual update needed
         
         // Apply orientation to the actual slider
         applyOrientationToSlider(selectedSlider);
@@ -655,7 +647,6 @@ inline void SettingsWindow::updateControlsForSelectedSlider()
             settings.useDeadzone,
             settings.colorId,
             settings.orientation,
-            settings.bipolarSettings.centerValue,
             settings.customName,
             settings.bipolarSettings.snapThreshold
         );

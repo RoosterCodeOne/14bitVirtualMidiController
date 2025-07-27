@@ -26,7 +26,7 @@ public:
     void applyPreset(const ControllerPreset& preset);
     void setSliderSettings(int ccNumber, bool is14Bit, double rangeMin, double rangeMax, 
                           const juce::String& displayUnit, double increment, bool useDeadzone, int colorId,
-                          SliderOrientation orientation = SliderOrientation::Normal, double centerValue = 0.0,
+                          SliderOrientation orientation = SliderOrientation::Normal,
                           const juce::String& customName = "", SnapThreshold snapThreshold = SnapThreshold::Medium);
     
     // Access methods for main window
@@ -45,7 +45,6 @@ public:
     bool getCurrentUseDeadzone() const { return deadzoneButton.getToggleState(); }
     int getCurrentColorId() const { return currentColorId; }
     SliderOrientation getCurrentOrientation() const { return static_cast<SliderOrientation>(orientationCombo.getSelectedId() - 1); }
-    double getCurrentCenterValue() const { return centerValueInput.getText().getDoubleValue(); }
     juce::String getCurrentCustomName() const { return nameInput.getText(); }
     SnapThreshold getCurrentSnapThreshold() const 
     {
@@ -108,8 +107,6 @@ private:
     juce::TextEditor incrementsInput;
     juce::Label orientationLabel;
     juce::ComboBox orientationCombo;
-    juce::Label centerValueLabel;
-    juce::TextEditor centerValueInput;
     juce::Label snapLabel;
     juce::ToggleButton snapSmallButton, snapMediumButton, snapLargeButton;
     
@@ -140,7 +137,6 @@ private:
     void applyIncrements();
     void applyInputMode();
     void applyOrientation();
-    void validateAndApplyCenterValue();
     void applySnapThreshold();
     void applyCustomName();
     void selectColor(int colorId);
@@ -521,19 +517,7 @@ inline void ControllerSettingsTab::setupPerSliderControls()
         if (onRequestFocus) onRequestFocus();
     };
     
-    addAndMakeVisible(centerValueLabel);
-    centerValueLabel.setText("Center Value:", juce::dontSendNotification);
-    centerValueLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-    centerValueLabel.setVisible(false); // Initially hidden
-    
-    addAndMakeVisible(centerValueInput);
-    centerValueInput.setInputRestrictions(0, "-0123456789.");
-    centerValueInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
-    centerValueInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
-    centerValueInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
-    centerValueInput.onReturnKey = [this]() { centerValueInput.moveKeyboardFocusToSibling(true); };
-    centerValueInput.onFocusLost = [this]() { validateAndApplyCenterValue(); };
-    centerValueInput.setVisible(false); // Initially hidden
+    // Center value controls removed - center is now automatically calculated
     
     // Snap threshold controls (small radio buttons)
     addAndMakeVisible(snapLabel);
@@ -703,19 +687,15 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     
     section2Bounds.removeFromTop(controlSpacing);
     
-    // Center value row (only visible for bipolar mode)
-    auto centerRow = section2Bounds.removeFromTop(labelHeight);
-    centerValueLabel.setBounds(centerRow.removeFromLeft(120));
-    centerRow.removeFromLeft(8);
-    centerValueInput.setBounds(centerRow.removeFromLeft(80));
-    centerRow.removeFromLeft(8);
-    snapLabel.setBounds(centerRow.removeFromLeft(40));
-    centerRow.removeFromLeft(4);
-    snapSmallButton.setBounds(centerRow.removeFromLeft(20));
-    centerRow.removeFromLeft(2);
-    snapMediumButton.setBounds(centerRow.removeFromLeft(20));
-    centerRow.removeFromLeft(2);
-    snapLargeButton.setBounds(centerRow.removeFromLeft(20));
+    // Snap controls row (only visible for bipolar mode)
+    auto snapRow = section2Bounds.removeFromTop(labelHeight);
+    snapLabel.setBounds(snapRow.removeFromLeft(40));
+    snapRow.removeFromLeft(4);
+    snapSmallButton.setBounds(snapRow.removeFromLeft(20));
+    snapRow.removeFromLeft(2);
+    snapMediumButton.setBounds(snapRow.removeFromLeft(20));
+    snapRow.removeFromLeft(2);
+    snapLargeButton.setBounds(snapRow.removeFromLeft(20));
     
     bounds.removeFromTop(sectionSpacing);
     
@@ -830,12 +810,7 @@ inline void ControllerSettingsTab::validateAndApplyRange()
         rangeMaxInput.setText(juce::String(maxVal, 2), juce::dontSendNotification);
     }
     
-    // Update bipolar center if in bipolar mode
-    if (getCurrentOrientation() == SliderOrientation::Bipolar)
-    {
-        double newCenter = (minVal + maxVal) / 2.0;
-        centerValueInput.setText(juce::String(newCenter, 2), juce::dontSendNotification);
-    }
+    // Bipolar center automatically calculated - no manual update needed
     
     if (onSliderSettingChanged)
         onSliderSettingChanged(selectedSlider);
@@ -885,57 +860,20 @@ inline void ControllerSettingsTab::applyOrientation()
 {
     SliderOrientation newOrientation = getCurrentOrientation();
     
-    // Show/hide center value controls based on orientation
-    bool showCenterValue = (newOrientation == SliderOrientation::Bipolar);
-    centerValueLabel.setVisible(showCenterValue);
-    centerValueInput.setVisible(showCenterValue);
-    snapLabel.setVisible(showCenterValue);
-    snapSmallButton.setVisible(showCenterValue);
-    snapMediumButton.setVisible(showCenterValue);
-    snapLargeButton.setVisible(showCenterValue);
+    // Show/hide snap controls based on orientation (only for bipolar mode)
+    bool showSnapControls = (newOrientation == SliderOrientation::Bipolar);
+    snapLabel.setVisible(showSnapControls);
+    snapSmallButton.setVisible(showSnapControls);
+    snapMediumButton.setVisible(showSnapControls);
+    snapLargeButton.setVisible(showSnapControls);
     
-    // Set default center value if switching to bipolar
-    if (showCenterValue)
-    {
-        double minVal = rangeMinInput.getText().getDoubleValue();
-        double maxVal = rangeMaxInput.getText().getDoubleValue();
-        
-        // Always recalculate center when switching to bipolar mode
-        if (centerValueInput.getText().isEmpty() || newOrientation == SliderOrientation::Bipolar)
-        {
-            double defaultCenter = (minVal + maxVal) / 2.0;
-            centerValueInput.setText(juce::String(defaultCenter, 2), juce::dontSendNotification);
-        }
-    }
+    // Center value is automatically calculated - no manual setting needed
     
     if (onSliderSettingChanged)
         onSliderSettingChanged(selectedSlider);
 }
 
-inline void ControllerSettingsTab::validateAndApplyCenterValue()
-{
-    auto text = centerValueInput.getText();
-    if (text.isEmpty())
-    {
-        // Set to middle of range if empty
-        double minVal = rangeMinInput.getText().getDoubleValue();
-        double maxVal = rangeMaxInput.getText().getDoubleValue();
-        double defaultCenter = (minVal + maxVal) / 2.0;
-        centerValueInput.setText(juce::String(defaultCenter, 2), juce::dontSendNotification);
-    }
-    else
-    {
-        // Clamp to range
-        double centerValue = text.getDoubleValue();
-        double minVal = rangeMinInput.getText().getDoubleValue();
-        double maxVal = rangeMaxInput.getText().getDoubleValue();
-        centerValue = juce::jlimit(minVal, maxVal, centerValue);
-        centerValueInput.setText(juce::String(centerValue, 2), juce::dontSendNotification);
-    }
-    
-    if (onSliderSettingChanged)
-        onSliderSettingChanged(selectedSlider);
-}
+// validateAndApplyCenterValue method removed - center value is now automatically calculated
 
 inline void ControllerSettingsTab::applySnapThreshold()
 {
@@ -968,9 +906,6 @@ inline void ControllerSettingsTab::resetCurrentSlider()
     
     // Reset orientation to normal
     orientationCombo.setSelectedId(static_cast<int>(SliderOrientation::Normal) + 1, juce::dontSendNotification);
-    centerValueLabel.setVisible(false);
-    centerValueInput.setVisible(false);
-    centerValueInput.setText("8191.5", juce::dontSendNotification); // Middle of 0-16383
     snapLabel.setVisible(false);
     snapSmallButton.setVisible(false);
     snapMediumButton.setVisible(false);
@@ -1080,7 +1015,7 @@ inline void ControllerSettingsTab::updateControlsForSelectedSlider(int sliderInd
 inline void ControllerSettingsTab::setSliderSettings(int ccNumber, bool is14Bit, double rangeMin, double rangeMax, 
                                                     const juce::String& displayUnit, double increment, 
                                                     bool useDeadzone, int colorId,
-                                                    SliderOrientation orientation, double centerValue,
+                                                    SliderOrientation orientation,
                                                     const juce::String& customName, SnapThreshold snapThreshold)
 {
     // Update all controls with the provided settings (without triggering callbacks)
@@ -1096,16 +1031,13 @@ inline void ControllerSettingsTab::setSliderSettings(int ccNumber, bool is14Bit,
     
     // Update orientation settings
     orientationCombo.setSelectedId(static_cast<int>(orientation) + 1, juce::dontSendNotification);
-    centerValueInput.setText(juce::String(centerValue, 2), juce::dontSendNotification);
     
-    // Show/hide center value controls based on orientation
-    bool showCenterValue = (orientation == SliderOrientation::Bipolar);
-    centerValueLabel.setVisible(showCenterValue);
-    centerValueInput.setVisible(showCenterValue);
-    snapLabel.setVisible(showCenterValue);
-    snapSmallButton.setVisible(showCenterValue);
-    snapMediumButton.setVisible(showCenterValue);
-    snapLargeButton.setVisible(showCenterValue);
+    // Show/hide snap controls based on orientation (only for bipolar mode)
+    bool showSnapControls = (orientation == SliderOrientation::Bipolar);
+    snapLabel.setVisible(showSnapControls);
+    snapSmallButton.setVisible(showSnapControls);
+    snapMediumButton.setVisible(showSnapControls);
+    snapLargeButton.setVisible(showSnapControls);
     
     // Set snap threshold radio buttons
     snapSmallButton.setToggleState(snapThreshold == SnapThreshold::Small, juce::dontSendNotification);
