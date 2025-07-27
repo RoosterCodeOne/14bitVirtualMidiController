@@ -627,6 +627,7 @@ inline void SettingsWindow::saveCurrentSliderSettings()
         settings.colorId = controllerTab->getCurrentColorId();
         settings.orientation = controllerTab->getCurrentOrientation();
         settings.bipolarSettings.centerValue = controllerTab->getCurrentCenterValue();
+        settings.bipolarSettings.snapThreshold = controllerTab->getCurrentSnapThreshold();
         settings.customName = controllerTab->getCurrentCustomName();
         
         // Update bipolar center if range changed
@@ -655,7 +656,8 @@ inline void SettingsWindow::updateControlsForSelectedSlider()
             settings.colorId,
             settings.orientation,
             settings.bipolarSettings.centerValue,
-            settings.customName
+            settings.customName,
+            settings.bipolarSettings.snapThreshold
         );
         
         controllerTab->updateControlsForSelectedSlider(selectedSlider);

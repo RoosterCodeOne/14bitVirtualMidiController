@@ -1,6 +1,7 @@
 // SliderLayoutManager.h - Component positioning and bounds calculation for slider controls
 #pragma once
 #include <JuceHeader.h>
+#include "../Core/SliderDisplayManager.h"
 
 //==============================================================================
 class SliderLayoutManager
@@ -90,7 +91,8 @@ public:
     juce::Point<float> calculateThumbPosition(const juce::Rectangle<int>& trackBounds,
                                              double sliderValue,
                                              double sliderMin,
-                                             double sliderMax) const
+                                             double sliderMax,
+                                             SliderOrientation orientation = SliderOrientation::Normal) const
     {
         auto trackBoundsFloat = trackBounds.toFloat();
         
@@ -101,8 +103,23 @@ public:
         float trackTop = trackBoundsFloat.getY() + 4.0f;
         float trackBottom = trackBoundsFloat.getBottom() - 4.0f;
         
-        // Map normalized value to track edge boundaries
-        float thumbY = juce::jmap(norm, trackBottom, trackTop);
+        // Apply orientation-specific visual mapping
+        float thumbY;
+        if (orientation == SliderOrientation::Inverted)
+        {
+            // For inverted: visually flip the position
+            // When slider value is high (near max), show thumb near bottom
+            // When slider value is low (near min), show thumb near top
+            thumbY = juce::jmap(norm, trackTop, trackBottom);
+        }
+        else
+        {
+            // For normal: standard mapping
+            // When slider value is high (near max), show thumb near top  
+            // When slider value is low (near min), show thumb near bottom
+            thumbY = juce::jmap(norm, trackBottom, trackTop);
+        }
+        
         return juce::Point<float>(trackBoundsFloat.getCentreX(), thumbY);
     }
     

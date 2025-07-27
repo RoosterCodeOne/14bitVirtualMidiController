@@ -9,10 +9,24 @@ SliderDisplayManager::SliderDisplayManager()
 //==============================================================================
 void SliderDisplayManager::setDisplayRange(double minValue, double maxValue)
 {
+    // Preserve relative position of target value when range changes
+    double oldRange = displayMax - displayMin;
+    double relativeTargetPosition = 0.5; // Default to middle if no valid old range
+    
+    if (std::abs(oldRange) > 0.001) // Avoid division by zero
+    {
+        relativeTargetPosition = (targetDisplayValue - displayMin) / oldRange;
+    }
+    
+    // Update range
     displayMin = minValue;
     displayMax = maxValue;
     
-    // Update target value to maintain display consistency
+    // Restore target value at same relative position in new range
+    double newRange = displayMax - displayMin;
+    targetDisplayValue = displayMin + (relativeTargetPosition * newRange);
+    
+    // Clamp to new range to handle edge cases
     targetDisplayValue = clampDisplayValue(targetDisplayValue);
     
     // Trigger callbacks to update UI
@@ -21,7 +35,59 @@ void SliderDisplayManager::setDisplayRange(double minValue, double maxValue)
     if (onTargetTextChanged)
         onTargetTextChanged(getFormattedTargetValue());
         
-    DBG("SliderDisplayManager: Set display range " << minValue << " to " << maxValue);
+    DBG("SliderDisplayManager: Set display range " << minValue << " to " << maxValue << ", preserved relative position " << relativeTargetPosition);
+}
+
+void SliderDisplayManager::setDisplayRangePreservingCurrentValue(double minValue, double maxValue)
+{
+    // Preserve relative position of BOTH current and target values when range changes
+    double oldRange = displayMax - displayMin;
+    double relativeCurrentPosition = 0.5; // Default to middle if no valid old range
+    double relativeTargetPosition = 0.5;
+    
+    if (std::abs(oldRange) > 0.001) // Avoid division by zero
+    {
+        double currentDisplayValue = getDisplayValue();
+        relativeCurrentPosition = (currentDisplayValue - displayMin) / oldRange;
+        relativeTargetPosition = (targetDisplayValue - displayMin) / oldRange;
+    }
+    
+    // Update range
+    displayMin = minValue;
+    displayMax = maxValue;
+    
+    // Restore values at same relative positions in new range
+    double newRange = displayMax - displayMin;
+    
+    // Update current value to maintain relative position
+    double newCurrentDisplayValue = displayMin + (relativeCurrentPosition * newRange);
+    double newCurrentMidiValue = displayToMidi(newCurrentDisplayValue);
+    currentMidiValue = clampMidiValue(newCurrentMidiValue);
+    
+    // Update target value to maintain relative position
+    targetDisplayValue = displayMin + (relativeTargetPosition * newRange);
+    targetDisplayValue = clampDisplayValue(targetDisplayValue);
+    
+    // Trigger callbacks to update UI
+    if (onDisplayTextChanged)
+        onDisplayTextChanged(getFormattedDisplayValue());
+    if (onTargetTextChanged)
+        onTargetTextChanged(getFormattedTargetValue());
+        
+    DBG("SliderDisplayManager: Set display range preserving current value " << minValue << " to " << maxValue << ", preserved positions " << relativeCurrentPosition << ", " << relativeTargetPosition);
+}
+
+void SliderDisplayManager::setStepIncrement(double increment)
+{
+    stepIncrement = juce::jmax(0.0, increment);
+    
+    // Trigger callbacks to update UI with new formatting
+    if (onDisplayTextChanged)
+        onDisplayTextChanged(getFormattedDisplayValue());
+    if (onTargetTextChanged)
+        onTargetTextChanged(getFormattedTargetValue());
+        
+    DBG("SliderDisplayManager: Set step increment " << increment);
 }
 
 //==============================================================================
@@ -195,14 +261,134 @@ double SliderDisplayManager::displayToMidi(double displayValue) const
 
 juce::String SliderDisplayManager::formatValue(double value) const
 {
-    // Format the display value nicely (identical to original SimpleSliderControl formatting)
-    juce::String displayText;
+    // Handle zero specially
     if (std::abs(value) < 0.01)
-        displayText = "0";
-    else if (std::abs(value - std::round(value)) < 0.01)
-        displayText = juce::String((int)std::round(value));
+        return "0";
+    
+    // Use smart decimal formatting based on range and increment
+    int decimalPlaces = calculateRequiredDecimalPlaces();
+    
+    if (decimalPlaces == 0)
+    {
+        // Show as integer
+        return juce::String((int)std::round(value));
+    }
     else
-        displayText = juce::String(value, 2);
+    {
+        // Show with calculated decimal places
+        return juce::String(value, decimalPlaces);
+    }
+}
+
+int SliderDisplayManager::calculateRequiredDecimalPlaces() const
+{
+    // Start with default of 0 decimal places (integers)
+    int requiredDecimals = 0;
+    
+    // Check if min/max values require decimals
+    bool minIsWhole = (std::abs(displayMin - std::round(displayMin)) < 0.001);
+    bool maxIsWhole = (std::abs(displayMax - std::round(displayMax)) < 0.001);
+    
+    if (!minIsWhole || !maxIsWhole)
+    {
+        // At least one endpoint has decimals - determine how many
+        double minDecimals = displayMin - std::floor(displayMin);
+        double maxDecimals = displayMax - std::floor(displayMax);
         
-    return displayText;
+        // Count decimal places needed for min value
+        if (!minIsWhole)
+        {
+            juce::String minStr(displayMin, 10); // High precision string
+            int minDecimalCount = 0;
+            int dotPos = minStr.indexOfChar('.');
+            if (dotPos >= 0)
+            {
+                // Count significant decimal places (ignore trailing zeros)
+                for (int i = minStr.length() - 1; i > dotPos; --i)
+                {
+                    if (minStr[i] != '0')
+                    {
+                        minDecimalCount = i - dotPos;
+                        break;
+                    }
+                }
+            }
+            requiredDecimals = juce::jmax(requiredDecimals, minDecimalCount);
+        }
+        
+        // Count decimal places needed for max value
+        if (!maxIsWhole)
+        {
+            juce::String maxStr(displayMax, 10); // High precision string
+            int maxDecimalCount = 0;
+            int dotPos = maxStr.indexOfChar('.');
+            if (dotPos >= 0)
+            {
+                // Count significant decimal places (ignore trailing zeros)
+                for (int i = maxStr.length() - 1; i > dotPos; --i)
+                {
+                    if (maxStr[i] != '0')
+                    {
+                        maxDecimalCount = i - dotPos;
+                        break;
+                    }
+                }
+            }
+            requiredDecimals = juce::jmax(requiredDecimals, maxDecimalCount);
+        }
+    }
+    
+    // Check step increment if it's enabled
+    if (stepIncrement > 0.0)
+    {
+        bool incrementIsWhole = (std::abs(stepIncrement - std::round(stepIncrement)) < 0.001);
+        
+        if (!incrementIsWhole)
+        {
+            // Count decimal places needed for step increment
+            juce::String incStr(stepIncrement, 10); // High precision string
+            int incDecimalCount = 0;
+            int dotPos = incStr.indexOfChar('.');
+            if (dotPos >= 0)
+            {
+                // Count significant decimal places (ignore trailing zeros)
+                for (int i = incStr.length() - 1; i > dotPos; --i)
+                {
+                    if (incStr[i] != '0')
+                    {
+                        incDecimalCount = i - dotPos;
+                        break;
+                    }
+                }
+            }
+            requiredDecimals = juce::jmax(requiredDecimals, incDecimalCount);
+        }
+        else if (requiredDecimals == 0)
+        {
+            // If step is whole number and range suggests integers, stay with integers
+            requiredDecimals = 0;
+        }
+    }
+    
+    // Cap at reasonable maximum
+    return juce::jlimit(0, 3, requiredDecimals);
+}
+
+//==============================================================================
+bool SliderDisplayManager::isInSnapZone(double displayValue) const
+{
+    if (orientation != SliderOrientation::Bipolar || !bipolarSettings.snapToCenter)
+        return false;
+        
+    double threshold = getSnapThreshold();
+    return std::abs(displayValue - bipolarSettings.centerValue) <= threshold;
+}
+
+double SliderDisplayManager::getSnapThreshold() const
+{
+    if (orientation != SliderOrientation::Bipolar)
+        return 0.0;
+        
+    double displayRange = std::abs(displayMax - displayMin);
+    return displayRange * bipolarSettings.getSnapThresholdPercent();
 }

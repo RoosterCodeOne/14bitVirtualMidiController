@@ -322,8 +322,17 @@ public:
                 // Draw the track with current slider value for progressive fill - WITH ORIENTATION SUPPORT
                 SliderOrientation orientation = sliderControl->getOrientation();
                 double bipolarCenter = sliderControl->getBipolarSettings().centerValue;
+                
+                // Check if in snap zone for visual feedback
+                bool isInSnapZone = false;
+                if (orientation == SliderOrientation::Bipolar)
+                {
+                    double currentDisplayValue = sliderControl->getDisplayValue();
+                    isInSnapZone = sliderControl->isInSnapZone(currentDisplayValue);
+                }
+                
                 lookAndFeel.drawSliderTrack(g, trackBounds.toFloat(), sliderControl->getSliderColor(), 
-                                          sliderControl->getValue(), 0.0, 16383.0, orientation, bipolarCenter);
+                                          sliderControl->getValue(), 0.0, 16383.0, orientation, bipolarCenter, isInSnapZone);
                 
                 // Draw tick marks
                 lookAndFeel.drawTickMarks(g, trackBounds.toFloat());

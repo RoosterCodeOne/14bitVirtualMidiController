@@ -14,15 +14,39 @@ enum class SliderOrientation
 };
 
 /**
+ * Snap threshold levels for bipolar sliders
+ */
+enum class SnapThreshold
+{
+    Small = 0,    // 1% of range
+    Medium = 1,   // 2% of range
+    Large = 2     // 4% of range
+};
+
+/**
  * Settings for bipolar display mode
  */
 struct BipolarSettings
 {
-    double centerValue = 0.0;      // User-defined center point
-    bool showCenterLine = true;    // Visual center indicator
+    double centerValue = 0.0;         // User-defined center point
+    bool showCenterLine = true;       // Visual center indicator
+    bool snapToCenter = true;         // Enable snap-to-center feature
+    SnapThreshold snapThreshold = SnapThreshold::Medium;  // Snap sensitivity
     
     BipolarSettings() = default;
     BipolarSettings(double center) : centerValue(center) {}
+    
+    // Get snap threshold as percentage of range
+    double getSnapThresholdPercent() const 
+    {
+        switch (snapThreshold)
+        {
+            case SnapThreshold::Small:  return 0.01;  // 1%
+            case SnapThreshold::Medium: return 0.02;  // 2%
+            case SnapThreshold::Large:  return 0.04;  // 4%
+            default: return 0.02;
+        }
+    }
 };
 
 //==============================================================================
@@ -37,6 +61,8 @@ public:
     
     // Range configuration
     void setDisplayRange(double minValue, double maxValue);
+    void setDisplayRangePreservingCurrentValue(double minValue, double maxValue);
+    void setStepIncrement(double increment);
     
     // Orientation configuration
     void setOrientation(SliderOrientation orientation);
@@ -71,19 +97,25 @@ public:
     double midiToDisplay(double midiValue) const;
     double displayToMidi(double displayValue) const;
     
+    // Bipolar snap-to-center methods
+    bool isInSnapZone(double displayValue) const;
+    double getSnapThreshold() const;
+    
     // Callbacks for UI updates
     std::function<void(const juce::String&)> onDisplayTextChanged;
     std::function<void(const juce::String&)> onTargetTextChanged;
     
 private:
-    // Internal formatting method
+    // Internal formatting methods
     juce::String formatValue(double value) const;
+    int calculateRequiredDecimalPlaces() const;
     
     // Member variables
     double displayMin = 0.0;
     double displayMax = 16383.0;
     double currentMidiValue = 0.0;
     double targetDisplayValue = 0.0;
+    double stepIncrement = 0.0; // 0 = no quantization, >0 = increment value
     
     // Orientation settings
     SliderOrientation orientation = SliderOrientation::Normal;

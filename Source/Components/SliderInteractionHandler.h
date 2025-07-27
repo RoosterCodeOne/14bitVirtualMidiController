@@ -1,6 +1,7 @@
 // SliderInteractionHandler.h - Mouse interaction and dragging logic for sliders
 #pragma once
 #include <JuceHeader.h>
+#include "../Core/SliderDisplayManager.h"
 
 //==============================================================================
 class SliderInteractionHandler
@@ -45,15 +46,22 @@ public:
                         const juce::Rectangle<float>& trackBounds,
                         double sliderMin,
                         double sliderMax,
-                        std::function<void(double)> onValueChanged)
+                        std::function<void(double)> onValueChanged,
+                        SliderOrientation orientation = SliderOrientation::Normal)
     {
         if (isDraggingThumb)
         {
             // Custom thumb dragging behavior
             auto localPos = event.getPosition().toFloat();
             
-            // Calculate drag distance
+            // Calculate drag distance based on orientation
             float dragDistance = dragStartY - localPos.y; // Inverted because Y increases downward
+            
+            // For inverted orientation, invert the drag direction
+            if (orientation == SliderOrientation::Inverted)
+            {
+                dragDistance = -dragDistance;
+            }
             
             // Convert drag distance to value change
             float trackHeight = trackBounds.getHeight();

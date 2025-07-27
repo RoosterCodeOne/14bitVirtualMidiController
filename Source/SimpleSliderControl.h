@@ -50,13 +50,32 @@ public:
         mainSlider.onValueChange = [this]() {
             if (!automationEngine.isSliderAutomating(index)) // Only update if not currently automating
             {
-                double quantizedValue = quantizeValue(mainSlider.getValue());
-                if (quantizedValue != mainSlider.getValue()) {
+                double rawValue = mainSlider.getValue();
+                
+                // For inverted orientation, if this was a click-to-jump (not a drag), invert the value
+                if (displayManager.getOrientation() == SliderOrientation::Inverted && 
+                    !interactionHandler.isDragging() && !isSettingValueProgrammatically)
+                {
+                    // Invert the value: clicking high on track should give low value
+                    double min = mainSlider.getMinimum();
+                    double max = mainSlider.getMaximum();
+                    rawValue = max - (rawValue - min);
+                    // Set the inverted value without triggering this callback again
+                    isSettingValueProgrammatically = true;
+                    mainSlider.setValue(rawValue, juce::dontSendNotification);
+                    isSettingValueProgrammatically = false;
+                }
+                
+                double quantizedValue = quantizeValue(rawValue);
+                if (quantizedValue != rawValue) {
                     // Update slider to quantized value without triggering callback
+                    isSettingValueProgrammatically = true;
                     mainSlider.setValue(quantizedValue, juce::dontSendNotification);
+                    isSettingValueProgrammatically = false;
                 }
                 int value = (int)quantizedValue;
                 displayManager.setMidiValue(value);
+                
                 if (sendMidiCallback)
                     sendMidiCallback(index, value);
                 // Trigger parent repaint to update visual thumb position
@@ -186,6 +205,8 @@ public:
     }
     
     double getValue() const { return mainSlider.getValue(); }
+    double getDisplayValue() const { return displayManager.getDisplayValue(); }
+    bool isInSnapZone(double displayValue) const { return displayManager.isInSnapZone(displayValue); }
     
     void setTimeMode(TimeMode mode)
     {
@@ -204,7 +225,8 @@ public:
     {
         auto trackBounds = getVisualTrackBounds();
         return layoutManager.calculateThumbPosition(trackBounds, mainSlider.getValue(),
-                                                   mainSlider.getMinimum(), mainSlider.getMaximum());
+                                                   mainSlider.getMinimum(), mainSlider.getMaximum(),
+                                                   displayManager.getOrientation());
     }
     
     // Get visual thumb bounds for hit-testing
@@ -218,7 +240,9 @@ public:
     void setValue(double newValue)
     {
         double quantizedValue = quantizeValue(newValue);
+        isSettingValueProgrammatically = true;
         mainSlider.setValue(quantizedValue, juce::dontSendNotification);
+        isSettingValueProgrammatically = false;
         displayManager.setMidiValue(quantizedValue);
         automationControlPanel.setTargetValue(displayManager.getDisplayValue());
     }
@@ -244,22 +268,51 @@ public:
     // Set custom display range - this is the key method for display mapping
     void setDisplayRange(double minVal, double maxVal)
     {
-        displayManager.setDisplayRange(minVal, maxVal);
+        displayManager.setDisplayRangePreservingCurrentValue(minVal, maxVal);
+        // Update step increment to ensure smart formatting is recalculated
+        displayManager.setStepIncrement(stepIncrement);
         automationControlPanel.setTargetRange(minVal, maxVal);
         automationControlPanel.setTargetValue(displayManager.getDisplayValue());
+        
+        // Update the main slider with the preserved MIDI value to maintain position
+        isSettingValueProgrammatically = true;
+        mainSlider.setValue(displayManager.getMidiValue(), juce::dontSendNotification);
+        isSettingValueProgrammatically = false;
+        
+        // Trigger parent repaint to update visual thumb position
+        if (auto* parent = getParentComponent())
+            parent->repaint();
     }
     
     // Set slider orientation - this is crucial for fixing orientation persistence
     void setOrientation(SliderOrientation orientation)
     {
+        // Store current position before orientation change
+        double currentMidiValue = displayManager.getMidiValue();
+        
         displayManager.setOrientation(orientation);
+        
+        // Restore the same MIDI value to maintain logical position
+        isSettingValueProgrammatically = true;
+        mainSlider.setValue(currentMidiValue, juce::dontSendNotification);
+        isSettingValueProgrammatically = false;
+        
         repaint(); // Force visual update for orientation changes
     }
     
     // Set bipolar settings - required for bipolar center calculation
     void setBipolarSettings(const BipolarSettings& settings)
     {
+        // Store current position before bipolar settings change
+        double currentMidiValue = displayManager.getMidiValue();
+        
         displayManager.setBipolarSettings(settings);
+        
+        // Restore the same MIDI value to maintain logical position
+        isSettingValueProgrammatically = true;
+        mainSlider.setValue(currentMidiValue, juce::dontSendNotification);
+        isSettingValueProgrammatically = false;
+        
         repaint(); // Force visual update for bipolar changes
     }
     
@@ -273,6 +326,21 @@ public:
     BipolarSettings getBipolarSettings() const
     {
         return displayManager.getBipolarSettings();
+    }
+    
+    // Update snap-to-center settings
+    void setSnapToCenter(bool enabled)
+    {
+        auto settings = getBipolarSettings();
+        settings.snapToCenter = enabled;
+        setBipolarSettings(settings);
+    }
+    
+    void setSnapThreshold(SnapThreshold threshold)
+    {
+        auto settings = getBipolarSettings();
+        settings.snapThreshold = threshold;
+        setBipolarSettings(settings);
     }
     
     // Set slider color
@@ -300,6 +368,9 @@ public:
     {
         // Validate increment - must be positive or zero for disable
         stepIncrement = juce::jmax(0.0, increment);
+        
+        // Update display manager with new step increment for smart formatting
+        displayManager.setStepIncrement(stepIncrement);
         
         bool shouldQuantize = stepIncrement > 0.0;
         customLookAndFeel.setQuantizationEnabled(shouldQuantize);
@@ -414,7 +485,9 @@ public:
     void setValueFromKeyboard(double newValue)
     {
         double quantizedValue = quantizeValue(newValue);
+        isSettingValueProgrammatically = true;
         mainSlider.setValue(quantizedValue, juce::dontSendNotification);
+        isSettingValueProgrammatically = false;
         displayManager.setMidiValue(quantizedValue);
         if (sendMidiCallback)
             sendMidiCallback(index, (int)quantizedValue);
@@ -424,7 +497,9 @@ public:
     void setValueFromMIDI(double newValue)
     {
         double quantizedValue = quantizeValue(newValue);
+        isSettingValueProgrammatically = true;
         mainSlider.setValue(quantizedValue, juce::dontSendNotification);
+        isSettingValueProgrammatically = false;
         displayManager.setMidiValue(quantizedValue);
         // Note: No sendMidiCallback to prevent feedback loops
         
@@ -455,7 +530,9 @@ public:
         bool handled = interactionHandler.handleMouseDrag(event, getVisualTrackBounds().toFloat(),
                                                          mainSlider.getMinimum(), mainSlider.getMaximum(),
                                                          [this](double newValue) {
+            isSettingValueProgrammatically = true;
             mainSlider.setValue(newValue, juce::dontSendNotification);
+            isSettingValueProgrammatically = false;
             displayManager.setMidiValue(newValue);
             if (sendMidiCallback)
                 sendMidiCallback(index, (int)newValue);
@@ -463,7 +540,7 @@ public:
             // Trigger parent repaint to update visual thumb position
             if (auto* parent = getParentComponent())
                 parent->repaint();
-        });
+        }, displayManager.getOrientation());
         
         if (!handled)
         {
@@ -482,8 +559,11 @@ public:
             mainSlider.setInterceptsMouseClicks(true, true);
         }
         
-        // Pass to base class for normal handling
+        // Pass to base class for normal handling first
         juce::Component::mouseUp(event);
+        
+        // Check for snap-to-center AFTER all other processing is complete
+        checkAndSnapToCenter();
     }
     
     void mouseDoubleClick(const juce::MouseEvent& event) override
@@ -524,7 +604,9 @@ public:
         resetValue = juce::jlimit(0.0, 16383.0, resetValue);
         
         // Set the value with notification to trigger MIDI output and UI updates
+        isSettingValueProgrammatically = true;
         mainSlider.setValue(resetValue, juce::sendNotification);
+        isSettingValueProgrammatically = false;
         
         // Trigger parent repaint to update visual thumb position
         if (auto* parent = getParentComponent())
@@ -536,6 +618,40 @@ public:
     { 
         showLearnMarkers = show; 
         repaint(); 
+    }
+    
+    // Check if current value should snap to center in bipolar mode
+    void checkAndSnapToCenter()
+    {
+        if (displayManager.getOrientation() != SliderOrientation::Bipolar)
+            return;
+            
+        auto bipolarSettings = displayManager.getBipolarSettings();
+        if (!bipolarSettings.snapToCenter)
+            return;
+            
+        double currentDisplayValue = displayManager.getDisplayValue();
+        
+        // Simple logic: if in snap zone, snap to center
+        if (displayManager.isInSnapZone(currentDisplayValue))
+        {
+            double centerDisplayValue = bipolarSettings.centerValue;
+            double centerMidiValue = displayManager.displayToMidi(centerDisplayValue);
+            
+            // Set the value programmatically
+            isSettingValueProgrammatically = true;
+            mainSlider.setValue(centerMidiValue, juce::dontSendNotification);
+            isSettingValueProgrammatically = false;
+            
+            displayManager.setMidiValue(centerMidiValue);
+            
+            if (sendMidiCallback)
+                sendMidiCallback(index, (int)centerMidiValue);
+                
+            // Trigger parent repaint to update visual thumb position
+            if (auto* parent = getParentComponent())
+                parent->repaint();
+        }
     }
     
 private:
@@ -560,7 +676,9 @@ private:
             if (sliderIndex == index)
             {
                 double quantizedValue = quantizeValue(newValue);
+                isSettingValueProgrammatically = true;
                 mainSlider.setValue(quantizedValue, juce::dontSendNotification);
+                isSettingValueProgrammatically = false;
                 displayManager.setMidiValue(quantizedValue);
                 if (sendMidiCallback)
                     sendMidiCallback(index, (int)quantizedValue);
@@ -739,6 +857,10 @@ public:
     
     // MIDI learn markers
     bool showLearnMarkers = false;
+    
+    // Flag to prevent infinite recursion when setting values programmatically
+    bool isSettingValueProgrammatically = false;
+    
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SimpleSliderControl)
 };

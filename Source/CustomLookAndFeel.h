@@ -143,7 +143,7 @@ public:
     }
     
     // Public drawing methods for external use
-    void drawSliderTrack(juce::Graphics& g, juce::Rectangle<float> trackArea, juce::Colour trackColor, double sliderValue = 1.0, double minValue = 0.0, double maxValue = 16383.0, SliderOrientation orientation = SliderOrientation::Normal, double bipolarCenter = 8191.5)
+    void drawSliderTrack(juce::Graphics& g, juce::Rectangle<float> trackArea, juce::Colour trackColor, double sliderValue = 1.0, double minValue = 0.0, double maxValue = 16383.0, SliderOrientation orientation = SliderOrientation::Normal, double bipolarCenter = 8191.5, bool isInSnapZone = false)
     {
         // Blueprint-style rectangular track
         auto track = trackArea.reduced(2, 4);
@@ -204,36 +204,51 @@ public:
             double normalizedValue = juce::jlimit(0.0, 1.0, (sliderValue - minValue) / (maxValue - minValue));
             
             float centerY = track.getY() + track.getHeight() * (1.0 - normalizedCenter);
+            float valueY = track.getY() + track.getHeight() * (1.0 - normalizedValue);
             
-            // Draw center line
-            g.setColour(trackColor.withAlpha(0.8f));
-            g.fillRect(juce::Rectangle<float>(track.getX(), centerY - 1.0f, track.getWidth(), 2.0f));
-            
-            // Fill from center to current value
-            if (normalizedValue != normalizedCenter)
+            // Draw center line with enhanced visual feedback when in snap zone
+            if (isInSnapZone)
             {
-                float valueY = track.getY() + track.getHeight() * (1.0 - normalizedValue);
+                // Enhanced center line when in snap zone - brighter and thicker
+                g.setColour(trackColor.brighter(0.3f));
+                g.fillRect(juce::Rectangle<float>(track.getX() - 2.0f, centerY - 2.0f, track.getWidth() + 4.0f, 4.0f));
+                
+                // Add subtle glow effect
+                g.setColour(trackColor.withAlpha(0.4f));
+                g.fillRect(juce::Rectangle<float>(track.getX() - 4.0f, centerY - 3.0f, track.getWidth() + 8.0f, 6.0f));
+            }
+            else
+            {
+                // Normal center line
+                g.setColour(trackColor.withAlpha(0.8f));
+                g.fillRect(juce::Rectangle<float>(track.getX(), centerY - 1.0f, track.getWidth(), 2.0f));
+            }
+            
+            // Fill from center to current value (only if not exactly at center)
+            if (std::abs(normalizedValue - normalizedCenter) > 0.001) // Small threshold to avoid tiny fills
+            {
                 juce::Rectangle<float> fillArea;
+                juce::Point<float> gradientStart, gradientEnd;
                 
                 if (normalizedValue > normalizedCenter)
                 {
-                    // Fill upward from center
+                    // Value is above center - fill upward from center
                     fillArea = juce::Rectangle<float>(track.getX(), valueY, track.getWidth(), centerY - valueY);
+                    gradientStart = juce::Point<float>(fillArea.getCentreX(), centerY);       // Start at center line
+                    gradientEnd = juce::Point<float>(fillArea.getCentreX(), valueY);         // End at current value
                 }
                 else
                 {
-                    // Fill downward from center
+                    // Value is below center - fill downward from center  
                     fillArea = juce::Rectangle<float>(track.getX(), centerY, track.getWidth(), valueY - centerY);
+                    gradientStart = juce::Point<float>(fillArea.getCentreX(), centerY);       // Start at center line
+                    gradientEnd = juce::Point<float>(fillArea.getCentreX(), valueY);         // End at current value
                 }
                 
-                // Bipolar gradient fill
-                juce::Point<float> gradientEnd = normalizedValue > normalizedCenter ? 
-                    juce::Point<float>(fillArea.getCentreX(), fillArea.getY()) :
-                    juce::Point<float>(fillArea.getCentreX(), fillArea.getBottom());
-                    
+                // Create gradient from center (brighter) to current position (darker)
                 juce::ColourGradient fillGradient(
-                    BlueprintColors::background.withAlpha(0.5f), fillArea.getCentre(),
-                    trackColor, gradientEnd,
+                    trackColor, gradientStart,                                       // Brighter at center
+                    BlueprintColors::background.withAlpha(0.2f), gradientEnd,      // Darker at current value (thumb)
                     false
                 );
                 

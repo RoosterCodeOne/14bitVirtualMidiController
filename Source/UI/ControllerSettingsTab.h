@@ -27,7 +27,7 @@ public:
     void setSliderSettings(int ccNumber, bool is14Bit, double rangeMin, double rangeMax, 
                           const juce::String& displayUnit, double increment, bool useDeadzone, int colorId,
                           SliderOrientation orientation = SliderOrientation::Normal, double centerValue = 0.0,
-                          const juce::String& customName = "");
+                          const juce::String& customName = "", SnapThreshold snapThreshold = SnapThreshold::Medium);
     
     // Access methods for main window
     int getMidiChannel() const { return midiChannelCombo.getSelectedId(); }
@@ -47,6 +47,12 @@ public:
     SliderOrientation getCurrentOrientation() const { return static_cast<SliderOrientation>(orientationCombo.getSelectedId() - 1); }
     double getCurrentCenterValue() const { return centerValueInput.getText().getDoubleValue(); }
     juce::String getCurrentCustomName() const { return nameInput.getText(); }
+    SnapThreshold getCurrentSnapThreshold() const 
+    {
+        if (snapSmallButton.getToggleState()) return SnapThreshold::Small;
+        if (snapLargeButton.getToggleState()) return SnapThreshold::Large;
+        return SnapThreshold::Medium; // Default
+    }
     
     // Callback functions for communication with parent
     std::function<void()> onSettingsChanged;
@@ -104,6 +110,8 @@ private:
     juce::ComboBox orientationCombo;
     juce::Label centerValueLabel;
     juce::TextEditor centerValueInput;
+    juce::Label snapLabel;
+    juce::ToggleButton snapSmallButton, snapMediumButton, snapLargeButton;
     
     // Section 3 - Input Behavior
     juce::Label inputModeLabel;
@@ -133,6 +141,7 @@ private:
     void applyInputMode();
     void applyOrientation();
     void validateAndApplyCenterValue();
+    void applySnapThreshold();
     void applyCustomName();
     void selectColor(int colorId);
     void resetCurrentSlider();
@@ -526,6 +535,34 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     centerValueInput.onFocusLost = [this]() { validateAndApplyCenterValue(); };
     centerValueInput.setVisible(false); // Initially hidden
     
+    // Snap threshold controls (small radio buttons)
+    addAndMakeVisible(snapLabel);
+    snapLabel.setText("Snap:", juce::dontSendNotification);
+    snapLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    snapLabel.setVisible(false); // Initially hidden
+    
+    addAndMakeVisible(snapSmallButton);
+    snapSmallButton.setButtonText("S");
+    snapSmallButton.setLookAndFeel(&customButtonLookAndFeel);
+    snapSmallButton.setRadioGroupId(100); // Snap group
+    snapSmallButton.onClick = [this]() { applySnapThreshold(); if (onRequestFocus) onRequestFocus(); };
+    snapSmallButton.setVisible(false);
+    
+    addAndMakeVisible(snapMediumButton);
+    snapMediumButton.setButtonText("M");
+    snapMediumButton.setLookAndFeel(&customButtonLookAndFeel);
+    snapMediumButton.setRadioGroupId(100); // Snap group
+    snapMediumButton.setToggleState(true, juce::dontSendNotification); // Default
+    snapMediumButton.onClick = [this]() { applySnapThreshold(); if (onRequestFocus) onRequestFocus(); };
+    snapMediumButton.setVisible(false);
+    
+    addAndMakeVisible(snapLargeButton);
+    snapLargeButton.setButtonText("L");
+    snapLargeButton.setLookAndFeel(&customButtonLookAndFeel);
+    snapLargeButton.setRadioGroupId(100); // Snap group
+    snapLargeButton.onClick = [this]() { applySnapThreshold(); if (onRequestFocus) onRequestFocus(); };
+    snapLargeButton.setVisible(false);
+    
     // Section 3 - Input Behavior
     addAndMakeVisible(section3Header);
     section3Header.setText("Input Behavior", juce::dontSendNotification);
@@ -671,6 +708,14 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     centerValueLabel.setBounds(centerRow.removeFromLeft(120));
     centerRow.removeFromLeft(8);
     centerValueInput.setBounds(centerRow.removeFromLeft(80));
+    centerRow.removeFromLeft(8);
+    snapLabel.setBounds(centerRow.removeFromLeft(40));
+    centerRow.removeFromLeft(4);
+    snapSmallButton.setBounds(centerRow.removeFromLeft(20));
+    centerRow.removeFromLeft(2);
+    snapMediumButton.setBounds(centerRow.removeFromLeft(20));
+    centerRow.removeFromLeft(2);
+    snapLargeButton.setBounds(centerRow.removeFromLeft(20));
     
     bounds.removeFromTop(sectionSpacing);
     
@@ -844,6 +889,10 @@ inline void ControllerSettingsTab::applyOrientation()
     bool showCenterValue = (newOrientation == SliderOrientation::Bipolar);
     centerValueLabel.setVisible(showCenterValue);
     centerValueInput.setVisible(showCenterValue);
+    snapLabel.setVisible(showCenterValue);
+    snapSmallButton.setVisible(showCenterValue);
+    snapMediumButton.setVisible(showCenterValue);
+    snapLargeButton.setVisible(showCenterValue);
     
     // Set default center value if switching to bipolar
     if (showCenterValue)
@@ -888,6 +937,12 @@ inline void ControllerSettingsTab::validateAndApplyCenterValue()
         onSliderSettingChanged(selectedSlider);
 }
 
+inline void ControllerSettingsTab::applySnapThreshold()
+{
+    if (onSliderSettingChanged)
+        onSliderSettingChanged(selectedSlider);
+}
+
 inline void ControllerSettingsTab::applyCustomName()
 {
     // Get the custom name and notify parent
@@ -916,6 +971,10 @@ inline void ControllerSettingsTab::resetCurrentSlider()
     centerValueLabel.setVisible(false);
     centerValueInput.setVisible(false);
     centerValueInput.setText("8191.5", juce::dontSendNotification); // Middle of 0-16383
+    snapLabel.setVisible(false);
+    snapSmallButton.setVisible(false);
+    snapMediumButton.setVisible(false);
+    snapLargeButton.setVisible(false);
     
     // Set default color based on bank
     int bankIndex = selectedSlider / 4;
@@ -1022,7 +1081,7 @@ inline void ControllerSettingsTab::setSliderSettings(int ccNumber, bool is14Bit,
                                                     const juce::String& displayUnit, double increment, 
                                                     bool useDeadzone, int colorId,
                                                     SliderOrientation orientation, double centerValue,
-                                                    const juce::String& customName)
+                                                    const juce::String& customName, SnapThreshold snapThreshold)
 {
     // Update all controls with the provided settings (without triggering callbacks)
     ccNumberInput.setText(juce::String(ccNumber), juce::dontSendNotification);
@@ -1043,6 +1102,15 @@ inline void ControllerSettingsTab::setSliderSettings(int ccNumber, bool is14Bit,
     bool showCenterValue = (orientation == SliderOrientation::Bipolar);
     centerValueLabel.setVisible(showCenterValue);
     centerValueInput.setVisible(showCenterValue);
+    snapLabel.setVisible(showCenterValue);
+    snapSmallButton.setVisible(showCenterValue);
+    snapMediumButton.setVisible(showCenterValue);
+    snapLargeButton.setVisible(showCenterValue);
+    
+    // Set snap threshold radio buttons
+    snapSmallButton.setToggleState(snapThreshold == SnapThreshold::Small, juce::dontSendNotification);
+    snapMediumButton.setToggleState(snapThreshold == SnapThreshold::Medium, juce::dontSendNotification);
+    snapLargeButton.setToggleState(snapThreshold == SnapThreshold::Large, juce::dontSendNotification);
     
     // Update custom name
     nameInput.setText(customName, juce::dontSendNotification);
