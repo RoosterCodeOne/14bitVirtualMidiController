@@ -74,7 +74,8 @@ public:
                     isSettingValueProgrammatically = false;
                 }
                 int value = (int)quantizedValue;
-                displayManager.setMidiValue(value);
+                // Manual slider change - allow snap on value changes
+                displayManager.setMidiValueWithSnap(value, true);
                 
                 if (sendMidiCallback)
                     sendMidiCallback(index, value);
@@ -89,10 +90,25 @@ public:
             // Check if locked - prevent manual dragging
             if (lockState) return;
             
+            // Set drag state for movement-aware snapping
+            displayManager.setDragState(true);
+            
             if (automationEngine.isSliderAutomating(index))
             {
                 automationEngine.handleManualOverride(index);
             }
+        };
+        
+        // Drag end detection for snap behavior
+        mainSlider.onDragEnd = [this]() {
+            // Clear drag state - allows snapping to occur
+            displayManager.setDragState(false);
+            
+            // Trigger a final value update that can snap after drag ends
+            juce::Timer::callAfterDelay(50, [this]() {
+                double currentValue = mainSlider.getValue();
+                displayManager.setMidiValueWithSnap(currentValue, true); // Allow snap after drag ends
+            });
         };
         
         // Slider number label
@@ -244,7 +260,9 @@ public:
         isSettingValueProgrammatically = true;
         mainSlider.setValue(quantizedValue, juce::dontSendNotification);
         isSettingValueProgrammatically = false;
-        displayManager.setMidiValue(quantizedValue);
+        
+        // Use snap-aware method for external value setting
+        displayManager.setMidiValueWithSnap(quantizedValue, true);
         automationControlPanel.setTargetValue(displayManager.getDisplayValue());
     }
     
@@ -485,13 +503,23 @@ public:
     // For keyboard movement - updates slider without changing target input
     void setValueFromKeyboard(double newValue)
     {
+        // Enable keyboard navigation mode for smart timing
+        displayManager.setKeyboardNavigationMode(true);
+        
         double quantizedValue = quantizeValue(newValue);
         isSettingValueProgrammatically = true;
         mainSlider.setValue(quantizedValue, juce::dontSendNotification);
         isSettingValueProgrammatically = false;
-        displayManager.setMidiValue(quantizedValue);
+        
+        // Use snap-aware method for keyboard input
+        displayManager.setMidiValueWithSnap(quantizedValue, true);
         if (sendMidiCallback)
             sendMidiCallback(index, (int)quantizedValue);
+            
+        // Reset keyboard navigation mode after a short delay
+        juce::Timer::callAfterDelay(200, [this]() {
+            displayManager.setKeyboardNavigationMode(false);
+        });
     }
     
     // For MIDI input - updates slider without triggering output (prevents feedback loops)
@@ -501,7 +529,9 @@ public:
         isSettingValueProgrammatically = true;
         mainSlider.setValue(quantizedValue, juce::dontSendNotification);
         isSettingValueProgrammatically = false;
-        displayManager.setMidiValue(quantizedValue);
+        
+        // Use snap-aware method for external MIDI input
+        displayManager.setMidiValueWithSnap(quantizedValue, true);
         // Note: No sendMidiCallback to prevent feedback loops
         
         // Trigger activity indicator to show MIDI input activity
@@ -511,8 +541,14 @@ public:
     // Callback for slider click (used for learn mode)
     std::function<void()> onSliderClick;
     
+    // Callback to check if slider is in 14-bit mode (for quantization)
+    std::function<bool(int)> is14BitMode;
+    
     void mouseDown(const juce::MouseEvent& event) override
     {
+        // Set drag state for movement tracking
+        displayManager.setDragState(true);
+        
         bool handled = interactionHandler.handleMouseDown(event, getVisualThumbBounds(), lockState,
                                                          mainSlider.getValue(), onSliderClick);
         
@@ -534,7 +570,8 @@ public:
             isSettingValueProgrammatically = true;
             mainSlider.setValue(newValue, juce::dontSendNotification);
             isSettingValueProgrammatically = false;
-            displayManager.setMidiValue(newValue);
+            // Update during manual drag - use drag flag to prevent snapping
+            displayManager.setMidiValueWithSnap(newValue, true, true); // isDragUpdate = true
             if (sendMidiCallback)
                 sendMidiCallback(index, (int)newValue);
             
@@ -552,6 +589,9 @@ public:
     
     void mouseUp(const juce::MouseEvent& event) override
     {
+        // Clear drag state - allows snapping to occur
+        displayManager.setDragState(false);
+        
         bool handled = interactionHandler.handleMouseUp(event);
         
         if (handled)
@@ -563,8 +603,11 @@ public:
         // Pass to base class for normal handling first
         juce::Component::mouseUp(event);
         
-        // Check for snap-to-center AFTER all other processing is complete
-        checkAndSnapToCenter();
+        // Trigger a final value update that can snap after drag ends
+        juce::Timer::callAfterDelay(50, [this]() {
+            double currentValue = mainSlider.getValue();
+            displayManager.setMidiValueWithSnap(currentValue, true); // Allow snap after drag ends
+        });
     }
     
     void mouseDoubleClick(const juce::MouseEvent& event) override
@@ -621,39 +664,8 @@ public:
         repaint(); 
     }
     
-    // Check if current value should snap to center in bipolar mode
-    void checkAndSnapToCenter()
-    {
-        if (displayManager.getOrientation() != SliderOrientation::Bipolar)
-            return;
-            
-        auto bipolarSettings = displayManager.getBipolarSettings();
-        if (!bipolarSettings.snapToCenter)
-            return;
-            
-        double currentDisplayValue = displayManager.getDisplayValue();
-        
-        // Simple logic: if in snap zone, snap to center
-        if (displayManager.isInSnapZone(currentDisplayValue))
-        {
-            double centerDisplayValue = displayManager.getCenterValue();
-            double centerMidiValue = displayManager.displayToMidi(centerDisplayValue);
-            
-            // Set the value programmatically
-            isSettingValueProgrammatically = true;
-            mainSlider.setValue(centerMidiValue, juce::dontSendNotification);
-            isSettingValueProgrammatically = false;
-            
-            displayManager.setMidiValue(centerMidiValue);
-            
-            if (sendMidiCallback)
-                sendMidiCallback(index, (int)centerMidiValue);
-                
-            // Trigger parent repaint to update visual thumb position
-            if (auto* parent = getParentComponent())
-                parent->repaint();
-        }
-    }
+    // Snap logic moved to SliderDisplayManager::setMidiValueWithSnap()
+    // This ensures consistent snap behavior across all interaction paths
     
 private:
     void setupDisplayManager()
@@ -661,6 +673,22 @@ private:
         // Set up display manager callbacks
         displayManager.onDisplayTextChanged = [this](const juce::String& text) {
             currentValueLabel.setText(text, juce::dontSendNotification);
+        };
+        
+        // Set up snap callback for consistent behavior
+        displayManager.onSnapToCenter = [this](double snappedMidiValue) {
+            // Update slider to snapped value
+            isSettingValueProgrammatically = true;
+            mainSlider.setValue(snappedMidiValue, juce::dontSendNotification);
+            isSettingValueProgrammatically = false;
+            
+            // Send MIDI output and trigger visual updates
+            if (sendMidiCallback)
+                sendMidiCallback(index, (int)snappedMidiValue);
+                
+            // Trigger parent repaint to update visual thumb position
+            if (auto* parent = getParentComponent())
+                parent->repaint();
         };
         
         // Initialize display with current slider value
@@ -680,6 +708,7 @@ private:
                 isSettingValueProgrammatically = true;
                 mainSlider.setValue(quantizedValue, juce::dontSendNotification);
                 isSettingValueProgrammatically = false;
+                // Automation should never snap - maintain smooth, precise movement
                 displayManager.setMidiValue(quantizedValue);
                 if (sendMidiCallback)
                     sendMidiCallback(index, (int)quantizedValue);
@@ -777,6 +806,16 @@ private:
     // Quantize value to step increments based on display range
     double quantizeValue(double midiValue) const
     {
+        // Check for 7-bit quantization first
+        if (is14BitMode && !is14BitMode(index))
+        {
+            // This is 7-bit mode - quantize to 128 discrete steps (0-127)
+            // Scale 0-16383 to 0-127, then back to 0-16383 in discrete steps
+            int value7bit = (int)((midiValue / 16383.0) * 127.0 + 0.5); // Round to nearest
+            value7bit = juce::jlimit(0, 127, value7bit);
+            return (double)(value7bit * 128); // Scale back to 14-bit range in 128-step increments
+        }
+        
         if (stepIncrement <= 0.0) return midiValue; // No quantization
         
         // Convert MIDI value to display value for quantization

@@ -26,12 +26,26 @@ public:
             auto* sliderControl = new SimpleSliderControl(i, [this](int sliderIndex, int value) {
                 int midiChannel = settingsWindow.getMidiChannel();
                 int ccNumber = settingsWindow.getCCNumber(sliderIndex);
-                midiManager.sendCC14BitWithSlider(sliderIndex + 1, midiChannel, ccNumber, value);
+                
+                // Check if slider is configured for 7-bit or 14-bit output
+                if (settingsWindow.is14BitOutput(sliderIndex))
+                {
+                    midiManager.sendCC14BitWithSlider(sliderIndex + 1, midiChannel, ccNumber, value);
+                }
+                else
+                {
+                    midiManager.sendCC7BitWithSlider(sliderIndex + 1, midiChannel, ccNumber, value);
+                }
                 
                 // Trigger MIDI activity indicator AFTER successful MIDI send
                 if (sliderIndex < sliderControls.size())
                     sliderControls[sliderIndex]->triggerMidiActivity();
             });
+            
+            // Set up 14-bit mode callback for quantization
+            sliderControl->is14BitMode = [this](int sliderIndex) -> bool {
+                return settingsWindow.is14BitOutput(sliderIndex);
+            };
             
             // Add click handler for learn mode
             sliderControl->onSliderClick = [this, i]() {

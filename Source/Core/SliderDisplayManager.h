@@ -77,6 +77,13 @@ public:
     // Value management
     void setMidiValue(double midiValue);
     void setDisplayValue(double displayValue);
+    void setDisplayValueWithSnap(double displayValue, bool allowSnap = true, bool isDragUpdate = false);
+    void setMidiValueWithSnap(double midiValue, bool allowSnap = true, bool isDragUpdate = false);
+    
+    // Movement state management
+    void setDragState(bool dragging);
+    void setKeyboardNavigationMode(bool isKeyboardNav);
+    void updateMovementState();
     
     // Value access
     double getMidiValue() const;
@@ -105,15 +112,28 @@ public:
     double getCenterValue() const;        // Get automatically calculated center (middle of range)
     bool isInSnapZone(double displayValue) const;
     double getSnapThreshold() const;
+    bool shouldSnapToCenter(double displayValue) const;
+    
+    // Auto-step calculation methods
+    double calculateOptimalStep(double minVal, double maxVal, bool is14Bit) const;
+    double getOptimalStepForCurrentRange(bool is14Bit) const;
+    bool isStepCustom() const;
+    void setAutoStep(bool is14Bit);
+    void setCustomStep(double customStep);
     
     // Callbacks for UI updates
     std::function<void(const juce::String&)> onDisplayTextChanged;
     std::function<void(const juce::String&)> onTargetTextChanged;
+    std::function<void(double)> onSnapToCenter;  // Called when snap occurs with snapped MIDI value
     
 private:
     // Internal formatting methods
     juce::String formatValue(double value) const;
+    int getDecimalPlaces(double value) const;
     int calculateRequiredDecimalPlaces() const;
+    
+    // Movement tracking helper
+    void updateMovementTracking(double newValue, bool isDragUpdate);
     
     // Member variables
     double displayMin = 0.0;
@@ -121,10 +141,23 @@ private:
     double currentMidiValue = 0.0;
     double targetDisplayValue = 0.0;
     double stepIncrement = 0.0; // 0 = no quantization, >0 = increment value
+    bool isCustomStep = false;   // true = user-set custom step, false = auto-calculated step
     
     // Orientation settings
     SliderOrientation orientation = SliderOrientation::Normal;
     BipolarSettings bipolarSettings;
+    
+    // Movement state tracking
+    double lastMovementTime = 0.0;
+    double lastValue = 0.0;
+    bool isActivelyMoving = false;
+    bool isDragging = false;
+    bool isKeyboardNavigation = false;
+    
+    // Movement detection constants
+    static constexpr double MOVEMENT_SETTLE_TIME = 300.0;         // milliseconds
+    static constexpr double KEYBOARD_SETTLE_TIME = 150.0;        // faster for keyboard
+    static constexpr double MOVEMENT_THRESHOLD = 0.001;          // minimum change to count as movement
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SliderDisplayManager)
 };

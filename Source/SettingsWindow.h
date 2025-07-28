@@ -38,6 +38,7 @@ public:
     // New per-slider settings access methods
     bool is14BitOutput(int sliderIndex) const;
     double getIncrement(int sliderIndex) const;
+    bool isStepCustom(int sliderIndex) const;
     bool useDeadzone(int sliderIndex) const;
     juce::String getDisplayUnit(int sliderIndex) const;
     SliderOrientation getSliderOrientation(int sliderIndex) const;
@@ -80,6 +81,7 @@ private:
         double rangeMax = 16383.0;
         juce::String displayUnit;
         double increment = 1.0;
+        bool isCustomStep = false; // true = user-set custom step, false = auto-calculated step
         bool useDeadzone = true;
         int colorId = 1;
         SliderOrientation orientation = SliderOrientation::Normal;
@@ -94,6 +96,7 @@ private:
             rangeMax = 16383.0;
             displayUnit = juce::String();
             increment = 1.0;
+            isCustomStep = false;
             useDeadzone = true;
             colorId = 1;
             orientation = SliderOrientation::Normal;
@@ -287,7 +290,8 @@ inline void SettingsWindow::initializeSliderData()
         settings.rangeMin = 0.0;
         settings.rangeMax = 16383.0;
         settings.displayUnit = juce::String();
-        settings.increment = 1.0;
+        settings.increment = 1.0; // Will be auto-calculated
+        settings.isCustomStep = false; // Start with auto-calculated step
         settings.useDeadzone = true;
         settings.orientation = SliderOrientation::Normal;
         settings.bipolarSettings = BipolarSettings(); // Center value now auto-calculated
@@ -496,6 +500,13 @@ inline double SettingsWindow::getIncrement(int sliderIndex) const
     return 1.0;
 }
 
+inline bool SettingsWindow::isStepCustom(int sliderIndex) const
+{
+    if (sliderIndex >= 0 && sliderIndex < 16)
+        return sliderSettingsData[sliderIndex].isCustomStep;
+    return false;
+}
+
 inline bool SettingsWindow::useDeadzone(int sliderIndex) const
 {
     if (sliderIndex >= 0 && sliderIndex < 16)
@@ -616,6 +627,7 @@ inline void SettingsWindow::saveCurrentSliderSettings()
         settings.rangeMax = controllerTab->getCurrentRangeMax();
         settings.displayUnit = controllerTab->getCurrentDisplayUnit();
         settings.increment = controllerTab->getCurrentIncrement();
+        settings.isCustomStep = controllerTab->getCurrentIsCustomStep();
         settings.useDeadzone = controllerTab->getCurrentUseDeadzone();
         settings.colorId = controllerTab->getCurrentColorId();
         settings.orientation = controllerTab->getCurrentOrientation();
@@ -644,6 +656,7 @@ inline void SettingsWindow::updateControlsForSelectedSlider()
             settings.rangeMax,
             settings.displayUnit,
             settings.increment,
+            settings.isCustomStep,
             settings.useDeadzone,
             settings.colorId,
             settings.orientation,

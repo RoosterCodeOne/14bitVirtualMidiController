@@ -25,6 +25,7 @@ public:
     // MIDI communication
     void sendCC14Bit(int channel, int ccNumber, int value14bit);
     void sendCC14BitWithSlider(int sliderNumber, int channel, int ccNumber, int value14bit);
+    void sendCC7BitWithSlider(int sliderNumber, int channel, int ccNumber, int value14bit);
     
     // Device preferences
     void saveDevicePreference();

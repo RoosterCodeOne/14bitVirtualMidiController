@@ -25,7 +25,7 @@ public:
     void updateBankSelectorAppearance(int selectedBank);
     void applyPreset(const ControllerPreset& preset);
     void setSliderSettings(int ccNumber, bool is14Bit, double rangeMin, double rangeMax, 
-                          const juce::String& displayUnit, double increment, bool useDeadzone, int colorId,
+                          const juce::String& displayUnit, double increment, bool isCustomStep, bool useDeadzone, int colorId,
                           SliderOrientation orientation = SliderOrientation::Normal,
                           const juce::String& customName = "", SnapThreshold snapThreshold = SnapThreshold::Medium);
     
@@ -42,6 +42,7 @@ public:
     double getCurrentRangeMax() const { return rangeMaxInput.getText().getDoubleValue(); }
     juce::String getCurrentDisplayUnit() const { return displayUnitInput.getText(); }
     double getCurrentIncrement() const { return incrementsInput.getText().getDoubleValue(); }
+    bool getCurrentIsCustomStep() const { return isCustomStepFlag; }
     bool getCurrentUseDeadzone() const { return deadzoneButton.getToggleState(); }
     int getCurrentColorId() const { return currentColorId; }
     SliderOrientation getCurrentOrientation() const { return static_cast<SliderOrientation>(orientationCombo.getSelectedId() - 1); }
@@ -65,6 +66,7 @@ private:
     SettingsWindow* parentWindow;
     CustomButtonLookAndFeel customButtonLookAndFeel;
     int currentColorId = 1; // Track current color selection
+    bool isCustomStepFlag = false; // Track whether step is custom or auto
     
     // MIDI Channel controls
     juce::Label midiChannelLabel;
@@ -105,6 +107,7 @@ private:
     juce::TextEditor displayUnitInput;
     juce::Label incrementsLabel;
     juce::TextEditor incrementsInput;
+    juce::TextButton autoStepButton;
     juce::Label orientationLabel;
     juce::ComboBox orientationCombo;
     juce::Label snapLabel;
@@ -135,6 +138,8 @@ private:
     void validateAndApplyRange();
     void applyDisplayUnit();
     void applyIncrements();
+    void setAutoStepMode();
+    void updateStepIndicationVisuals();
     void applyInputMode();
     void applyOrientation();
     void applySnapThreshold();
@@ -163,6 +168,7 @@ inline ControllerSettingsTab::~ControllerSettingsTab()
 {
     // Clean up custom look and feel
     resetSliderButton.setLookAndFeel(nullptr);
+    autoStepButton.setLookAndFeel(nullptr);
 }
 
 inline void ControllerSettingsTab::paint(juce::Graphics& g)
@@ -498,6 +504,18 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     incrementsInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
     incrementsInput.onReturnKey = [this]() { incrementsInput.moveKeyboardFocusToSibling(true); };
     incrementsInput.onFocusLost = [this]() { applyIncrements(); };
+    incrementsInput.onTextChange = [this]() { 
+        // Mark as custom step when user manually changes the value
+        isCustomStepFlag = true;
+    };
+    
+    // Auto step button
+    addAndMakeVisible(autoStepButton);
+    autoStepButton.setButtonText("Auto");
+    autoStepButton.setLookAndFeel(&customButtonLookAndFeel);
+    autoStepButton.onClick = [this]() { 
+        setAutoStepMode();
+    };
     
     // Orientation controls
     addAndMakeVisible(orientationLabel);
@@ -675,7 +693,9 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     auto incrementRow = section2Bounds.removeFromTop(labelHeight);
     incrementsLabel.setBounds(incrementRow.removeFromLeft(120));
     incrementRow.removeFromLeft(8);
-    incrementsInput.setBounds(incrementRow.removeFromLeft(100));
+    incrementsInput.setBounds(incrementRow.removeFromLeft(70));
+    incrementRow.removeFromLeft(4);
+    autoStepButton.setBounds(incrementRow.removeFromLeft(40));
     
     section2Bounds.removeFromTop(controlSpacing);
     
@@ -788,6 +808,39 @@ inline void ControllerSettingsTab::applyOutputMode()
     // Get the 14-bit state and notify parent
     bool is14Bit = output14BitButton.getToggleState();
     
+    // Auto-set optimal ranges when switching modes (only if in auto-step mode)
+    if (!isCustomStepFlag)
+    {
+        double currentMin = rangeMinInput.getText().getDoubleValue();
+        double currentMax = rangeMaxInput.getText().getDoubleValue();
+        
+        if (!is14Bit)
+        {
+            // Switching to 7-bit mode: auto-set to 0-127 if currently using default 14-bit range
+            if (std::abs(currentMin - 0.0) < 0.1 && std::abs(currentMax - 16383.0) < 0.1)
+            {
+                rangeMinInput.setText("0", juce::dontSendNotification);
+                rangeMaxInput.setText("127", juce::dontSendNotification);
+            }
+        }
+        else
+        {
+            // Switching to 14-bit mode: auto-set to 0-16383 if currently using default 7-bit range
+            if (std::abs(currentMin - 0.0) < 0.1 && std::abs(currentMax - 127.0) < 0.1)
+            {
+                rangeMinInput.setText("0", juce::dontSendNotification);
+                rangeMaxInput.setText("16383", juce::dontSendNotification);
+            }
+        }
+    }
+    
+    // Auto-recalculate step if in auto mode
+    if (!isCustomStepFlag)
+    {
+        setAutoStepMode();
+        return; // setAutoStepMode() already calls onSliderSettingChanged
+    }
+    
     if (onSliderSettingChanged)
         onSliderSettingChanged(selectedSlider);
 }
@@ -812,6 +865,13 @@ inline void ControllerSettingsTab::validateAndApplyRange()
     
     // Bipolar center automatically calculated - no manual update needed
     
+    // Auto-recalculate step if in auto mode
+    if (!isCustomStepFlag)
+    {
+        setAutoStepMode();
+        return; // setAutoStepMode() already calls onSliderSettingChanged
+    }
+    
     if (onSliderSettingChanged)
         onSliderSettingChanged(selectedSlider);
 }
@@ -833,8 +893,57 @@ inline void ControllerSettingsTab::applyIncrements()
     double increment = juce::jmax(0.001, text.getDoubleValue());
     incrementsInput.setText(juce::String(increment, 3), juce::dontSendNotification);
     
+    // Mark as custom step since user manually set the value
+    isCustomStepFlag = true;
+    
+    // Update visual indication
+    updateStepIndicationVisuals();
+    
     if (onSliderSettingChanged)
         onSliderSettingChanged(selectedSlider);
+}
+
+inline void ControllerSettingsTab::setAutoStepMode()
+{
+    // Calculate auto step based on current range and 7-bit/14-bit mode
+    bool is14Bit = output14BitButton.getToggleState();
+    double rangeMin = rangeMinInput.getText().getDoubleValue();
+    double rangeMax = rangeMaxInput.getText().getDoubleValue();
+    
+    int numSteps = is14Bit ? 16384 : 128;
+    double range = std::abs(rangeMax - rangeMin);
+    double autoStep = range / (numSteps - 1);
+    
+    // Set the calculated step
+    incrementsInput.setText(juce::String(autoStep, 6), juce::dontSendNotification);
+    isCustomStepFlag = false; // Mark as auto-calculated
+    
+    // Update visual indication
+    updateStepIndicationVisuals();
+    
+    if (onSliderSettingChanged)
+        onSliderSettingChanged(selectedSlider);
+}
+
+inline void ControllerSettingsTab::updateStepIndicationVisuals()
+{
+    if (isCustomStepFlag)
+    {
+        // Custom step mode - normal appearance
+        incrementsInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
+        incrementsInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
+        autoStepButton.setButtonText("Auto");
+    }
+    else
+    {
+        // Auto step mode - slightly different appearance to indicate auto-calculated
+        incrementsInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background.brighter(0.1f));
+        incrementsInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textSecondary);
+        autoStepButton.setButtonText("AUTO");
+    }
+    
+    incrementsInput.repaint();
+    autoStepButton.repaint();
 }
 
 inline void ControllerSettingsTab::applyInputMode()
@@ -1013,7 +1122,7 @@ inline void ControllerSettingsTab::updateControlsForSelectedSlider(int sliderInd
 }
 
 inline void ControllerSettingsTab::setSliderSettings(int ccNumber, bool is14Bit, double rangeMin, double rangeMax, 
-                                                    const juce::String& displayUnit, double increment, 
+                                                    const juce::String& displayUnit, double increment, bool isCustomStep,
                                                     bool useDeadzone, int colorId,
                                                     SliderOrientation orientation,
                                                     const juce::String& customName, SnapThreshold snapThreshold)
@@ -1026,6 +1135,10 @@ inline void ControllerSettingsTab::setSliderSettings(int ccNumber, bool is14Bit,
     rangeMaxInput.setText(juce::String(rangeMax, 2), juce::dontSendNotification);
     displayUnitInput.setText(displayUnit, juce::dontSendNotification);
     incrementsInput.setText(juce::String(increment, 3), juce::dontSendNotification);
+    isCustomStepFlag = isCustomStep; // Update custom step flag
+    
+    // Update visual indication based on custom/auto mode
+    updateStepIndicationVisuals();
     deadzoneButton.setToggleState(useDeadzone, juce::dontSendNotification);
     directButton.setToggleState(!useDeadzone, juce::dontSendNotification);
     
