@@ -126,9 +126,58 @@ private:
     juce::OwnedArray<juce::TextButton> colorButtons; // 4x2 grid
     juce::TextButton resetSliderButton;
     
+    // Current color box and grid system
+    class ColorBox : public juce::Component
+    {
+    public:
+        ColorBox() = default;
+        
+        void paint(juce::Graphics& g) override
+        {
+            // Draw filled rectangle with current color
+            g.setColour(currentColor);
+            g.fillRect(getLocalBounds().reduced(1));
+            
+            // Draw border
+            g.setColour(BlueprintColors::blueprintLines);
+            g.drawRect(getLocalBounds(), 1);
+        }
+        
+        void mouseDown(const juce::MouseEvent& event) override
+        {
+            if (onClicked)
+                onClicked();
+        }
+        
+        void setCurrentColor(juce::Colour color)
+        {
+            currentColor = color;
+            repaint();
+        }
+        
+        juce::Colour getCurrentColor() const { return currentColor; }
+        
+        std::function<void()> onClicked;
+        
+    private:
+        juce::Colour currentColor = juce::Colours::cyan;
+    };
+    
+    ColorBox currentColorBox;
+    bool colorGridVisible = false;
+    juce::Rectangle<int> colorGridBounds;
+    
     // Private methods
     void setupControllerControls();
     void setupBankSelector();
+    
+    // Color grid management
+    void showColorGrid();
+    void hideColorGrid();
+    void paintColorGrid(juce::Graphics& g);
+    void handleColorGridClick(const juce::MouseEvent& event);
+    int calculateColorIndexFromPosition(const juce::Point<int>& position);
+    juce::Colour getColorById(int colorId);
     void setupNameControls();
     void setupPerSliderControls();
     void layoutPerSliderSections(juce::Rectangle<int>& bounds);
@@ -192,16 +241,7 @@ inline void ControllerSettingsTab::paint(juce::Graphics& g)
     const int inputHeight = 22;
     const int headerHeight = 22;
     
-    // Skip MIDI Channel and BPM (no background box)
-    bounds.removeFromTop(10 + 22 + 6 + 22 + 8);
-    
-    // Skip Breadcrumb (no background box)
-    bounds.removeFromTop(20 + 6);
-    
-    // Skip Bank selector (no background box)
-    bounds.removeFromTop(22 + 8);
-    
-    // Section 1 - Global Settings Box
+    // Section 1 - Global Settings Box (starts at very top)
     auto section1Height = headerHeight + (labelHeight + controlSpacing) * 2 + controlSpacing;
     auto section1Bounds = bounds.removeFromTop(section1Height);
     section1Bounds = section1Bounds.expanded(8, 4);
@@ -212,6 +252,12 @@ inline void ControllerSettingsTab::paint(juce::Graphics& g)
     g.drawRoundedRectangle(section1Bounds.toFloat(), 4.0f, 1.0f);
     
     bounds.removeFromTop(sectionSpacing);
+    
+    // Skip Breadcrumb (no background box)
+    bounds.removeFromTop(20 + 6);
+    
+    // Skip Bank selector (no background box)
+    bounds.removeFromTop(22 + sectionSpacing);
     
     // Section 2 - Slider Configuration Box
     auto section2Height = headerHeight + (labelHeight + controlSpacing) * 4 + controlSpacing;
@@ -234,32 +280,45 @@ inline void ControllerSettingsTab::paint(juce::Graphics& g)
     g.fillRoundedRectangle(section3Bounds.toFloat(), 4.0f);
     g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
     g.drawRoundedRectangle(section3Bounds.toFloat(), 4.0f, 1.0f);
+    
+    // Paint color grid if visible (appears on top of everything)
+    paintColorGrid(g);
 }
 
 inline void ControllerSettingsTab::resized()
 {
     auto bounds = getLocalBounds().reduced(15);
     
-    // Top controls (no section boxes) - MIDI Channel and BPM
-    bounds.removeFromTop(10);
-    auto channelArea = bounds.removeFromTop(22);
-    midiChannelLabel.setBounds(channelArea.removeFromLeft(100));
-    channelArea.removeFromLeft(8);
-    midiChannelCombo.setBounds(channelArea);
+    // Section 1 - Global Settings (starts at very top)
+    const int sectionSpacing = 8;
+    const int controlSpacing = 4;
+    const int labelHeight = 18;
+    const int headerHeight = 22;
     
-    bounds.removeFromTop(6);
+    auto globalBounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 2 + controlSpacing);
     
-    auto bpmArea = bounds.removeFromTop(22);
-    bpmLabel.setBounds(bpmArea.removeFromLeft(40));
-    bpmArea.removeFromLeft(8);
-    auto sliderArea = bpmArea.removeFromLeft(120);
-    bpmSlider.setBounds(sliderArea);
-    bpmArea.removeFromLeft(8);
-    syncStatusLabel.setBounds(bpmArea);
+    section1Header.setBounds(globalBounds.removeFromTop(headerHeight));
+    globalBounds.removeFromTop(controlSpacing);
     
-    bounds.removeFromTop(8);
+    // MIDI Channel row
+    auto channelRow = globalBounds.removeFromTop(labelHeight);
+    midiChannelLabel.setBounds(channelRow.removeFromLeft(100));
+    channelRow.removeFromLeft(8);
+    midiChannelCombo.setBounds(channelRow.removeFromLeft(120));
     
-    // Breadcrumb (no section box)
+    globalBounds.removeFromTop(controlSpacing);
+    
+    // BPM row  
+    auto bpmRow = globalBounds.removeFromTop(labelHeight);
+    bpmLabel.setBounds(bpmRow.removeFromLeft(40));
+    bpmRow.removeFromLeft(8);
+    bpmSlider.setBounds(bpmRow.removeFromLeft(120));
+    bpmRow.removeFromLeft(8);
+    syncStatusLabel.setBounds(bpmRow);
+    
+    bounds.removeFromTop(sectionSpacing);
+    
+    // Breadcrumb (no section box) - after Global Settings
     auto breadcrumbArea = bounds.removeFromTop(20);
     breadcrumbLabel.setBounds(breadcrumbArea);
     
@@ -279,9 +338,9 @@ inline void ControllerSettingsTab::resized()
     bankSelectorArea.removeFromLeft(7);
     bankDSelector.setBounds(bankSelectorArea.removeFromLeft(bankButtonWidth));
     
-    bounds.removeFromTop(8);
+    bounds.removeFromTop(sectionSpacing);
     
-    // Layout the 3 organized sections
+    // Layout the remaining 2 sections (Slider Configuration and Display & Range)
     layoutPerSliderSections(bounds);
 }
 
@@ -303,6 +362,21 @@ inline bool ControllerSettingsTab::keyPressed(const juce::KeyPress& key)
 
 inline void ControllerSettingsTab::mouseDown(const juce::MouseEvent& event)
 {
+    // Handle color grid interaction first
+    if (colorGridVisible)
+    {
+        if (colorGridBounds.expanded(8).contains(event.getPosition()))
+        {
+            handleColorGridClick(event);
+            return; // Don't process other mouse handling
+        }
+        else
+        {
+            hideColorGrid(); // Click outside grid hides it
+            return;
+        }
+    }
+    
     // Handle mouse event normally
     Component::mouseDown(event);
     
@@ -310,6 +384,34 @@ inline void ControllerSettingsTab::mouseDown(const juce::MouseEvent& event)
     // This ensures keyboard navigation continues to work
     if (onRequestFocus)
         onRequestFocus();
+}
+
+inline void ControllerSettingsTab::handleColorGridClick(const juce::MouseEvent& event)
+{
+    // Calculate which color was clicked based on grid position
+    auto relativePos = event.getPosition() - colorGridBounds.getTopLeft();
+    int gridIndex = calculateColorIndexFromPosition(relativePos);
+    
+    DBG("Grid click - calculated grid index: " << gridIndex);
+    
+    if (gridIndex >= 0 && gridIndex < 8)
+    {
+        // Grid uses 0-7, but we need to store the actual colorId (which is gridIndex for direct mapping)
+        currentColorId = gridIndex;
+        juce::Colour selectedColor = getColorById(gridIndex);
+        
+        DBG("Grid click - setting color ID: " << currentColorId);
+        DBG("Grid click - color is: " << selectedColor.toString());
+        
+        currentColorBox.setCurrentColor(selectedColor);
+        
+        // Hide grid
+        hideColorGrid();
+        
+        // Apply color change
+        if (onSliderSettingChanged)
+            onSliderSettingChanged(selectedSlider);
+    }
 }
 
 inline void ControllerSettingsTab::setupControllerControls()
@@ -648,6 +750,15 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     colorPickerLabel.setText("Color:", juce::dontSendNotification);
     colorPickerLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
+    // Add current color box
+    addAndMakeVisible(currentColorBox);
+    currentColorBox.onClicked = [this]() { 
+        if (colorGridVisible)
+            hideColorGrid();
+        else
+            showColorGrid();
+    };
+    
     // Create 4x2 color picker grid
     const juce::Colour colors[] = {
         juce::Colours::red, juce::Colours::blue, juce::Colours::green, juce::Colours::yellow,
@@ -661,7 +772,7 @@ inline void ControllerSettingsTab::setupPerSliderControls()
         addAndMakeVisible(colorButton);
         colorButton->setColour(juce::TextButton::buttonColourId, colors[i]);
         colorButton->onClick = [this, i]() { 
-            selectColor(i + 2);
+            selectColor(i); // Direct mapping - no +2 offset needed
             // Restore focus to parent after color selection
             if (onRequestFocus) onRequestFocus();
         };
@@ -685,30 +796,6 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     const int labelHeight = 18;
     const int inputHeight = 22;
     const int headerHeight = 22;
-    
-    // Section 1 - Global Settings (MIDI Channel and BPM - positioned at very top)
-    auto globalBounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 2 + controlSpacing);
-    
-    section1Header.setBounds(globalBounds.removeFromTop(headerHeight));
-    globalBounds.removeFromTop(controlSpacing);
-    
-    // MIDI Channel row
-    auto channelRow = globalBounds.removeFromTop(labelHeight);
-    midiChannelLabel.setBounds(channelRow.removeFromLeft(100));
-    channelRow.removeFromLeft(8);
-    midiChannelCombo.setBounds(channelRow.removeFromLeft(120));
-    
-    globalBounds.removeFromTop(controlSpacing);
-    
-    // BPM row  
-    auto bpmRow = globalBounds.removeFromTop(labelHeight);
-    bpmLabel.setBounds(bpmRow.removeFromLeft(40));
-    bpmRow.removeFromLeft(8);
-    bpmSlider.setBounds(bpmRow.removeFromLeft(120));
-    bpmRow.removeFromLeft(8);
-    syncStatusLabel.setBounds(bpmRow);
-    
-    bounds.removeFromTop(sectionSpacing);
     
     // Section 2 - Slider Configuration (Name, CC Number, Output Mode, Input Behavior)
     auto section2Bounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 4 + controlSpacing);
@@ -752,8 +839,12 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     
     bounds.removeFromTop(sectionSpacing);
     
-    // Section 3 - Display & Range (expanded to include color, automation visibility, reset)
-    auto section3Bounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 7 + 60 + controlSpacing * 2);
+    // Reserve space for reset button at bottom with spacing above it
+    auto resetButtonArea = bounds.removeFromBottom(inputHeight); // Button height
+    bounds.removeFromBottom(20); // Blank space above reset button
+    
+    // Section 3 - Display & Range (expanded to include color, automation visibility)
+    auto section3Bounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 7 + controlSpacing * 2);
     
     section3Header.setBounds(section3Bounds.removeFromTop(headerHeight));
     section3Bounds.removeFromTop(controlSpacing);
@@ -808,32 +899,7 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     
     section3Bounds.removeFromTop(controlSpacing);
     
-    // Color picker
-    colorPickerLabel.setBounds(section3Bounds.removeFromTop(labelHeight));
-    section3Bounds.removeFromTop(controlSpacing);
-    
-    // Color picker grid (4x2)
-    auto colorArea = section3Bounds.removeFromTop(60);
-    const int buttonSize = 25;
-    const int buttonGap = 8;
-    
-    for (int row = 0; row < 2; ++row)
-    {
-        for (int col = 0; col < 4; ++col)
-        {
-            int index = row * 4 + col;
-            if (index < colorButtons.size())
-            {
-                int x = col * (buttonSize + buttonGap);
-                int y = row * (buttonSize + buttonGap);
-                colorButtons[index]->setBounds(x, y + colorArea.getY(), buttonSize, buttonSize);
-            }
-        }
-    }
-    
-    section3Bounds.removeFromTop(controlSpacing);
-    
-    // Automation Visibility row
+    // Automation Visibility row (moved above color picker)
     auto automationRow = section3Bounds.removeFromTop(labelHeight);
     automationVisibilityLabel.setBounds(automationRow.removeFromLeft(120));
     automationRow.removeFromLeft(8);
@@ -841,8 +907,131 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     
     section3Bounds.removeFromTop(controlSpacing);
     
-    // Reset button
-    resetSliderButton.setBounds(section3Bounds.removeFromTop(inputHeight).removeFromLeft(120));
+    // Color section
+    auto colorRow = section3Bounds.removeFromTop(labelHeight);
+    colorPickerLabel.setBounds(colorRow.removeFromLeft(50));
+    colorRow.removeFromLeft(8);
+    currentColorBox.setBounds(colorRow.removeFromLeft(24)); // Small square box
+    
+    // Reset button at bottom with distinguishing space above it
+    resetSliderButton.setBounds(resetButtonArea.reduced(20, 2)); // Center with padding
+}
+
+// Color grid management methods
+inline void ControllerSettingsTab::showColorGrid()
+{
+    colorGridVisible = true;
+    
+    // Position grid relative to the current color box
+    const int buttonSize = 18; // 75% of 24 = 18
+    const int buttonGap = 4;   // 75% of 6 = 4.5, rounded to 4
+    const int colorsPerRow = 4;
+    const int colorRows = 2;
+    const int spacing = 8;     // Space between color box and grid
+    
+    int gridWidth = buttonSize * colorsPerRow + (colorsPerRow - 1) * buttonGap;
+    int gridHeight = buttonSize * colorRows + (colorRows - 1) * buttonGap;
+    
+    // Position grid so its top-left aligns with top-right of color box (with spacing)
+    auto colorBoxBounds = currentColorBox.getBounds();
+    
+    colorGridBounds = juce::Rectangle<int>(
+        colorBoxBounds.getRight() + spacing + 15,  // Right of color box with spacing + 15px
+        colorBoxBounds.getY() + 15,                // Align with top of color box + 15px down
+        gridWidth,
+        gridHeight
+    );
+    
+    repaint();
+}
+
+inline void ControllerSettingsTab::hideColorGrid()
+{
+    colorGridVisible = false;
+    repaint();
+}
+
+inline void ControllerSettingsTab::paintColorGrid(juce::Graphics& g)
+{
+    if (!colorGridVisible) return;
+    
+    // Draw background
+    g.setColour(BlueprintColors::sectionBackground);
+    g.fillRoundedRectangle(colorGridBounds.expanded(8).toFloat(), 4.0f);
+    g.setColour(BlueprintColors::blueprintLines.withAlpha(0.8f));
+    g.drawRoundedRectangle(colorGridBounds.expanded(8).toFloat(), 4.0f, 2.0f);
+    
+    // Draw color grid - use same color array as getColorById for consistency
+    const juce::Colour colors[] = {
+        juce::Colours::red, juce::Colours::blue, juce::Colours::green, juce::Colours::yellow,
+        juce::Colours::purple, juce::Colours::orange, juce::Colours::cyan, juce::Colours::white
+    };
+    
+    const int buttonSize = 18; // Match showColorGrid (75% size)
+    const int buttonGap = 4;   // Match showColorGrid (75% size)
+    
+    for (int row = 0; row < 2; ++row)
+    {
+        for (int col = 0; col < 4; ++col)
+        {
+            int index = row * 4 + col;
+            if (index < 8)
+            {
+                int x = colorGridBounds.getX() + col * (buttonSize + buttonGap);
+                int y = colorGridBounds.getY() + row * (buttonSize + buttonGap);
+                
+                juce::Rectangle<int> colorRect(x, y, buttonSize, buttonSize);
+                
+                // Fill with color
+                g.setColour(colors[index]);
+                g.fillRect(colorRect);
+                
+                // Draw border
+                g.setColour(BlueprintColors::blueprintLines);
+                g.drawRect(colorRect, 1);
+                
+                // Highlight current color - match the grid index to currentColorId
+                if (index == currentColorId)
+                {
+                    g.setColour(juce::Colours::white.withAlpha(0.8f));
+                    g.drawRect(colorRect, 2);
+                }
+            }
+        }
+    }
+}
+
+inline int ControllerSettingsTab::calculateColorIndexFromPosition(const juce::Point<int>& position)
+{
+    const int buttonSize = 18; // Match showColorGrid (75% size)  
+    const int buttonGap = 4;   // Match showColorGrid (75% size)
+    
+    int col = position.x / (buttonSize + buttonGap);
+    int row = position.y / (buttonSize + buttonGap);
+    
+    DBG("Position: " << position.toString() << " -> Col: " << col << " Row: " << row);
+    
+    if (col >= 0 && col < 4 && row >= 0 && row < 2)
+    {
+        int index = row * 4 + col;
+        DBG("Calculated index: " << index);
+        return index;
+    }
+    
+    return -1;
+}
+
+inline juce::Colour ControllerSettingsTab::getColorById(int colorId)
+{
+    const juce::Colour colors[] = {
+        juce::Colours::red, juce::Colours::blue, juce::Colours::green, juce::Colours::yellow,
+        juce::Colours::purple, juce::Colours::orange, juce::Colours::cyan, juce::Colours::white
+    };
+    
+    if (colorId >= 0 && colorId < 8)
+        return colors[colorId];
+    
+    return juce::Colours::cyan; // Default
 }
 
 // Additional inline method implementations would continue here...
@@ -1036,8 +1225,13 @@ inline void ControllerSettingsTab::applyInputMode()
 
 inline void ControllerSettingsTab::selectColor(int colorId)
 {
+    DBG("selectColor called with ID: " << colorId);
+    juce::Colour selectedColor = getColorById(colorId);
+    DBG("selectColor - color is: " << selectedColor.toString());
+    
     // Store the selected color and update visual selection
     currentColorId = colorId;
+    currentColorBox.setCurrentColor(selectedColor);
     updateColorButtonSelection();
     
     if (onSliderSettingChanged)
@@ -1101,13 +1295,13 @@ inline void ControllerSettingsTab::resetCurrentSlider()
     
     // Set default color based on bank
     int bankIndex = selectedSlider / 4;
-    int defaultColorId = 2; // Red for bank A
+    int defaultColorId = 0; // Red for bank A (direct mapping)
     switch (bankIndex)
     {
-        case 0: defaultColorId = 2; break; // Red
-        case 1: defaultColorId = 3; break; // Blue  
-        case 2: defaultColorId = 4; break; // Green
-        case 3: defaultColorId = 5; break; // Yellow
+        case 0: defaultColorId = 0; break; // Red
+        case 1: defaultColorId = 1; break; // Blue  
+        case 2: defaultColorId = 2; break; // Green
+        case 3: defaultColorId = 3; break; // Yellow
     }
     
     selectColor(defaultColorId);
@@ -1195,6 +1389,9 @@ inline void ControllerSettingsTab::updateControlsForSelectedSlider(int sliderInd
     updateBreadcrumbLabel();
     updateBankSelectorAppearance(selectedBank);
     
+    // Hide color grid when switching sliders
+    hideColorGrid();
+    
     // Update all controls with the current slider's settings from parent window
     // These will be called by the parent to populate the controls
     updateColorButtonSelection();
@@ -1246,15 +1443,19 @@ inline void ControllerSettingsTab::setSliderSettings(int ccNumber, bool is14Bit,
     // Update color selection
     currentColorId = colorId;
     updateColorButtonSelection();
+    
+    // Update current color box
+    juce::Colour sliderColor = getColorById(colorId);
+    currentColorBox.setCurrentColor(sliderColor);
 }
 
 inline void ControllerSettingsTab::updateColorButtonSelection()
 {
-    // Reset all color button appearances
+    // Reset all color button appearances - now with direct mapping
     for (int i = 0; i < colorButtons.size(); ++i)
     {
         auto* button = colorButtons[i];
-        bool isSelected = (i + 2) == currentColorId; // +2 because colorId starts at 2
+        bool isSelected = i == currentColorId; // Direct comparison - no offset
         
         if (isSelected)
         {

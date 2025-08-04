@@ -300,15 +300,15 @@ inline void SettingsWindow::initializeSliderData()
         settings.bipolarSettings = BipolarSettings(); // Center value now auto-calculated
         settings.customName = ""; // Clear custom names on reset
         
-        // Set default colors based on bank
+        // Set default colors based on bank (using direct mapping 0-7)
         int bankIndex = i / 4;
         switch (bankIndex)
         {
-            case 0: settings.colorId = 2; break; // Red
-            case 1: settings.colorId = 3; break; // Blue
-            case 2: settings.colorId = 4; break; // Green
-            case 3: settings.colorId = 5; break; // Yellow
-            default: settings.colorId = 1; break; // Default
+            case 0: settings.colorId = 0; break; // Red
+            case 1: settings.colorId = 1; break; // Blue
+            case 2: settings.colorId = 2; break; // Green
+            case 3: settings.colorId = 3; break; // Yellow
+            default: settings.colorId = 0; break; // Default to red
         }
     }
 }
@@ -381,29 +381,24 @@ inline juce::Colour SettingsWindow::getSliderColor(int sliderIndex) const
     if (sliderIndex >= 0 && sliderIndex < 16)
     {
         int colorId = sliderSettingsData[sliderIndex].colorId;
-        switch (colorId)
+        // Use direct mapping array (same as ControllerSettingsTab)
+        const juce::Colour colors[] = {
+            juce::Colours::red, juce::Colours::blue, juce::Colours::green, juce::Colours::yellow,
+            juce::Colours::purple, juce::Colours::orange, juce::Colours::cyan, juce::Colours::white
+        };
+        
+        if (colorId >= 0 && colorId < 8)
+            return colors[colorId];
+        
+        // Fallback to default bank colors
+        int bankIndex = sliderIndex / 4;
+        switch (bankIndex)
         {
-            case 2: return juce::Colours::red;
-            case 3: return juce::Colours::blue;
-            case 4: return juce::Colours::green;
-            case 5: return juce::Colours::yellow;
-            case 6: return juce::Colours::purple;
-            case 7: return juce::Colours::orange;
-            case 8: return juce::Colours::cyan;
-            case 9: return juce::Colours::white;
-            default:
-            {
-                // Return default bank colors
-                int bankIndex = sliderIndex / 4;
-                switch (bankIndex)
-                {
-                    case 0: return juce::Colours::red;
-                    case 1: return juce::Colours::blue;
-                    case 2: return juce::Colours::green;
-                    case 3: return juce::Colours::yellow;
-                    default: return juce::Colours::cyan;
-                }
-            }
+            case 0: return juce::Colours::red;
+            case 1: return juce::Colours::blue;
+            case 2: return juce::Colours::green;
+            case 3: return juce::Colours::yellow;
+            default: return juce::Colours::cyan;
         }
     }
     return juce::Colours::cyan;
