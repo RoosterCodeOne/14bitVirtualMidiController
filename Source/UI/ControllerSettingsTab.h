@@ -27,7 +27,8 @@ public:
     void setSliderSettings(int ccNumber, bool is14Bit, double rangeMin, double rangeMax, 
                           const juce::String& displayUnit, double increment, bool isCustomStep, bool useDeadzone, int colorId,
                           SliderOrientation orientation = SliderOrientation::Normal,
-                          const juce::String& customName = "", SnapThreshold snapThreshold = SnapThreshold::Medium);
+                          const juce::String& customName = "", SnapThreshold snapThreshold = SnapThreshold::Medium,
+                          bool showAutomation = true);
     
     // Access methods for main window
     int getMidiChannel() const { return midiChannelCombo.getSelectedId(); }
@@ -53,6 +54,7 @@ public:
         if (snapLargeButton.getToggleState()) return SnapThreshold::Large;
         return SnapThreshold::Medium; // Default
     }
+    bool getCurrentShowAutomation() const { return showAutomationButton.getToggleState(); }
     
     // Callback functions for communication with parent
     std::function<void()> onSettingsChanged;
@@ -112,6 +114,8 @@ private:
     juce::ComboBox orientationCombo;
     juce::Label snapLabel;
     juce::ToggleButton snapSmallButton, snapMediumButton, snapLargeButton;
+    juce::Label automationVisibilityLabel;
+    juce::ToggleButton showAutomationButton;
     
     // Section 3 - Input Behavior
     juce::Label inputModeLabel;
@@ -144,6 +148,7 @@ private:
     void applyOrientation();
     void applySnapThreshold();
     void applyCustomName();
+    void applyAutomationVisibility();
     void selectColor(int colorId);
     void resetCurrentSlider();
     
@@ -565,6 +570,19 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     snapLargeButton.onClick = [this]() { applySnapThreshold(); if (onRequestFocus) onRequestFocus(); };
     snapLargeButton.setVisible(false);
     
+    // Automation Visibility controls
+    addAndMakeVisible(automationVisibilityLabel);
+    automationVisibilityLabel.setText("Show Automation:", juce::dontSendNotification);
+    automationVisibilityLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    
+    addAndMakeVisible(showAutomationButton);
+    showAutomationButton.setButtonText("Show Controls");
+    showAutomationButton.setToggleState(true, juce::dontSendNotification); // Default to showing automation
+    showAutomationButton.onClick = [this]() { 
+        applyAutomationVisibility();
+        if (onRequestFocus) onRequestFocus();
+    };
+    
     // Section 3 - Input Behavior
     addAndMakeVisible(section3Header);
     section3Header.setText("Input Behavior", juce::dontSendNotification);
@@ -663,8 +681,8 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     
     bounds.removeFromTop(sectionSpacing);
     
-    // Section 2 - Display & Range (expanded for orientation controls)
-    auto section2Bounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 5 + controlSpacing);
+    // Section 2 - Display & Range (expanded for orientation and automation visibility controls)
+    auto section2Bounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 6 + controlSpacing);
     
     section2Header.setBounds(section2Bounds.removeFromTop(headerHeight));
     section2Bounds.removeFromTop(controlSpacing);
@@ -716,6 +734,14 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     snapMediumButton.setBounds(snapRow.removeFromLeft(20));
     snapRow.removeFromLeft(2);
     snapLargeButton.setBounds(snapRow.removeFromLeft(20));
+    
+    section2Bounds.removeFromTop(controlSpacing);
+    
+    // Automation Visibility row
+    auto automationRow = section2Bounds.removeFromTop(labelHeight);
+    automationVisibilityLabel.setBounds(automationRow.removeFromLeft(120));
+    automationRow.removeFromLeft(8);
+    showAutomationButton.setBounds(automationRow.removeFromLeft(100));
     
     bounds.removeFromTop(sectionSpacing);
     
@@ -1125,7 +1151,8 @@ inline void ControllerSettingsTab::setSliderSettings(int ccNumber, bool is14Bit,
                                                     const juce::String& displayUnit, double increment, bool isCustomStep,
                                                     bool useDeadzone, int colorId,
                                                     SliderOrientation orientation,
-                                                    const juce::String& customName, SnapThreshold snapThreshold)
+                                                    const juce::String& customName, SnapThreshold snapThreshold,
+                                                    bool showAutomation)
 {
     // Update all controls with the provided settings (without triggering callbacks)
     ccNumberInput.setText(juce::String(ccNumber), juce::dontSendNotification);
@@ -1159,6 +1186,9 @@ inline void ControllerSettingsTab::setSliderSettings(int ccNumber, bool is14Bit,
     
     // Update custom name
     nameInput.setText(customName, juce::dontSendNotification);
+    
+    // Update automation visibility setting
+    showAutomationButton.setToggleState(showAutomation, juce::dontSendNotification);
     
     // Update color selection
     currentColorId = colorId;
@@ -1202,4 +1232,10 @@ inline void ControllerSettingsTab::applyPreset(const ControllerPreset& preset)
     midiChannelCombo.setSelectedId(preset.midiChannel, juce::dontSendNotification);
     
     // Update controls for currently selected slider would be handled by parent coordination
+}
+inline void ControllerSettingsTab::applyAutomationVisibility()
+{
+    // Notify parent window of the automation visibility change
+    if (onSliderSettingChanged)
+        onSliderSettingChanged(selectedSlider);
 }

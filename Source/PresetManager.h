@@ -18,6 +18,7 @@ struct SliderPreset
     int orientation = 0; // 0=Normal, 1=Inverted, 2=Bipolar
     double bipolarCenter = 8191.5; // Default center value
     juce::String customName = "";
+    bool showAutomation = true; // Default to automation shown
     
     juce::var toVar() const
     {
@@ -35,6 +36,7 @@ struct SliderPreset
         obj->setProperty("orientation", orientation);
         obj->setProperty("bipolarCenter", bipolarCenter);
         obj->setProperty("customName", customName);
+        obj->setProperty("showAutomation", showAutomation);
 
         return juce::var(obj);
     }
@@ -56,6 +58,7 @@ struct SliderPreset
             orientation = obj->hasProperty("orientation") ? (int)obj->getProperty("orientation") : 0;
             bipolarCenter = obj->hasProperty("bipolarCenter") ? (double)obj->getProperty("bipolarCenter") : 8191.5;
             customName = obj->hasProperty("customName") ? obj->getProperty("customName").toString() : "";
+            showAutomation = obj->hasProperty("showAutomation") ? (bool)obj->getProperty("showAutomation") : true;
 
         }
     }

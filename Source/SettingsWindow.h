@@ -44,6 +44,7 @@ public:
     SliderOrientation getSliderOrientation(int sliderIndex) const;
     BipolarSettings getBipolarSettings(int sliderIndex) const;
     juce::String getSliderDisplayName(int sliderIndex) const;
+    bool getShowAutomation(int sliderIndex) const;
     
     // BPM management methods
     void setBPM(double bpm);
@@ -87,6 +88,7 @@ private:
         SliderOrientation orientation = SliderOrientation::Normal;
         BipolarSettings bipolarSettings;
         juce::String customName = "";
+        bool showAutomation = true; // NEW: Default to automation shown
         
         SliderSettings()
         {
@@ -102,6 +104,7 @@ private:
             orientation = SliderOrientation::Normal;
             bipolarSettings = BipolarSettings(); // Center value now auto-calculated
             customName = "";
+            showAutomation = true; // Default to automation shown
         }
         
         // Update bipolar center when range changes
@@ -425,6 +428,7 @@ inline ControllerPreset SettingsWindow::getCurrentPreset() const
             preset.sliders.getReference(i).orientation = static_cast<int>(settings.orientation);
             // bipolarCenter removed - now automatically calculated from range
             preset.sliders.getReference(i).customName = settings.customName;
+            preset.sliders.getReference(i).showAutomation = settings.showAutomation;
         }
     }
     
@@ -449,6 +453,7 @@ inline void SettingsWindow::applyPreset(const ControllerPreset& preset)
         settings.orientation = static_cast<SliderOrientation>(sliderPreset.orientation);
         // bipolarCenter removed - now automatically calculated from range
         settings.customName = sliderPreset.customName;
+        settings.showAutomation = sliderPreset.showAutomation;
         
         // Apply orientation to the actual slider
         applyOrientationToSlider(i);
@@ -559,6 +564,13 @@ inline juce::String SettingsWindow::getSliderDisplayName(int sliderIndex) const
     return "";
 }
 
+inline bool SettingsWindow::getShowAutomation(int sliderIndex) const
+{
+    if (sliderIndex >= 0 && sliderIndex < 16)
+        return sliderSettingsData[sliderIndex].showAutomation;
+    return true; // Default to automation shown
+}
+
 inline bool SettingsWindow::keyPressed(const juce::KeyPress& key)
 {
     if (key == juce::KeyPress::escapeKey)
@@ -634,6 +646,7 @@ inline void SettingsWindow::saveCurrentSliderSettings()
         // bipolarSettings.centerValue removed - now automatically calculated
         settings.bipolarSettings.snapThreshold = controllerTab->getCurrentSnapThreshold();
         settings.customName = controllerTab->getCurrentCustomName();
+        settings.showAutomation = controllerTab->getCurrentShowAutomation();
         
         // Bipolar center automatically calculated - no manual update needed
         
@@ -661,7 +674,8 @@ inline void SettingsWindow::updateControlsForSelectedSlider()
             settings.colorId,
             settings.orientation,
             settings.customName,
-            settings.bipolarSettings.snapThreshold
+            settings.bipolarSettings.snapThreshold,
+            settings.showAutomation
         );
         
         controllerTab->updateControlsForSelectedSlider(selectedSlider);

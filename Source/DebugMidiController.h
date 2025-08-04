@@ -839,7 +839,14 @@ private:
                 BipolarSettings bipolarSettings = settingsWindow.getBipolarSettings(i);
                 sliderControls[i]->setBipolarSettings(bipolarSettings);
             }
+            
+            // Update automation visibility
+            bool showAutomation = settingsWindow.getShowAutomation(i);
+            sliderControls[i]->setAutomationVisible(showAutomation);
         }
+        
+        // Trigger layout update when automation visibility changes
+        resized();
         
         // Note: Using simple channel-based MIDI filtering
         

@@ -22,7 +22,7 @@ public:
     SliderLayoutManager() = default;
     
     // Calculate all layout bounds for a slider control
-    SliderBounds calculateSliderBounds(const juce::Rectangle<int>& totalBounds) const
+    SliderBounds calculateSliderBounds(const juce::Rectangle<int>& totalBounds, bool showAutomation = true) const
     {
         SliderBounds bounds;
         auto area = totalBounds;
@@ -31,11 +31,24 @@ public:
         bounds.utilityBar = area.removeFromTop(16);
         area.removeFromTop(4); // spacing after utility bar
         
-        // Main slider area calculation
-        int automationControlsHeight = 200;
-        int availableSliderHeight = area.getHeight() - automationControlsHeight;
-        int reducedSliderHeight = (int)(availableSliderHeight * 0.70);
-        bounds.sliderArea = area.removeFromTop(reducedSliderHeight);
+        // Main slider area calculation depends on automation visibility
+        if (showAutomation)
+        {
+            // Normal layout with automation controls
+            int automationControlsHeight = 200;
+            int availableSliderHeight = area.getHeight() - automationControlsHeight;
+            int reducedSliderHeight = (int)(availableSliderHeight * 0.70);
+            bounds.sliderArea = area.removeFromTop(reducedSliderHeight);
+        }
+        else
+        {
+            // Expanded layout - slider takes most of the remaining space
+            // Leave space for value label and controls at bottom
+            int bottomControlsHeight = 30; // Space for value display + MIDI indicator + controls
+            int expandedSliderHeight = area.getHeight() - bottomControlsHeight;
+            bounds.sliderArea = area.removeFromTop(expandedSliderHeight);
+        }
+        
         bounds.trackBounds = bounds.sliderArea.withWidth(20).withCentre(bounds.sliderArea.getCentre());
         
         // Calculate precise slider interaction bounds for proper thumb alignment
@@ -56,35 +69,68 @@ public:
         
         area.removeFromTop(4); // spacing before value label
         
-        // Current value label
-        auto labelArea = area.removeFromTop(20);
-        bounds.valueLabel = labelArea.reduced(4, 0);
-        
-        // MIDI activity indicator - positioned above value label on left side
-        bounds.midiIndicator = juce::Rectangle<float>(5, labelArea.getY() - 15, 10, 10);
-        
-        // Lock label - positioned above value label on right side
-        int lockLabelX = totalBounds.getWidth() - 25;
-        bounds.lockLabel = juce::Rectangle<int>(lockLabelX, labelArea.getY() - 15, 20, 10);
-        
-        area.removeFromTop(4); // spacing before automation controls
-        
-        // Remaining area for automation controls
-        bounds.automationArea = area;
+        if (showAutomation)
+        {
+            // Normal layout with automation controls below
+            // Current value label
+            auto labelArea = area.removeFromTop(20);
+            bounds.valueLabel = labelArea.reduced(4, 0);
+            
+            // MIDI activity indicator - positioned above value label on left side
+            bounds.midiIndicator = juce::Rectangle<float>(5, labelArea.getY() - 15, 10, 10);
+            
+            // Lock label - positioned above value label on right side
+            int lockLabelX = totalBounds.getWidth() - 25;
+            bounds.lockLabel = juce::Rectangle<int>(lockLabelX, labelArea.getY() - 15, 20, 10);
+            
+            area.removeFromTop(4); // spacing before automation controls
+            
+            // Remaining area for automation controls
+            bounds.automationArea = area;
+        }
+        else
+        {
+            // Expanded layout - value label at bottom with padding
+            // Current value label at bottom
+            auto labelArea = area.removeFromBottom(20);
+            bounds.valueLabel = labelArea.reduced(4, 0);
+            
+            // MIDI activity indicator and lock label positioned above value label
+            bounds.midiIndicator = juce::Rectangle<float>(5, labelArea.getY() - 15, 10, 10);
+            
+            int lockLabelX = totalBounds.getWidth() - 25;
+            bounds.lockLabel = juce::Rectangle<int>(lockLabelX, labelArea.getY() - 15, 20, 10);
+            
+            // No automation area in expanded mode
+            bounds.automationArea = juce::Rectangle<int>();
+        }
         
         return bounds;
     }
     
     // Calculate visual track bounds for parent component drawing
-    juce::Rectangle<int> calculateVisualTrackBounds(const juce::Rectangle<int>& totalBounds) const
+    juce::Rectangle<int> calculateVisualTrackBounds(const juce::Rectangle<int>& totalBounds, bool showAutomation = true) const
     {
         auto area = totalBounds;
         area.removeFromTop(20); // utility bar + spacing
-        int automationControlsHeight = 200;
-        int availableSliderHeight = area.getHeight() - automationControlsHeight;
-        int reducedSliderHeight = (int)(availableSliderHeight * 0.70);
-        auto sliderArea = area.removeFromTop(reducedSliderHeight);
-        return sliderArea.withWidth(20).withCentre(sliderArea.getCentre());
+        
+        if (showAutomation)
+        {
+            // Normal layout with automation controls
+            int automationControlsHeight = 200;
+            int availableSliderHeight = area.getHeight() - automationControlsHeight;
+            int reducedSliderHeight = (int)(availableSliderHeight * 0.70);
+            auto sliderArea = area.removeFromTop(reducedSliderHeight);
+            return sliderArea.withWidth(20).withCentre(sliderArea.getCentre());
+        }
+        else
+        {
+            // Expanded layout - slider takes most space
+            int bottomControlsHeight = 30;
+            int expandedSliderHeight = area.getHeight() - bottomControlsHeight;
+            auto sliderArea = area.removeFromTop(expandedSliderHeight);
+            return sliderArea.withWidth(20).withCentre(sliderArea.getCentre());
+        }
     }
     
     // Calculate thumb position based on slider value and track bounds

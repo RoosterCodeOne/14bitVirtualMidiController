@@ -175,14 +175,36 @@ public:
     {
         auto area = getLocalBounds();
         
-        // Calculate layout bounds using SliderLayoutManager
-        auto bounds = layoutManager.calculateSliderBounds(area);
+        // Check automation visibility setting
+        bool showAutomation = automationControlPanel.isVisible();
+        
+        // Calculate layout bounds using SliderLayoutManager with automation visibility
+        auto bounds = layoutManager.calculateSliderBounds(area, showAutomation);
         
         // Slider number label in utility bar (centered)
         sliderNumberLabel.setBounds(bounds.utilityBar);
         
-        // Position main slider for mouse interaction
-        mainSlider.setBounds(bounds.sliderInteractionBounds);
+        // Position main slider for mouse interaction - ensure bounds match visual track
+        if (showAutomation)
+        {
+            mainSlider.setBounds(bounds.sliderInteractionBounds);
+        }
+        else
+        {
+            // For expanded layout, calculate the visual track bounds and use them for interaction
+            auto visualTrackBounds = layoutManager.calculateVisualTrackBounds(area, showAutomation);
+            
+            // Extend the interaction bounds to cover the full expanded slider height
+            // but keep the visual track width for consistency
+            auto expandedInteractionBounds = juce::Rectangle<int>(
+                visualTrackBounds.getX(),
+                bounds.sliderArea.getY(),
+                visualTrackBounds.getWidth(),
+                bounds.sliderArea.getHeight()
+            );
+            
+            mainSlider.setBounds(expandedInteractionBounds);
+        }
         
         // Current value label
         currentValueLabel.setBounds(bounds.valueLabel);
@@ -191,8 +213,11 @@ public:
         midiIndicatorBounds = bounds.midiIndicator;
         lockLabel.setBounds(bounds.lockLabel);
         
-        // Automation control panel gets the remaining automation area
-        automationControlPanel.setBounds(bounds.automationArea);
+        // Automation control panel gets the remaining automation area (empty when hidden)
+        if (showAutomation)
+        {
+            automationControlPanel.setBounds(bounds.automationArea);
+        }
     }
     
     void paint(juce::Graphics& g) override
@@ -235,7 +260,8 @@ public:
     // Methods for parent component to get visual track and thumb positions
     juce::Rectangle<int> getVisualTrackBounds() const 
     {
-        return layoutManager.calculateVisualTrackBounds(getLocalBounds());
+        bool showAutomation = automationControlPanel.isVisible();
+        return layoutManager.calculateVisualTrackBounds(getLocalBounds(), showAutomation);
     }
     
     juce::Point<float> getThumbPosition() const 
@@ -662,6 +688,13 @@ public:
     { 
         showLearnMarkers = show; 
         repaint(); 
+    }
+    
+    // Set automation visibility and update layout
+    void setAutomationVisible(bool shouldShow)
+    {
+        automationControlPanel.setVisible(shouldShow);
+        // The parent component will handle the layout update
     }
     
     // Snap logic moved to SliderDisplayManager::setMidiValueWithSnap()
