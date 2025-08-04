@@ -694,7 +694,16 @@ public:
     void setAutomationVisible(bool shouldShow)
     {
         automationControlPanel.setVisible(shouldShow);
-        // The parent component will handle the layout update
+        
+        // Force immediate layout recalculation
+        resized();
+        
+        // Force visual update
+        repaint();
+        
+        // Also update parent component if needed
+        if (auto* parent = getParentComponent())
+            parent->repaint();
     }
     
     // Snap logic moved to SliderDisplayManager::setMidiValueWithSnap()
