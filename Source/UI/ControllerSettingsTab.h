@@ -93,7 +93,7 @@ private:
     juce::TextEditor nameInput;
     
     // Section headers
-    juce::Label section1Header, section2Header, section3Header, section4Header;
+    juce::Label section1Header, section2Header, section3Header;
     
     // Section 1 - Core MIDI
     juce::Label ccNumberLabel;
@@ -182,24 +182,65 @@ inline void ControllerSettingsTab::paint(juce::Graphics& g)
     g.setColour(BlueprintColors::windowBackground);
     g.fillAll();
     
-    // Draw section backgrounds similar to original
+    // Draw section backgrounds for the 3-section structure
     auto bounds = getLocalBounds().reduced(15);
     
-    // Controller section background (updated to include name section)
-    auto controllerSectionBounds = bounds.removeFromTop(10 + 22 + 6 + 22 + 8 + 20 + 6 + 22 + 8 + 22 + 8);
-    controllerSectionBounds = controllerSectionBounds.expanded(5, 0).withTrimmedBottom(1);
+    // Calculate section positions based on new layout
+    const int sectionSpacing = 8;
+    const int controlSpacing = 4;
+    const int labelHeight = 18;
+    const int inputHeight = 22;
+    const int headerHeight = 22;
+    
+    // Skip MIDI Channel and BPM (no background box)
+    bounds.removeFromTop(10 + 22 + 6 + 22 + 8);
+    
+    // Skip Breadcrumb (no background box)
+    bounds.removeFromTop(20 + 6);
+    
+    // Skip Bank selector (no background box)
+    bounds.removeFromTop(22 + 8);
+    
+    // Section 1 - Global Settings Box
+    auto section1Height = headerHeight + (labelHeight + controlSpacing) * 2 + controlSpacing;
+    auto section1Bounds = bounds.removeFromTop(section1Height);
+    section1Bounds = section1Bounds.expanded(8, 4);
     
     g.setColour(BlueprintColors::sectionBackground);
-    g.fillRect(controllerSectionBounds.toFloat());
+    g.fillRoundedRectangle(section1Bounds.toFloat(), 4.0f);
     g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
-    g.drawRect(controllerSectionBounds.toFloat(), 1.0f);
+    g.drawRoundedRectangle(section1Bounds.toFloat(), 4.0f, 1.0f);
+    
+    bounds.removeFromTop(sectionSpacing);
+    
+    // Section 2 - Slider Configuration Box
+    auto section2Height = headerHeight + (labelHeight + controlSpacing) * 4 + controlSpacing;
+    auto section2Bounds = bounds.removeFromTop(section2Height);
+    section2Bounds = section2Bounds.expanded(8, 4);
+    
+    g.setColour(BlueprintColors::sectionBackground);
+    g.fillRoundedRectangle(section2Bounds.toFloat(), 4.0f);
+    g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
+    g.drawRoundedRectangle(section2Bounds.toFloat(), 4.0f, 1.0f);
+    
+    bounds.removeFromTop(sectionSpacing);
+    
+    // Section 3 - Display & Range Box (expanded)
+    auto section3Height = headerHeight + (labelHeight + controlSpacing) * 7 + 60 + controlSpacing * 2;
+    auto section3Bounds = bounds.removeFromTop(section3Height);
+    section3Bounds = section3Bounds.expanded(8, 4);
+    
+    g.setColour(BlueprintColors::sectionBackground);
+    g.fillRoundedRectangle(section3Bounds.toFloat(), 4.0f);
+    g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
+    g.drawRoundedRectangle(section3Bounds.toFloat(), 4.0f, 1.0f);
 }
 
 inline void ControllerSettingsTab::resized()
 {
     auto bounds = getLocalBounds().reduced(15);
     
-    // MIDI Channel section
+    // Top controls (no section boxes) - MIDI Channel and BPM
     bounds.removeFromTop(10);
     auto channelArea = bounds.removeFromTop(22);
     midiChannelLabel.setBounds(channelArea.removeFromLeft(100));
@@ -208,7 +249,6 @@ inline void ControllerSettingsTab::resized()
     
     bounds.removeFromTop(6);
     
-    // BPM section
     auto bpmArea = bounds.removeFromTop(22);
     bpmLabel.setBounds(bpmArea.removeFromLeft(40));
     bpmArea.removeFromLeft(8);
@@ -219,13 +259,13 @@ inline void ControllerSettingsTab::resized()
     
     bounds.removeFromTop(8);
     
-    // Breadcrumb section
+    // Breadcrumb (no section box)
     auto breadcrumbArea = bounds.removeFromTop(20);
     breadcrumbLabel.setBounds(breadcrumbArea);
     
     bounds.removeFromTop(6);
     
-    // Bank selector section
+    // Bank selector (no section box)
     auto bankSelectorArea = bounds.removeFromTop(22);
     bankSelectorLabel.setBounds(bankSelectorArea.removeFromLeft(40));
     bankSelectorArea.removeFromLeft(8);
@@ -241,15 +281,7 @@ inline void ControllerSettingsTab::resized()
     
     bounds.removeFromTop(8);
     
-    // Name section
-    auto nameArea = bounds.removeFromTop(22);
-    nameLabel.setBounds(nameArea.removeFromLeft(60));
-    nameArea.removeFromLeft(8);
-    nameInput.setBounds(nameArea.removeFromLeft(200));
-    
-    bounds.removeFromTop(8);
-    
-    // Layout per-slider controls in 4 sections
+    // Layout the 3 organized sections
     layoutPerSliderSections(bounds);
 }
 
@@ -415,11 +447,17 @@ inline void ControllerSettingsTab::setupNameControls()
 
 inline void ControllerSettingsTab::setupPerSliderControls()
 {
-    // Section 1 - Core MIDI
+    // Section 1 - Global Settings (at top, above per-slider settings)
     addAndMakeVisible(section1Header);
-    section1Header.setText("Core MIDI", juce::dontSendNotification);
+    section1Header.setText("Global Settings", juce::dontSendNotification);
     section1Header.setFont(juce::FontOptions(14.0f, juce::Font::bold));
     section1Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    
+    // Section 2 - Slider Configuration
+    addAndMakeVisible(section2Header);
+    section2Header.setText("Slider Configuration", juce::dontSendNotification);
+    section2Header.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+    section2Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
     addAndMakeVisible(ccNumberLabel);
     ccNumberLabel.setText("MIDI CC Number:", juce::dontSendNotification);
@@ -455,11 +493,33 @@ inline void ControllerSettingsTab::setupPerSliderControls()
         if (onRequestFocus) onRequestFocus();
     };
     
-    // Section 2 - Display & Range
-    addAndMakeVisible(section2Header);
-    section2Header.setText("Display & Range", juce::dontSendNotification);
-    section2Header.setFont(juce::FontOptions(14.0f, juce::Font::bold));
-    section2Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    // Input Behavior controls (moved to Slider Configuration section)
+    addAndMakeVisible(inputModeLabel);
+    inputModeLabel.setText("Input Behavior:", juce::dontSendNotification);
+    inputModeLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    
+    addAndMakeVisible(deadzoneButton);
+    deadzoneButton.setButtonText("Deadzone");
+    deadzoneButton.setRadioGroupId(2);
+    deadzoneButton.setToggleState(true, juce::dontSendNotification);
+    deadzoneButton.onClick = [this]() { 
+        applyInputMode();
+        if (onRequestFocus) onRequestFocus();
+    };
+    
+    addAndMakeVisible(directButton);
+    directButton.setButtonText("Direct");
+    directButton.setRadioGroupId(2);
+    directButton.onClick = [this]() { 
+        applyInputMode();
+        if (onRequestFocus) onRequestFocus();
+    };
+    
+    // Section 3 - Display & Range
+    addAndMakeVisible(section3Header);
+    section3Header.setText("Display & Range", juce::dontSendNotification);
+    section3Header.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+    section3Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
     addAndMakeVisible(rangeLabel);
     rangeLabel.setText("Range:", juce::dontSendNotification);
@@ -570,7 +630,7 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     snapLargeButton.onClick = [this]() { applySnapThreshold(); if (onRequestFocus) onRequestFocus(); };
     snapLargeButton.setVisible(false);
     
-    // Automation Visibility controls
+    // Automation Visibility controls (moved to Display & Range section)
     addAndMakeVisible(automationVisibilityLabel);
     automationVisibilityLabel.setText("Show Automation:", juce::dontSendNotification);
     automationVisibilityLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
@@ -583,39 +643,7 @@ inline void ControllerSettingsTab::setupPerSliderControls()
         if (onRequestFocus) onRequestFocus();
     };
     
-    // Section 3 - Input Behavior
-    addAndMakeVisible(section3Header);
-    section3Header.setText("Input Behavior", juce::dontSendNotification);
-    section3Header.setFont(juce::FontOptions(14.0f, juce::Font::bold));
-    section3Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-    
-    addAndMakeVisible(inputModeLabel);
-    inputModeLabel.setText("MIDI Input Mode:", juce::dontSendNotification);
-    inputModeLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-    
-    addAndMakeVisible(deadzoneButton);
-    deadzoneButton.setButtonText("Deadzone");
-    deadzoneButton.setRadioGroupId(2);
-    deadzoneButton.setToggleState(true, juce::dontSendNotification);
-    deadzoneButton.onClick = [this]() { 
-        applyInputMode();
-        if (onRequestFocus) onRequestFocus();
-    };
-    
-    addAndMakeVisible(directButton);
-    directButton.setButtonText("Direct");
-    directButton.setRadioGroupId(2);
-    directButton.onClick = [this]() { 
-        applyInputMode();
-        if (onRequestFocus) onRequestFocus();
-    };
-    
-    // Section 4 - Visual
-    addAndMakeVisible(section4Header);
-    section4Header.setText("Visual", juce::dontSendNotification);
-    section4Header.setFont(juce::FontOptions(14.0f, juce::Font::bold));
-    section4Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-    
+    // Color controls (moved to Display & Range section)
     addAndMakeVisible(colorPickerLabel);
     colorPickerLabel.setText("Color:", juce::dontSendNotification);
     colorPickerLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
@@ -639,6 +667,7 @@ inline void ControllerSettingsTab::setupPerSliderControls()
         };
     }
     
+    // Reset button (moved to Display & Range section)
     addAndMakeVisible(resetSliderButton);
     resetSliderButton.setButtonText("Reset Slider");
     resetSliderButton.setLookAndFeel(&customButtonLookAndFeel);
@@ -651,107 +680,70 @@ inline void ControllerSettingsTab::setupPerSliderControls()
 
 inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>& bounds)
 {
-    const int sectionSpacing = 3;
-    const int controlSpacing = 2;
-    const int labelHeight = 16;
+    const int sectionSpacing = 8;
+    const int controlSpacing = 4;
+    const int labelHeight = 18;
     const int inputHeight = 22;
-    const int headerHeight = 20;
+    const int headerHeight = 22;
     
-    // Section 1 - Core MIDI
-    auto section1Bounds = bounds.removeFromTop(headerHeight + labelHeight + inputHeight + labelHeight + inputHeight + controlSpacing * 2);
+    // Section 1 - Global Settings (MIDI Channel and BPM - positioned at very top)
+    auto globalBounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 2 + controlSpacing);
     
-    section1Header.setBounds(section1Bounds.removeFromTop(headerHeight));
-    section1Bounds.removeFromTop(controlSpacing);
+    section1Header.setBounds(globalBounds.removeFromTop(headerHeight));
+    globalBounds.removeFromTop(controlSpacing);
+    
+    // MIDI Channel row
+    auto channelRow = globalBounds.removeFromTop(labelHeight);
+    midiChannelLabel.setBounds(channelRow.removeFromLeft(100));
+    channelRow.removeFromLeft(8);
+    midiChannelCombo.setBounds(channelRow.removeFromLeft(120));
+    
+    globalBounds.removeFromTop(controlSpacing);
+    
+    // BPM row  
+    auto bpmRow = globalBounds.removeFromTop(labelHeight);
+    bpmLabel.setBounds(bpmRow.removeFromLeft(40));
+    bpmRow.removeFromLeft(8);
+    bpmSlider.setBounds(bpmRow.removeFromLeft(120));
+    bpmRow.removeFromLeft(8);
+    syncStatusLabel.setBounds(bpmRow);
+    
+    bounds.removeFromTop(sectionSpacing);
+    
+    // Section 2 - Slider Configuration (Name, CC Number, Output Mode, Input Behavior)
+    auto section2Bounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 4 + controlSpacing);
+    
+    section2Header.setBounds(section2Bounds.removeFromTop(headerHeight));
+    section2Bounds.removeFromTop(controlSpacing);
+    
+    // Name row
+    auto nameRow = section2Bounds.removeFromTop(labelHeight);
+    nameLabel.setBounds(nameRow.removeFromLeft(60));
+    nameRow.removeFromLeft(8);
+    nameInput.setBounds(nameRow.removeFromLeft(200));
+    
+    section2Bounds.removeFromTop(controlSpacing);
     
     // CC Number row
-    auto ccRow = section1Bounds.removeFromTop(labelHeight);
+    auto ccRow = section2Bounds.removeFromTop(labelHeight);
     ccNumberLabel.setBounds(ccRow.removeFromLeft(120));
     ccRow.removeFromLeft(8);
     ccNumberInput.setBounds(ccRow.removeFromLeft(80));
     
-    section1Bounds.removeFromTop(controlSpacing);
+    section2Bounds.removeFromTop(controlSpacing);
     
     // Output mode row
-    auto outputRow = section1Bounds.removeFromTop(inputHeight);
+    auto outputRow = section2Bounds.removeFromTop(labelHeight);
     outputModeLabel.setBounds(outputRow.removeFromLeft(120));
     outputRow.removeFromLeft(8);
     output7BitButton.setBounds(outputRow.removeFromLeft(60));
     outputRow.removeFromLeft(8);
     output14BitButton.setBounds(outputRow.removeFromLeft(60));
     
-    bounds.removeFromTop(sectionSpacing);
-    
-    // Section 2 - Display & Range (expanded for orientation and automation visibility controls)
-    auto section2Bounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 6 + controlSpacing);
-    
-    section2Header.setBounds(section2Bounds.removeFromTop(headerHeight));
     section2Bounds.removeFromTop(controlSpacing);
     
-    // Range row
-    auto rangeRow = section2Bounds.removeFromTop(labelHeight);
-    rangeLabel.setBounds(rangeRow.removeFromLeft(50));
-    rangeRow.removeFromLeft(4);
-    rangeMinInput.setBounds(rangeRow.removeFromLeft(80));
-    rangeRow.removeFromLeft(2);
-    rangeDashLabel.setBounds(rangeRow.removeFromLeft(10));
-    rangeRow.removeFromLeft(2);
-    rangeMaxInput.setBounds(rangeRow.removeFromLeft(80));
-    
-    section2Bounds.removeFromTop(controlSpacing);
-    
-    // Display Unit row
-    auto unitRow = section2Bounds.removeFromTop(labelHeight);
-    displayUnitLabel.setBounds(unitRow.removeFromLeft(120));
-    unitRow.removeFromLeft(8);
-    displayUnitInput.setBounds(unitRow.removeFromLeft(60));
-    
-    section2Bounds.removeFromTop(controlSpacing);
-    
-    // Increments row
-    auto incrementRow = section2Bounds.removeFromTop(labelHeight);
-    incrementsLabel.setBounds(incrementRow.removeFromLeft(120));
-    incrementRow.removeFromLeft(8);
-    incrementsInput.setBounds(incrementRow.removeFromLeft(70));
-    incrementRow.removeFromLeft(4);
-    autoStepButton.setBounds(incrementRow.removeFromLeft(40));
-    
-    section2Bounds.removeFromTop(controlSpacing);
-    
-    // Orientation row
-    auto orientationRow = section2Bounds.removeFromTop(labelHeight);
-    orientationLabel.setBounds(orientationRow.removeFromLeft(120));
-    orientationRow.removeFromLeft(8);
-    orientationCombo.setBounds(orientationRow.removeFromLeft(80));
-    
-    section2Bounds.removeFromTop(controlSpacing);
-    
-    // Snap controls row (only visible for bipolar mode)
-    auto snapRow = section2Bounds.removeFromTop(labelHeight);
-    snapLabel.setBounds(snapRow.removeFromLeft(40));
-    snapRow.removeFromLeft(4);
-    snapSmallButton.setBounds(snapRow.removeFromLeft(20));
-    snapRow.removeFromLeft(2);
-    snapMediumButton.setBounds(snapRow.removeFromLeft(20));
-    snapRow.removeFromLeft(2);
-    snapLargeButton.setBounds(snapRow.removeFromLeft(20));
-    
-    section2Bounds.removeFromTop(controlSpacing);
-    
-    // Automation Visibility row
-    auto automationRow = section2Bounds.removeFromTop(labelHeight);
-    automationVisibilityLabel.setBounds(automationRow.removeFromLeft(120));
-    automationRow.removeFromLeft(8);
-    showAutomationButton.setBounds(automationRow.removeFromLeft(100));
-    
-    bounds.removeFromTop(sectionSpacing);
-    
-    // Section 3 - Input Behavior
-    auto section3Bounds = bounds.removeFromTop(headerHeight + labelHeight + inputHeight + controlSpacing);
-    
-    section3Header.setBounds(section3Bounds.removeFromTop(headerHeight));
-    section3Bounds.removeFromTop(controlSpacing);
-    
-    auto inputModeRow = section3Bounds.removeFromTop(labelHeight);
+    // Input Behavior row (moved from separate section)
+    auto inputModeRow = section2Bounds.removeFromTop(labelHeight);
     inputModeLabel.setBounds(inputModeRow.removeFromLeft(120));
     inputModeRow.removeFromLeft(8);
     deadzoneButton.setBounds(inputModeRow.removeFromLeft(80));
@@ -760,17 +752,68 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     
     bounds.removeFromTop(sectionSpacing);
     
-    // Section 4 - Visual
-    auto section4Bounds = bounds.removeFromTop(headerHeight + labelHeight + 60 + inputHeight + controlSpacing);
+    // Section 3 - Display & Range (expanded to include color, automation visibility, reset)
+    auto section3Bounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 7 + 60 + controlSpacing * 2);
     
-    section4Header.setBounds(section4Bounds.removeFromTop(headerHeight));
-    section4Bounds.removeFromTop(controlSpacing);
+    section3Header.setBounds(section3Bounds.removeFromTop(headerHeight));
+    section3Bounds.removeFromTop(controlSpacing);
     
-    colorPickerLabel.setBounds(section4Bounds.removeFromTop(labelHeight));
-    section4Bounds.removeFromTop(controlSpacing);
+    // Range row
+    auto rangeRow = section3Bounds.removeFromTop(labelHeight);
+    rangeLabel.setBounds(rangeRow.removeFromLeft(50));
+    rangeRow.removeFromLeft(4);
+    rangeMinInput.setBounds(rangeRow.removeFromLeft(80));
+    rangeRow.removeFromLeft(2);
+    rangeDashLabel.setBounds(rangeRow.removeFromLeft(10));
+    rangeRow.removeFromLeft(2);
+    rangeMaxInput.setBounds(rangeRow.removeFromLeft(80));
+    
+    section3Bounds.removeFromTop(controlSpacing);
+    
+    // Display Unit row
+    auto unitRow = section3Bounds.removeFromTop(labelHeight);
+    displayUnitLabel.setBounds(unitRow.removeFromLeft(120));
+    unitRow.removeFromLeft(8);
+    displayUnitInput.setBounds(unitRow.removeFromLeft(60));
+    
+    section3Bounds.removeFromTop(controlSpacing);
+    
+    // Increments row
+    auto incrementRow = section3Bounds.removeFromTop(labelHeight);
+    incrementsLabel.setBounds(incrementRow.removeFromLeft(120));
+    incrementRow.removeFromLeft(8);
+    incrementsInput.setBounds(incrementRow.removeFromLeft(70));
+    incrementRow.removeFromLeft(4);
+    autoStepButton.setBounds(incrementRow.removeFromLeft(40));
+    
+    section3Bounds.removeFromTop(controlSpacing);
+    
+    // Orientation row
+    auto orientationRow = section3Bounds.removeFromTop(labelHeight);
+    orientationLabel.setBounds(orientationRow.removeFromLeft(120));
+    orientationRow.removeFromLeft(8);
+    orientationCombo.setBounds(orientationRow.removeFromLeft(80));
+    
+    section3Bounds.removeFromTop(controlSpacing);
+    
+    // Snap controls row (only visible for bipolar mode)
+    auto snapRow = section3Bounds.removeFromTop(labelHeight);
+    snapLabel.setBounds(snapRow.removeFromLeft(40));
+    snapRow.removeFromLeft(4);
+    snapSmallButton.setBounds(snapRow.removeFromLeft(20));
+    snapRow.removeFromLeft(2);
+    snapMediumButton.setBounds(snapRow.removeFromLeft(20));
+    snapRow.removeFromLeft(2);
+    snapLargeButton.setBounds(snapRow.removeFromLeft(20));
+    
+    section3Bounds.removeFromTop(controlSpacing);
+    
+    // Color picker
+    colorPickerLabel.setBounds(section3Bounds.removeFromTop(labelHeight));
+    section3Bounds.removeFromTop(controlSpacing);
     
     // Color picker grid (4x2)
-    auto colorArea = section4Bounds.removeFromTop(60);
+    auto colorArea = section3Bounds.removeFromTop(60);
     const int buttonSize = 25;
     const int buttonGap = 8;
     
@@ -788,8 +831,18 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
         }
     }
     
-    section4Bounds.removeFromTop(controlSpacing);
-    resetSliderButton.setBounds(section4Bounds.removeFromTop(inputHeight).removeFromLeft(120));
+    section3Bounds.removeFromTop(controlSpacing);
+    
+    // Automation Visibility row
+    auto automationRow = section3Bounds.removeFromTop(labelHeight);
+    automationVisibilityLabel.setBounds(automationRow.removeFromLeft(120));
+    automationRow.removeFromLeft(8);
+    showAutomationButton.setBounds(automationRow.removeFromLeft(100));
+    
+    section3Bounds.removeFromTop(controlSpacing);
+    
+    // Reset button
+    resetSliderButton.setBounds(section3Bounds.removeFromTop(inputHeight).removeFromLeft(120));
 }
 
 // Additional inline method implementations would continue here...
