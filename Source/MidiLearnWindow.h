@@ -2,6 +2,7 @@
 #pragma once
 #include <JuceHeader.h>
 #include "CustomLookAndFeel.h"
+#include "Core/Midi7BitController.h" // For MidiTargetType
 
 //==============================================================================
 class MidiLearnWindow : public juce::Component
@@ -53,7 +54,7 @@ public:
         
         // Table headers
         addAndMakeVisible(sliderHeaderLabel);
-        sliderHeaderLabel.setText("Slider", juce::dontSendNotification);
+        sliderHeaderLabel.setText("Target", juce::dontSendNotification);
         sliderHeaderLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
         sliderHeaderLabel.setJustificationType(juce::Justification::centred);
         sliderHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
@@ -200,13 +201,19 @@ public:
     // Public methods
     void addMapping(int sliderIndex, int midiChannel, int ccNumber)
     {
-        // Remove existing mapping for this slider if it exists
-        removeMappingForSlider(sliderIndex);
+        // Legacy method - delegates to new target-based method
+        addMapping(MidiTargetType::SliderValue, sliderIndex, midiChannel, ccNumber);
+    }
+    
+    void addMapping(MidiTargetType targetType, int sliderIndex, int midiChannel, int ccNumber)
+    {
+        // Remove existing mapping for this target/slider combination if it exists
+        removeTargetMapping(targetType, sliderIndex);
         
-        // Create new mapping row
-        auto* newRow = new MappingRow(sliderIndex, midiChannel, ccNumber);
-        newRow->onRemoveClicked = [this, sliderIndex]() {
-            removeMappingForSlider(sliderIndex);
+        // Create new mapping row with target type
+        auto* newRow = new MappingRow(targetType, sliderIndex, midiChannel, ccNumber);
+        newRow->onRemoveClicked = [this, targetType, sliderIndex]() {
+            removeTargetMapping(targetType, sliderIndex);
             if (onMappingCleared)
                 onMappingCleared(sliderIndex);
         };
@@ -222,11 +229,75 @@ public:
             onMappingAdded(sliderIndex, midiChannel, ccNumber);
     }
     
+    void addConfigMapping(const juce::String& configId, const juce::String& configName, int midiChannel, int ccNumber)
+    {
+        // Remove existing mapping for this CC/Channel combination if it exists
+        for (int i = mappingRows.size() - 1; i >= 0; --i)
+        {
+            if (mappingRows[i]->getCCNumber() == ccNumber && mappingRows[i]->getMidiChannel() == midiChannel)
+            {
+                mappingRows.remove(i);
+                break;
+            }
+        }
+        
+        // Create new mapping row for automation config
+        auto* newRow = new MappingRow(configId, configName, midiChannel, ccNumber);
+        newRow->onRemoveClicked = [this, configId]() {
+            removeConfigMapping(configId);
+            if (onConfigMappingCleared)
+                onConfigMappingCleared(configId);
+        };
+        
+        mappingRows.add(newRow);
+        addAndMakeVisible(newRow);
+        
+        layoutTableRows();
+        updateStatusLabel();
+        repaint();
+        
+        if (onConfigMappingAdded)
+            onConfigMappingAdded(configId, midiChannel, ccNumber);
+    }
+    
     void removeMappingForSlider(int sliderIndex)
     {
         for (int i = mappingRows.size() - 1; i >= 0; --i)
         {
             if (mappingRows[i]->getSliderIndex() == sliderIndex)
+            {
+                mappingRows.remove(i);
+                break;
+            }
+        }
+        
+        layoutTableRows();
+        updateStatusLabel();
+        repaint();
+    }
+    
+    void removeTargetMapping(MidiTargetType targetType, int sliderIndex)
+    {
+        for (int i = mappingRows.size() - 1; i >= 0; --i)
+        {
+            if (mappingRows[i]->getTargetType() == targetType && 
+                mappingRows[i]->getSliderIndex() == sliderIndex)
+            {
+                mappingRows.remove(i);
+                break;
+            }
+        }
+        
+        layoutTableRows();
+        updateStatusLabel();
+        repaint();
+    }
+    
+    void removeConfigMapping(const juce::String& configId)
+    {
+        for (int i = mappingRows.size() - 1; i >= 0; --i)
+        {
+            if (mappingRows[i]->getConfigId() == configId)
             {
                 mappingRows.remove(i);
                 break;
@@ -284,6 +355,10 @@ public:
     std::function<void(int sliderIndex)> onMappingCleared;
     std::function<void()> onAllMappingsCleared;
     
+    // Config mapping callbacks
+    std::function<void(const juce::String& configId, int midiChannel, int ccNumber)> onConfigMappingAdded;
+    std::function<void(const juce::String& configId)> onConfigMappingCleared;
+    
     // MIDI device callbacks
     std::function<void(const juce::String& deviceName)> onMidiDeviceSelected;
     std::function<void()> onMidiDevicesRefreshed;
@@ -293,12 +368,71 @@ private:
     class MappingRow : public juce::Component
     {
     public:
+        // Legacy constructor for backward compatibility
         MappingRow(int sliderIndex, int midiChannel, int ccNumber)
-            : sliderIndex(sliderIndex), midiChannel(midiChannel), ccNumber(ccNumber)
+            : MappingRow(MidiTargetType::SliderValue, sliderIndex, midiChannel, ccNumber)
         {
-            // Slider label
+        }
+        
+        // New constructor with target type support
+        MappingRow(MidiTargetType targetType, int sliderIndex, int midiChannel, int ccNumber)
+            : targetType(targetType), sliderIndex(sliderIndex), midiChannel(midiChannel), ccNumber(ccNumber), isConfigMapping(false)
+        {
+            setupLabelsAndButton();
+            
+            // Target label (changed from simple slider number to target description)
+            MidiTargetInfo targetInfo{targetType, sliderIndex, ccNumber, midiChannel};
+            sliderLabel.setText(targetInfo.getDisplayName(), juce::dontSendNotification);
+        }
+        
+        // Config mapping constructor
+        MappingRow(const juce::String& configId, const juce::String& configName, int midiChannel, int ccNumber)
+            : targetType(MidiTargetType::AutomationConfig), sliderIndex(-1), midiChannel(midiChannel), ccNumber(ccNumber), 
+              isConfigMapping(true), configId(configId)
+        {
+            setupLabelsAndButton();
+            
+            // Config name as target
+            sliderLabel.setText(configName, juce::dontSendNotification);
+        }
+        
+        void resized() override
+        {
+            auto area = getLocalBounds();
+            int colWidth = area.getWidth() / 4;
+            
+            sliderLabel.setBounds(area.removeFromLeft(colWidth));
+            channelLabel.setBounds(area.removeFromLeft(colWidth));
+            ccLabel.setBounds(area.removeFromLeft(colWidth));
+            removeButton.setBounds(area.reduced(5, 2));
+        }
+        
+        int getSliderIndex() const { return sliderIndex; }
+        MidiTargetType getTargetType() const { return targetType; }
+        int getCCNumber() const { return ccNumber; }
+        int getMidiChannel() const { return midiChannel; }
+        juce::String getConfigId() const { return configId; }
+        bool isConfig() const { return isConfigMapping; }
+        
+        std::function<void()> onRemoveClicked;
+        
+    private:
+        MidiTargetType targetType;
+        int sliderIndex;
+        int midiChannel;
+        int ccNumber;
+        bool isConfigMapping;
+        juce::String configId;
+        
+        juce::Label sliderLabel;
+        juce::Label channelLabel;
+        juce::Label ccLabel;
+        juce::TextButton removeButton;
+        
+        void setupLabelsAndButton()
+        {
+            // Target/Config label
             addAndMakeVisible(sliderLabel);
-            sliderLabel.setText(juce::String(sliderIndex + 1), juce::dontSendNotification);
             sliderLabel.setFont(juce::FontOptions(11.0f));
             sliderLabel.setJustificationType(juce::Justification::centred);
             sliderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
@@ -327,31 +461,6 @@ private:
                     onRemoveClicked();
             };
         }
-        
-        void resized() override
-        {
-            auto area = getLocalBounds();
-            int colWidth = area.getWidth() / 4;
-            
-            sliderLabel.setBounds(area.removeFromLeft(colWidth));
-            channelLabel.setBounds(area.removeFromLeft(colWidth));
-            ccLabel.setBounds(area.removeFromLeft(colWidth));
-            removeButton.setBounds(area.reduced(5, 2));
-        }
-        
-        int getSliderIndex() const { return sliderIndex; }
-        
-        std::function<void()> onRemoveClicked;
-        
-    private:
-        int sliderIndex;
-        int midiChannel;
-        int ccNumber;
-        
-        juce::Label sliderLabel;
-        juce::Label channelLabel;
-        juce::Label ccLabel;
-        juce::TextButton removeButton;
     };
     
     juce::Rectangle<int> getHeaderBounds() const

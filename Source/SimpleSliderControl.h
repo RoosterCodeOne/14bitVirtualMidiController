@@ -8,9 +8,12 @@
 #include "AutomationVisualizer.h"
 #include "Core/AutomationEngine.h"
 #include "Core/SliderDisplayManager.h"
+#include "Core/AutomationConfigManager.h"
 #include "Components/SliderInteractionHandler.h"
 #include "Components/AutomationControlPanel.h"
 #include "UI/SliderLayoutManager.h"
+#include "UI/AutomationContextMenu.h"
+#include "UI/ConfigNameDialog.h"
 
 //==============================================================================
 // Custom clickable label for lock functionality
@@ -572,6 +575,17 @@ public:
     
     void mouseDown(const juce::MouseEvent& event) override
     {
+        // Right-click context menu for automation area
+        if (event.mods.isRightButtonDown())
+        {
+            // Check if click is in automation area
+            if (automationControlPanel.getBounds().contains(event.getPosition()))
+            {
+                showAutomationContextMenu(event.getPosition());
+                return;
+            }
+        }
+        
         // Set drag state for movement tracking
         displayManager.setDragState(true);
         
@@ -705,6 +719,90 @@ public:
         if (auto* parent = getParentComponent())
             parent->repaint();
     }
+    
+    // Automation config management
+    void setConfigManager(AutomationConfigManager* manager) { configManager = manager; }
+    
+    AutomationConfig getCurrentAutomationConfig() const
+    {
+        AutomationConfig config;
+        config.name = "Slider " + juce::String(index + 1) + " Config";
+        config.targetValue = displayManager.getDisplayValue();
+        config.delayTime = automationControlPanel.getDelayTime();
+        config.attackTime = automationControlPanel.getAttackTime();
+        config.returnTime = automationControlPanel.getReturnTime();
+        config.curveValue = automationControlPanel.getCurveValue();
+        config.timeMode = automationControlPanel.getTimeMode();
+        config.originalSliderIndex = index;
+        return config;
+    }
+    
+    void applyAutomationConfig(const AutomationConfig& config)
+    {
+        // Apply all config values to this slider
+        automationControlPanel.setTargetValue(config.targetValue);
+        automationControlPanel.setDelayTime(config.delayTime);
+        automationControlPanel.setAttackTime(config.attackTime);
+        automationControlPanel.setReturnTime(config.returnTime);
+        automationControlPanel.setCurveValue(config.curveValue);
+        automationControlPanel.setTimeMode(config.timeMode);
+        
+        DBG("Applied automation config '" + config.name + "' to slider " + juce::String(index));
+    }
+    
+    void showAutomationContextMenu(juce::Point<int> position)
+    {
+        if (!configManager) return;
+        
+        AutomationContextMenu contextMenu(*configManager);
+        
+        // Set up context menu callbacks
+        contextMenu.onSaveConfig = [this](int sliderIndex) {
+            if (!configManager) return;
+            
+            AutomationConfig config = getCurrentAutomationConfig();
+            juce::String defaultName = "Slider " + juce::String(sliderIndex + 1) + " Config";
+            
+            ConfigNameDialog::showDialog(this, defaultName, [this, config](const juce::String& name) mutable {
+                config.name = name;
+                configManager->saveConfig(config);
+                DBG("Saved automation config: " + name);
+            });
+        };
+        
+        contextMenu.onLoadConfig = [this](int sliderIndex, const juce::String& configId) {
+            if (!configManager) return;
+            
+            auto config = configManager->loadConfig(configId);
+            if (config.isValid())
+            {
+                applyAutomationConfig(config);
+            }
+        };
+        
+        contextMenu.onCopyConfig = [this](int sliderIndex) {
+            if (!configManager) return;
+            configManager->copyConfigFromSlider(sliderIndex);
+            DBG("Copied config from slider " + juce::String(sliderIndex));
+        };
+        
+        contextMenu.onPasteConfig = [this](int sliderIndex) {
+            if (!configManager) return;
+            configManager->pasteConfigToSlider(sliderIndex);
+            DBG("Pasted config to slider " + juce::String(sliderIndex));
+        };
+        
+        contextMenu.onManageConfigs = [this]() {
+            if (onConfigManagementRequested)
+                onConfigManagementRequested();
+        };
+        
+        // Show context menu
+        contextMenu.showForSlider(index, position, this);
+    }
+    
+    // Automation config callbacks
+    std::function<void()> onConfigManagementRequested;
     
     // Snap logic moved to SliderDisplayManager::setMidiValueWithSnap()
     // This ensures consistent snap behavior across all interaction paths
@@ -930,6 +1028,7 @@ public:
     // Core Systems
     AutomationEngine automationEngine;
     SliderDisplayManager displayManager;
+    AutomationConfigManager* configManager = nullptr;
     
     // MIDI activity indicator variables
     bool midiActivityState = false;
@@ -942,7 +1041,6 @@ public:
     
     // Flag to prevent infinite recursion when setting values programmatically
     bool isSettingValueProgrammatically = false;
-    
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SimpleSliderControl)
 };

@@ -58,10 +58,10 @@ public:
                     for (auto* slider : sliderControls)
                         slider->setShowLearnMarkers(false);
                         
-                    // Set target and show markers
-                    midi7BitController.setLearnTarget(i);
+                    // Set target and show markers (defaulting to SliderValue for backward compatibility)
+                    midi7BitController.setLearnTarget(MidiTargetType::SliderValue, i);
                     sliderControls[i]->setShowLearnMarkers(true);
-                    DBG("Set learnTargetSlider=" << i << ", showing markers");
+                    DBG("Set learn target to SliderValue for slider " << i << ", showing markers");
                     
                     learnButton.setButtonText("Move Controller");
                 }
@@ -520,9 +520,10 @@ public:
             int ourOutputChannel = settingsWindow.getMidiChannel();
             
             // DEBUG: Log all incoming MIDI messages
-            DBG("MIDI IN: Ch=" << channel << " CC=" << ccNumber << " Val=" << ccValue 
-                << " (ourCh=" << ourOutputChannel << " learn=" << (int)midi7BitController.isInLearnMode() 
-                << " target=" << midi7BitController.getLearnTarget() << ")");
+            juce::String debugMsg = "MIDI IN: Ch=" + juce::String(channel) + " CC=" + juce::String(ccNumber) + " Val=" + juce::String(ccValue) +
+                                   " (ourCh=" + juce::String(ourOutputChannel) + " learn=" + juce::String((int)midi7BitController.isInLearnMode()) +
+                                   " target=" + midi7BitController.getCurrentLearnTarget().getDisplayName() + ")";
+            DBG(debugMsg);
             
             // === MIDI FEEDBACK PREVENTION ===
             // The app outputs MIDI on 'ourOutputChannel', so we must prevent processing
@@ -682,25 +683,27 @@ public:
             }
         };
         
-        // Set up mapping learned callback
-        midi7BitController.onMappingLearned = [this](int sliderIndex, int ccNumber, int channel) {
-            // Clear markers
-            if (sliderIndex < sliderControls.size())
+        // Set up mapping learned callback (updated signature for new target system)
+        midi7BitController.onMappingLearned = [this](MidiTargetType targetType, int sliderIndex, int ccNumber, int channel) {
+            // Clear markers for slider targets
+            if (targetType == MidiTargetType::SliderValue && sliderIndex < sliderControls.size())
             {
                 sliderControls[sliderIndex]->setShowLearnMarkers(false);
                 DBG("Cleared learn markers for slider " << sliderIndex);
             }
             
-            // Add mapping to learn window
-            midiLearnWindow.addMapping(sliderIndex, channel, ccNumber);
-            DBG("Called midiLearnWindow.addMapping(" << sliderIndex << ", " << channel << ", " << ccNumber << ")");
+            // Add mapping to learn window with target type information
+            midiLearnWindow.addMapping(targetType, sliderIndex, channel, ccNumber);
+            MidiTargetInfo tempTarget{targetType, sliderIndex, ccNumber, channel};
+            DBG("Called midiLearnWindow.addMapping for " + tempTarget.getDisplayName());
             
             // Reset learn button state
-            learnButton.setButtonText("Select Slider");
+            learnButton.setButtonText("Select Target");
             DBG("Reset learn state");
             
-            // Show success feedback
-            juce::String message = "Mapped CC " + juce::String(ccNumber) + " (Ch " + juce::String(channel) + ") to Slider " + juce::String(sliderIndex + 1);
+            // Show success feedback with target type
+            MidiTargetInfo targetInfo{targetType, sliderIndex, ccNumber, channel};
+            juce::String message = "Mapped CC " + juce::String(ccNumber) + " (Ch " + juce::String(channel) + ") to " + targetInfo.getDisplayName();
             juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "MIDI Learn", message);
             DBG("Showing success message: " << message);
         };
@@ -741,6 +744,60 @@ public:
                 return slider ? slider->getValue() : 0.0;
             }
             return 0.0;
+        };
+        
+        // NEW: Set up bank cycle callback
+        midi7BitController.onBankCycleRequested = [this]() {
+            cycleBankUp(); // Use existing bank cycling logic
+            DBG("MIDI-triggered bank cycle");
+        };
+        
+        // NEW: Set up automation toggle callback (acts like GO button click)
+        midi7BitController.onAutomationToggle = [this](int sliderIndex, bool ignored) {
+            if (sliderIndex < sliderControls.size())
+            {
+                auto* slider = sliderControls[sliderIndex];
+                if (slider)
+                {
+                    // Simulate GO button click - this handles start/stop toggle automatically
+                    if (slider->automationControlPanel.onGoButtonClicked)
+                        slider->automationControlPanel.onGoButtonClicked();
+                    
+                    DBG("MIDI-triggered automation GO button click for slider " + juce::String(sliderIndex));
+                }
+            }
+        };
+        
+        // NEW: Set up automation knob control callback
+        midi7BitController.onAutomationKnobChanged = [this](int sliderIndex, MidiTargetType knobType, double knobValue) {
+            if (sliderIndex < sliderControls.size())
+            {
+                auto* slider = sliderControls[sliderIndex];
+                if (slider)
+                {
+                    switch (knobType)
+                    {
+                        case MidiTargetType::AutomationDelay:
+                            slider->setDelayTime(knobValue);
+                            DBG("MIDI set slider " << sliderIndex << " delay to " << knobValue);
+                            break;
+                        case MidiTargetType::AutomationAttack:
+                            slider->setAttackTime(knobValue);
+                            DBG("MIDI set slider " << sliderIndex << " attack to " << knobValue);
+                            break;
+                        case MidiTargetType::AutomationReturn:
+                            slider->setReturnTime(knobValue);
+                            DBG("MIDI set slider " << sliderIndex << " return to " << knobValue);
+                            break;
+                        case MidiTargetType::AutomationCurve:
+                            slider->setCurveValue(knobValue);
+                            DBG("MIDI set slider " << sliderIndex << " curve to " << knobValue);
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
         };
     }
     
