@@ -6,6 +6,7 @@
 #include "../Custom3DButton.h"
 #include "../AutomationVisualizer.h"
 #include "../CustomLookAndFeel.h"
+#include "LearnModeOverlay.h"
 
 //==============================================================================
 class AutomationControlPanel : public juce::Component
@@ -26,6 +27,7 @@ public:
         setupLabels();
         setupVisualizer();
         setupTargetInput();
+        setupLearnOverlays();
         
         // Set default time mode
         setTimeMode(TimeMode::Seconds);
@@ -128,6 +130,9 @@ public:
         
         // Force automation visualizer repaint after resizing
         automationVisualizer.repaint();
+        
+        // Update learn overlay positions
+        updateOverlayBounds();
     }
     
     // Knob value getters/setters
@@ -173,9 +178,69 @@ public:
     // Automation visualizer access
     AutomationVisualizer& getAutomationVisualizer() { return automationVisualizer; }
     
+    // Mouse handling for context menu and learn mode
+    void mouseDown(const juce::MouseEvent& event) override
+    {
+        if (event.mods.isRightButtonDown() && !isInLearnMode)
+        {
+            // Show context menu for automation area
+            if (onContextMenuRequested)
+            {
+                onContextMenuRequested(event.getScreenPosition());
+                return;
+            }
+        }
+        
+        // Handle learn mode clicks for individual components
+        if (isInLearnMode)
+        {
+            handleLearnModeClick(event);
+            return;
+        }
+        
+        Component::mouseDown(event);
+    }
+    
+    // Learn mode management
+    void setLearnModeActive(bool active, int sliderIndex = -1)
+    {
+        isInLearnMode = active;
+        currentSliderIndex = sliderIndex;
+        
+        // Show/hide learn overlays
+        goButtonOverlay.setLearnModeActive(active);
+        delayKnobOverlay.setLearnModeActive(active);
+        attackKnobOverlay.setLearnModeActive(active);
+        returnKnobOverlay.setLearnModeActive(active);
+        curveKnobOverlay.setLearnModeActive(active);
+        
+        if (active && sliderIndex >= 0)
+        {
+            // Set up target info for each overlay
+            goButtonOverlay.setTargetInfo(MidiTargetType::AutomationGO, sliderIndex);
+            delayKnobOverlay.setTargetInfo(MidiTargetType::AutomationDelay, sliderIndex);
+            attackKnobOverlay.setTargetInfo(MidiTargetType::AutomationAttack, sliderIndex);
+            returnKnobOverlay.setTargetInfo(MidiTargetType::AutomationReturn, sliderIndex);
+            curveKnobOverlay.setTargetInfo(MidiTargetType::AutomationCurve, sliderIndex);
+        }
+        
+        repaint();
+    }
+    
+    bool getLearnModeActive() const { return isInLearnMode; }
+    
+    // Get bounds for specific automation components
+    juce::Rectangle<int> getGoButtonBounds() const { return goButton3D.getBounds(); }
+    juce::Rectangle<int> getDelayKnobBounds() const { return delayKnob.getBounds(); }
+    juce::Rectangle<int> getAttackKnobBounds() const { return attackKnob.getBounds(); }
+    juce::Rectangle<int> getReturnKnobBounds() const { return returnKnob.getBounds(); }
+    juce::Rectangle<int> getCurveKnobBounds() const { return curveKnob.getBounds(); }
+    
     // Callbacks
     std::function<void()> onGoButtonClicked;
     std::function<void(double)> onKnobValueChanged;
+    std::function<void(juce::Point<int>)> onContextMenuRequested;
+    std::function<void(MidiTargetType, int)> onLearnModeTargetClicked;
     
 private:
     void setupKnobs()
@@ -295,6 +360,74 @@ private:
     juce::ToggleButton secButton, beatButton;
     juce::Label secLabel, beatLabel;
     CustomButtonLookAndFeel buttonLookAndFeel;
+    
+    // Learn mode overlays
+    LearnModeOverlay goButtonOverlay;
+    LearnModeOverlay delayKnobOverlay;
+    LearnModeOverlay attackKnobOverlay;
+    LearnModeOverlay returnKnobOverlay;
+    LearnModeOverlay curveKnobOverlay;
+    
+    // Learn mode state
+    bool isInLearnMode = false;
+    int currentSliderIndex = -1;
+    
+    void handleLearnModeClick(const juce::MouseEvent& event)
+    {
+        // Determine which component was clicked
+        auto pos = event.getPosition();
+        MidiTargetType targetType = MidiTargetType::SliderValue;
+        
+        if (goButton3D.getBounds().contains(pos))
+            targetType = MidiTargetType::AutomationGO;
+        else if (delayKnob.getBounds().contains(pos))
+            targetType = MidiTargetType::AutomationDelay;
+        else if (attackKnob.getBounds().contains(pos))
+            targetType = MidiTargetType::AutomationAttack;
+        else if (returnKnob.getBounds().contains(pos))
+            targetType = MidiTargetType::AutomationReturn;
+        else if (curveKnob.getBounds().contains(pos))
+            targetType = MidiTargetType::AutomationCurve;
+        else
+            return; // Click wasn't on a learnable component
+        
+        if (onLearnModeTargetClicked)
+            onLearnModeTargetClicked(targetType, currentSliderIndex);
+    }
+    
+    void setupLearnOverlays()
+    {
+        // Add overlays as children
+        addChildComponent(goButtonOverlay);
+        addChildComponent(delayKnobOverlay);
+        addChildComponent(attackKnobOverlay);
+        addChildComponent(returnKnobOverlay);
+        addChildComponent(curveKnobOverlay);
+        
+        // Set up overlay callbacks
+        auto setupOverlayCallback = [this](LearnModeOverlay& overlay) {
+            overlay.onTargetClicked = [this](MidiTargetType targetType, int sliderIndex) {
+                if (onLearnModeTargetClicked)
+                    onLearnModeTargetClicked(targetType, sliderIndex);
+            };
+        };
+        
+        setupOverlayCallback(goButtonOverlay);
+        setupOverlayCallback(delayKnobOverlay);
+        setupOverlayCallback(attackKnobOverlay);
+        setupOverlayCallback(returnKnobOverlay);
+        setupOverlayCallback(curveKnobOverlay);
+    }
+    
+    void updateOverlayBounds()
+    {
+        // Position overlays exactly over their target components
+        goButtonOverlay.setBounds(goButton3D.getBounds());
+        delayKnobOverlay.setBounds(delayKnob.getBounds());
+        attackKnobOverlay.setBounds(attackKnob.getBounds());
+        returnKnobOverlay.setBounds(returnKnob.getBounds());
+        curveKnobOverlay.setBounds(curveKnob.getBounds());
+    }
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AutomationControlPanel)
 };

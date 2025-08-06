@@ -11,6 +11,7 @@
 #include "Core/AutomationConfigManager.h"
 #include "Components/SliderInteractionHandler.h"
 #include "Components/AutomationControlPanel.h"
+#include "Components/SliderLearnZones.h"
 #include "UI/SliderLayoutManager.h"
 #include "UI/AutomationContextMenu.h"
 #include "UI/ConfigNameDialog.h"
@@ -154,6 +155,17 @@ public:
             // Knob values changed - no specific action needed here
         };
         
+        // Set up context menu callback for automation area
+        automationControlPanel.onContextMenuRequested = [this](juce::Point<int> screenPos) {
+            showAutomationContextMenu(screenPos);
+        };
+        
+        // Set up learn mode callback for automation control panel
+        automationControlPanel.onLearnModeTargetClicked = [this](MidiTargetType targetType, int sliderIndex) {
+            if (onLearnModeTargetClicked)
+                onLearnModeTargetClicked(targetType, sliderIndex);
+        };
+        
         // Initialize default time mode
         automationControlPanel.setTimeMode(TimeMode::Seconds);
         
@@ -162,6 +174,9 @@ public:
         
         // Set up automation engine callbacks
         setupAutomationEngine();
+        
+        // Initialize learn zones
+        setupLearnZones();
     }
     
     ~SimpleSliderControl()
@@ -221,6 +236,9 @@ public:
         {
             automationControlPanel.setBounds(bounds.automationArea);
         }
+        
+        // Update learn zone bounds after layout
+        updateLearnZoneBounds();
     }
     
     void paint(juce::Graphics& g) override
@@ -573,17 +591,44 @@ public:
     // Callback to check if slider is in 14-bit mode (for quantization)
     std::function<bool(int)> is14BitMode;
     
+    // Callback for learn zone clicks (new learn system)
+    std::function<void(const LearnZone&)> onLearnZoneClicked;
+    
+    // Learn zone management (public interface)
+    void activateAllLearnZones(bool active)
+    {
+        if (learnZones)
+        {
+            learnZones->setLearnModeActive(active);
+            if (active)
+                updateLearnZoneBounds();
+        }
+    }
+    
+    void clearActiveLearnZone()
+    {
+        if (learnZones)
+            learnZones->clearActiveZone();
+    }
+    
     void mouseDown(const juce::MouseEvent& event) override
     {
-        // Right-click context menu for automation area
-        if (event.mods.isRightButtonDown())
+        // Right-click context menu for automation area (only when not in learn mode)
+        if (event.mods.isRightButtonDown() && !showLearnMarkers)
         {
-            // Check if click is in automation area
+            // Check if click is specifically in automation control area
             if (automationControlPanel.getBounds().contains(event.getPosition()))
             {
                 showAutomationContextMenu(event.getPosition());
                 return;
             }
+        }
+        
+        // Handle learn mode clicks first
+        if (showLearnMarkers)
+        {
+            handleLearnModeClick(event);
+            return;
         }
         
         // Set drag state for movement tracking
@@ -700,7 +745,11 @@ public:
     // Set learn markers visibility
     void setShowLearnMarkers(bool show) 
     { 
-        showLearnMarkers = show; 
+        showLearnMarkers = show;
+        
+        // Enable/disable automation control panel learn mode
+        automationControlPanel.setLearnModeActive(show, index);
+        
         repaint(); 
     }
     
@@ -804,6 +853,45 @@ public:
     // Automation config callbacks
     std::function<void()> onConfigManagementRequested;
     
+    // Learn mode callbacks
+    std::function<void(MidiTargetType, int)> onLearnModeTargetClicked;
+    
+    void handleLearnModeClick(const juce::MouseEvent& event)
+    {
+        auto pos = event.getPosition();
+        MidiTargetType targetType = MidiTargetType::SliderValue;
+        
+        // Check if click is in automation control panel
+        if (automationControlPanel.getBounds().contains(pos))
+        {
+            // Let the automation control panel handle the specific component detection
+            auto relativePos = pos - automationControlPanel.getBounds().getTopLeft();
+            
+            // Check specific automation components
+            if (automationControlPanel.getGoButtonBounds().contains(relativePos))
+                targetType = MidiTargetType::AutomationGO;
+            else if (automationControlPanel.getDelayKnobBounds().contains(relativePos))
+                targetType = MidiTargetType::AutomationDelay;
+            else if (automationControlPanel.getAttackKnobBounds().contains(relativePos))
+                targetType = MidiTargetType::AutomationAttack;
+            else if (automationControlPanel.getReturnKnobBounds().contains(relativePos))
+                targetType = MidiTargetType::AutomationReturn;
+            else if (automationControlPanel.getCurveKnobBounds().contains(relativePos))
+                targetType = MidiTargetType::AutomationCurve;
+            else
+                return; // Click wasn't on a specific automation component
+        }
+        else
+        {
+            // Click was on slider track area
+            targetType = MidiTargetType::SliderValue;
+        }
+        
+        // Notify the learn mode system
+        if (onLearnModeTargetClicked)
+            onLearnModeTargetClicked(targetType, index);
+    }
+    
     // Snap logic moved to SliderDisplayManager::setMidiValueWithSnap()
     // This ensures consistent snap behavior across all interaction paths
     
@@ -883,7 +971,28 @@ private:
         // Animation is now self-contained in the visualizer - no callbacks needed
     }
     
+    void setupLearnZones()
+    {
+        // Create learn zones for this slider
+        learnZones = std::make_unique<SliderLearnZones>(index);
+        addChildComponent(*learnZones);
+        
+        // Set up learn zone callback
+        learnZones->onZoneClicked = [this](const LearnZone& zone) {
+            if (onLearnZoneClicked)
+                onLearnZoneClicked(zone);
+        };
+    }
     
+    void updateLearnZoneBounds()
+    {
+        if (!learnZones) return;
+        
+        // Update learn zone bounds based on current layout
+        auto sliderTrackBounds = getVisualTrackBounds();
+        learnZones->createZones(sliderTrackBounds, automationControlPanel);
+        learnZones->setBounds(getLocalBounds());
+    }
     
     void drawLearnModeMarkers(juce::Graphics& g)
     {
@@ -1041,6 +1150,9 @@ public:
     
     // Flag to prevent infinite recursion when setting values programmatically
     bool isSettingValueProgrammatically = false;
+    
+    // Learn zones for individual component targeting
+    std::unique_ptr<SliderLearnZones> learnZones;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SimpleSliderControl)
 };

@@ -13,6 +13,9 @@
 #include "UI/MainControllerLayout.h"
 #include "UI/WindowManager.h"
 #include "UI/BankButtonManager.h"
+#include "Components/BankButtonLearnOverlay.h"
+#include "Components/BankButtonLearnZone.h"
+#include "Components/LearnZoneTypes.h"
 
 //==============================================================================
 class DebugMidiController : public juce::Component, public juce::Timer
@@ -82,6 +85,11 @@ public:
             
             sliderControls.add(sliderControl);
             addAndMakeVisible(sliderControl);
+            
+            // Set up new learn zone callback
+            sliderControl->onLearnZoneClicked = [this](const LearnZone& zone) {
+                handleLearnZoneClicked(zone);
+            };
         }
         
         // Bank buttons - setup through BankButtonManager
@@ -215,6 +223,9 @@ public:
         // Initialize 7-bit MIDI controller
         setupMidi7BitController();
         
+        // Setup bank button learn overlays
+        setupBankButtonLearnOverlays();
+        
         // Apply initial window constraints to prevent manual resizing
         updateWindowConstraints();
         
@@ -295,6 +306,64 @@ public:
     // Get currently selected slider for editing (for testing/debugging)
     int getSelectedSliderForEditing() const { return selectedSliderForEditing; }
     
+    // Draw precise selection brackets around slider track only
+    void drawSliderTrackSelectionBrackets(juce::Graphics& g, juce::Rectangle<float> trackBounds, juce::Colour highlightColor)
+    {
+        const float bracketLength = 12.0f;
+        const float bracketThickness = 2.0f;
+        const float cornerOffset = 3.0f;
+        
+        g.setColour(highlightColor);
+        
+        // Top-left bracket
+        juce::Rectangle<float> topLeft(trackBounds.getX() - cornerOffset, 
+                                     trackBounds.getY() - cornerOffset, 
+                                     bracketLength, bracketThickness);
+        g.fillRect(topLeft); // Horizontal line
+        
+        juce::Rectangle<float> topLeftVert(trackBounds.getX() - cornerOffset, 
+                                         trackBounds.getY() - cornerOffset, 
+                                         bracketThickness, bracketLength);
+        g.fillRect(topLeftVert); // Vertical line
+        
+        // Top-right bracket
+        juce::Rectangle<float> topRight(trackBounds.getRight() + cornerOffset - bracketLength, 
+                                      trackBounds.getY() - cornerOffset, 
+                                      bracketLength, bracketThickness);
+        g.fillRect(topRight); // Horizontal line
+        
+        juce::Rectangle<float> topRightVert(trackBounds.getRight() + cornerOffset - bracketThickness, 
+                                          trackBounds.getY() - cornerOffset, 
+                                          bracketThickness, bracketLength);
+        g.fillRect(topRightVert); // Vertical line
+        
+        // Bottom-left bracket
+        juce::Rectangle<float> bottomLeft(trackBounds.getX() - cornerOffset, 
+                                        trackBounds.getBottom() + cornerOffset - bracketThickness, 
+                                        bracketLength, bracketThickness);
+        g.fillRect(bottomLeft); // Horizontal line
+        
+        juce::Rectangle<float> bottomLeftVert(trackBounds.getX() - cornerOffset, 
+                                            trackBounds.getBottom() + cornerOffset - bracketLength, 
+                                            bracketThickness, bracketLength);
+        g.fillRect(bottomLeftVert); // Vertical line
+        
+        // Bottom-right bracket
+        juce::Rectangle<float> bottomRight(trackBounds.getRight() + cornerOffset - bracketLength, 
+                                         trackBounds.getBottom() + cornerOffset - bracketThickness, 
+                                         bracketLength, bracketThickness);
+        g.fillRect(bottomRight); // Horizontal line
+        
+        juce::Rectangle<float> bottomRightVert(trackBounds.getRight() + cornerOffset - bracketThickness, 
+                                             trackBounds.getBottom() + cornerOffset - bracketLength, 
+                                             bracketThickness, bracketLength);
+        g.fillRect(bottomRightVert); // Vertical line
+        
+        // Add subtle glow effect
+        g.setColour(highlightColor.withAlpha(0.3f));
+        g.drawRect(trackBounds.expanded(2.0f), 1.0f);
+    }
+    
     void paint(juce::Graphics& g) override
     {
         // Blueprint background - dark navy base
@@ -368,18 +437,19 @@ public:
             if (bankManager.isSliderVisible(selectedSliderForEditing))
             {
                 auto* selectedSliderControl = sliderControls[selectedSliderForEditing];
-                auto highlightBounds = selectedSliderControl->getBounds().toFloat();
+                
+                // Get ONLY the slider track bounds, not the whole plate
+                auto sliderTrackBounds = selectedSliderControl->getVisualTrackBounds();
+                
+                // Adjust to component coordinates (convert from slider's local to parent coordinates)
+                sliderTrackBounds.setX(sliderTrackBounds.getX() + selectedSliderControl->getX());
+                sliderTrackBounds.setY(sliderTrackBounds.getY() + selectedSliderControl->getY());
                 
                 // Use the slider's current color for the highlight border
                 juce::Colour highlightColor = selectedSliderControl->getSliderColor();
                 
-                // Draw thick border around the entire slider plate
-                g.setColour(highlightColor);
-                g.drawRect(highlightBounds, 3.0f); // 3px thick border
-                
-                // Add a subtle inner glow effect
-                g.setColour(highlightColor.withAlpha(0.3f));
-                g.drawRect(highlightBounds.reduced(3.0f), 1.0f);
+                // Draw brackets around just the slider track
+                drawSliderTrackSelectionBrackets(g, sliderTrackBounds.toFloat(), highlightColor);
             }
         }
         
@@ -454,6 +524,9 @@ public:
         // Position tooltips using MainControllerLayout
         mainLayout.layoutTooltips(area, movementSpeedLabel, windowSizeLabel,
                                  isInSettingsMode, isInLearnMode, bankManager.isEightSliderMode());
+        
+        // Update bank button learn overlay positions
+        updateBankButtonLearnOverlays();
     }
     
     bool keyPressed(const juce::KeyPress& key) override
@@ -801,6 +874,106 @@ public:
         };
     }
     
+    void setupBankButtonLearnOverlays()
+    {
+        // Legacy overlays - DISABLED to prevent duplicate overlays
+        // addChildComponent(bankALearnOverlay);
+        // addChildComponent(bankBLearnOverlay); 
+        // addChildComponent(bankCLearnOverlay);
+        // addChildComponent(bankDLearnOverlay);
+        
+        // Set up bank button learn zone system (single encompassing zone)
+        bankButtonLearnZone = std::make_unique<BankButtonLearnZone>();
+        addChildComponent(*bankButtonLearnZone);
+        
+        // Set up learn zone callback
+        bankButtonLearnZone->onZoneClicked = [this](const LearnZone& zone) {
+            handleLearnZoneClicked(zone);
+        };
+    }
+    
+    void updateBankButtonLearnOverlays()
+    {
+        // Legacy overlays - DISABLED to prevent duplicate overlays
+        // bankALearnOverlay.setBounds(bankAButton.getBounds());
+        // bankBLearnOverlay.setBounds(bankBButton.getBounds());
+        // bankCLearnOverlay.setBounds(bankCButton.getBounds());
+        // bankDLearnOverlay.setBounds(bankDButton.getBounds());
+        
+        // Position bank button learn zone over entire bank area
+        if (bankButtonLearnZone)
+        {
+            auto bankAreaBounds = bankAButton.getBounds()
+                .getUnion(bankBButton.getBounds())
+                .getUnion(bankCButton.getBounds())
+                .getUnion(bankDButton.getBounds());
+            bankButtonLearnZone->setBounds(bankAreaBounds);
+        }
+    }
+    
+    void setBankButtonLearnMode(bool active)
+    {
+        // Legacy overlays - DISABLED to avoid duplicate overlays
+        // bankALearnOverlay.setLearnModeActive(active);
+        // bankBLearnOverlay.setLearnModeActive(active);
+        // bankCLearnOverlay.setLearnModeActive(active);
+        // bankDLearnOverlay.setLearnModeActive(active);
+        
+        // New learn zone system (single encompassing zone)
+        if (bankButtonLearnZone)
+            bankButtonLearnZone->setLearnModeActive(active);
+    }
+    
+    void handleLearnZoneClicked(const LearnZone& zone)
+    {
+        // Handle learn zone clicks for the new learn system
+        DBG("Learn zone clicked: " + zone.getDisplayName());
+        
+        // Set learn target based on zone type
+        midi7BitController.setLearnTarget(zone.midiTargetType, zone.sliderIndex);
+        
+        // Update learn button text
+        learnButton.setButtonText("Move Controller");
+        
+        // Show visual feedback for the clicked zone
+        showOrangeBracketsForZone(zone);
+        
+        DBG("Learning target set: " + zone.getDisplayName());
+    }
+    
+    void showOrangeBracketsForZone(const LearnZone& zone)
+    {
+        // This method will be called to show orange brackets around the clicked zone
+        // The actual bracket drawing is handled by the individual learn zone components
+        // This method can be used to coordinate visual feedback across the interface
+        
+        // Clear previous active zones
+        clearAllActiveLearnZones();
+        
+        // The visual feedback is automatically handled by the learn zone components
+        // through their paint methods and selection state
+    }
+    
+    void clearAllActiveLearnZones()
+    {
+        // Clear active zones from all sliders
+        for (auto* slider : sliderControls)
+        {
+            if (slider)
+                slider->clearActiveLearnZone();
+        }
+    }
+    
+    void setAllSlidersLearnMode(bool active)
+    {
+        // Activate/deactivate learn zones for ALL sliders (always-available system)
+        for (auto* slider : sliderControls)
+        {
+            if (slider)
+                slider->activateAllLearnZones(active);
+        }
+    }
+    
 private:
     
     
@@ -1006,6 +1179,9 @@ private:
         auto onLearnModeExit = [this]() {
             isInLearnMode = false;
             midi7BitController.stopLearnMode();
+            setBankButtonLearnMode(false);
+            setAllSlidersLearnMode(false); // NEW: Deactivate all slider learn zones
+            clearAllActiveLearnZones(); // NEW: Clear any active zone selections
             learnButton.setButtonText("Learn");
             midiLearnWindow.setVisible(false);
             
@@ -1197,12 +1373,17 @@ private:
     {
         auto onLearnModeEnter = [this]() {
             midi7BitController.startLearnMode();
+            setBankButtonLearnMode(true);
+            setAllSlidersLearnMode(true); // NEW: Activate all slider learn zones
             DBG("Entered learn mode: isLearningMode=" << (int)midi7BitController.isInLearnMode());
-            learnButton.setButtonText("Exit Learn");
+            learnButton.setButtonText("Select Target");
         };
         
         auto onLearnModeExit = [this]() {
             midi7BitController.stopLearnMode();
+            setBankButtonLearnMode(false);
+            setAllSlidersLearnMode(false); // NEW: Deactivate all slider learn zones
+            clearAllActiveLearnZones(); // NEW: Clear any active zone selections
             DBG("Exited learn mode: isLearningMode=" << (int)midi7BitController.isInLearnMode());
             learnButton.setButtonText("Learn");
             
@@ -1268,6 +1449,12 @@ private:
     juce::TextButton monitorButton;
     juce::ToggleButton bankAButton, bankBButton, bankCButton, bankDButton;
     CustomButtonLookAndFeel customButtonLookAndFeel;
+    
+    // Bank button learn overlays (legacy)
+    BankButtonLearnOverlay bankALearnOverlay, bankBLearnOverlay, bankCLearnOverlay, bankDLearnOverlay;
+    
+    // New learn zone system
+    std::unique_ptr<BankButtonLearnZone> bankButtonLearnZone;
     juce::Label showingLabel;
     SettingsWindow settingsWindow;
     MidiLearnWindow midiLearnWindow;
