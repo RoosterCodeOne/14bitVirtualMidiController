@@ -64,7 +64,6 @@ public:
         int horizontalSpacing = 9;
         int verticalSpacing = 2;
         int totalGridWidth = (2 * knobWidth) + horizontalSpacing;
-        int totalGridHeight = (2 * knobHeight) + verticalSpacing;
         int centerX = area.getCentreX();
         int gridStartX = centerX - (totalGridWidth / 2);
         

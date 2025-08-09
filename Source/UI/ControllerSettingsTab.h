@@ -238,7 +238,6 @@ inline void ControllerSettingsTab::paint(juce::Graphics& g)
     const int sectionSpacing = 8;
     const int controlSpacing = 4;
     const int labelHeight = 18;
-    const int inputHeight = 22;
     const int headerHeight = 22;
     
     // Section 1 - Global Settings Box (starts at very top)
@@ -1217,7 +1216,6 @@ inline void ControllerSettingsTab::updateStepIndicationVisuals()
 inline void ControllerSettingsTab::applyInputMode()
 {
     // Get the deadzone state and notify parent
-    bool useDeadzone = deadzoneButton.getToggleState();
     
     if (onSliderSettingChanged)
         onSliderSettingChanged(selectedSlider);
