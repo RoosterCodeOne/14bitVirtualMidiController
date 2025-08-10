@@ -1084,7 +1084,6 @@ private:
         if (stepIncrement >= std::abs(displayRange))
         {
             // Step is larger than range - snap to closest endpoint
-            double middleDisplay = (displayMin + displayMax) / 2.0;
             double distToMin = std::abs(displayValue - displayMin);
             double distToMax = std::abs(displayValue - displayMax);
             double snapTarget = (distToMin <= distToMax) ? displayMin : displayMax;
