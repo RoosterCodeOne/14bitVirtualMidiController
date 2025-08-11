@@ -156,8 +156,10 @@ public:
         };
         
         // Set up context menu callback for automation area
-        automationControlPanel.onContextMenuRequested = [this](juce::Point<int> screenPos) {
-            showAutomationContextMenu(screenPos);
+        automationControlPanel.onContextMenuRequested = [this](juce::Point<int> automationLocalPos) {
+            // Convert from automation panel coordinates to slider control coordinates
+            auto sliderLocalPos = automationControlPanel.getBounds().getTopLeft() + automationLocalPos;
+            showAutomationContextMenu(sliderLocalPos);
         };
         
         // Set up learn mode callback for automation control panel

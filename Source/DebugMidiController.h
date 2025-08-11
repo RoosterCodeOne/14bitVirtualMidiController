@@ -10,6 +10,7 @@
 #include "Core/KeyboardController.h"
 #include "Core/BankManager.h"
 #include "Core/Midi7BitController.h"
+#include "Core/AutomationConfigManager.h"
 #include "UI/MainControllerLayout.h"
 #include "UI/WindowManager.h"
 #include "UI/BankButtonManager.h"
@@ -85,6 +86,9 @@ public:
             
             sliderControls.add(sliderControl);
             addAndMakeVisible(sliderControl);
+            
+            // Set up automation config manager
+            sliderControl->setConfigManager(&automationConfigManager);
             
             // Set up new learn zone callback
             sliderControl->onLearnZoneClicked = [this](const LearnZone& zone) {
@@ -223,6 +227,9 @@ public:
         // Initialize 7-bit MIDI controller
         setupMidi7BitController();
         
+        // Initialize automation config manager
+        setupAutomationConfigManager();
+        
         // Setup bank button learn overlays
         setupBankButtonLearnOverlays();
         
@@ -239,6 +246,9 @@ public:
         
         // Auto-save current state before destruction
         saveCurrentState();
+        
+        // Save automation configs before destruction
+        automationConfigManager.saveToFile();
         
         // Clean up bank buttons through manager
         bankButtonManager.cleanupBankButtons(bankAButton, bankBButton, bankCButton, bankDButton, customButtonLookAndFeel);
@@ -306,63 +316,6 @@ public:
     // Get currently selected slider for editing (for testing/debugging)
     int getSelectedSliderForEditing() const { return selectedSliderForEditing; }
     
-    // Draw precise selection brackets around slider track only
-    void drawSliderTrackSelectionBrackets(juce::Graphics& g, juce::Rectangle<float> trackBounds, juce::Colour highlightColor)
-    {
-        const float bracketLength = 12.0f;
-        const float bracketThickness = 2.0f;
-        const float cornerOffset = 3.0f;
-        
-        g.setColour(highlightColor);
-        
-        // Top-left bracket
-        juce::Rectangle<float> topLeft(trackBounds.getX() - cornerOffset, 
-                                     trackBounds.getY() - cornerOffset, 
-                                     bracketLength, bracketThickness);
-        g.fillRect(topLeft); // Horizontal line
-        
-        juce::Rectangle<float> topLeftVert(trackBounds.getX() - cornerOffset, 
-                                         trackBounds.getY() - cornerOffset, 
-                                         bracketThickness, bracketLength);
-        g.fillRect(topLeftVert); // Vertical line
-        
-        // Top-right bracket
-        juce::Rectangle<float> topRight(trackBounds.getRight() + cornerOffset - bracketLength, 
-                                      trackBounds.getY() - cornerOffset, 
-                                      bracketLength, bracketThickness);
-        g.fillRect(topRight); // Horizontal line
-        
-        juce::Rectangle<float> topRightVert(trackBounds.getRight() + cornerOffset - bracketThickness, 
-                                          trackBounds.getY() - cornerOffset, 
-                                          bracketThickness, bracketLength);
-        g.fillRect(topRightVert); // Vertical line
-        
-        // Bottom-left bracket
-        juce::Rectangle<float> bottomLeft(trackBounds.getX() - cornerOffset, 
-                                        trackBounds.getBottom() + cornerOffset - bracketThickness, 
-                                        bracketLength, bracketThickness);
-        g.fillRect(bottomLeft); // Horizontal line
-        
-        juce::Rectangle<float> bottomLeftVert(trackBounds.getX() - cornerOffset, 
-                                            trackBounds.getBottom() + cornerOffset - bracketLength, 
-                                            bracketThickness, bracketLength);
-        g.fillRect(bottomLeftVert); // Vertical line
-        
-        // Bottom-right bracket
-        juce::Rectangle<float> bottomRight(trackBounds.getRight() + cornerOffset - bracketLength, 
-                                         trackBounds.getBottom() + cornerOffset - bracketThickness, 
-                                         bracketLength, bracketThickness);
-        g.fillRect(bottomRight); // Horizontal line
-        
-        juce::Rectangle<float> bottomRightVert(trackBounds.getRight() + cornerOffset - bracketThickness, 
-                                             trackBounds.getBottom() + cornerOffset - bracketLength, 
-                                             bracketThickness, bracketLength);
-        g.fillRect(bottomRightVert); // Vertical line
-        
-        // Add subtle glow effect
-        g.setColour(highlightColor.withAlpha(0.3f));
-        g.drawRect(trackBounds.expanded(2.0f), 1.0f);
-    }
     
     void paint(juce::Graphics& g) override
     {
@@ -430,26 +383,27 @@ public:
             }
         }
         
-        // Draw selection highlighting for settings editing (only when settings window is open)
-        if (isInSettingsMode && selectedSliderForEditing >= 0 && selectedSliderForEditing < sliderControls.size())
+        // Draw selection highlighting for settings editing (only when settings window is open AND not in learn mode)
+        if (isInSettingsMode && selectedSliderForEditing >= 0 && selectedSliderForEditing < sliderControls.size() && !isInLearnMode)
         {
             // Check if the selected slider is currently visible
             if (bankManager.isSliderVisible(selectedSliderForEditing))
             {
                 auto* selectedSliderControl = sliderControls[selectedSliderForEditing];
                 
-                // Get ONLY the slider track bounds, not the whole plate
-                auto sliderTrackBounds = selectedSliderControl->getVisualTrackBounds();
-                
-                // Adjust to component coordinates (convert from slider's local to parent coordinates)
-                sliderTrackBounds.setX(sliderTrackBounds.getX() + selectedSliderControl->getX());
-                sliderTrackBounds.setY(sliderTrackBounds.getY() + selectedSliderControl->getY());
+                // Get FULL PLATE BOUNDS (entire slider component bounds)
+                auto fullPlateBounds = selectedSliderControl->getBounds().toFloat();
                 
                 // Use the slider's current color for the highlight border
                 juce::Colour highlightColor = selectedSliderControl->getSliderColor();
                 
-                // Draw brackets around just the slider track
-                drawSliderTrackSelectionBrackets(g, sliderTrackBounds.toFloat(), highlightColor);
+                // Draw thick border around ENTIRE slider plate (3px thick border)
+                g.setColour(highlightColor);
+                g.drawRect(fullPlateBounds, 3.0f);
+                
+                // Add subtle inner glow effect
+                g.setColour(highlightColor.withAlpha(0.3f));
+                g.drawRect(fullPlateBounds.reduced(3.0f), 1.0f);
             }
         }
         
@@ -872,6 +826,46 @@ public:
                 }
             }
         };
+    }
+    
+    void setupAutomationConfigManager()
+    {
+        // Set up automation config manager callbacks
+        automationConfigManager.onGetSliderConfig = [this]() -> AutomationConfig {
+            // This shouldn't be called since we pass configs directly
+            return AutomationConfig(); 
+        };
+        
+        automationConfigManager.onApplyConfigToSlider = [this](int sliderIndex, const AutomationConfig& config) {
+            if (sliderIndex < sliderControls.size())
+            {
+                auto* slider = sliderControls[sliderIndex];
+                if (slider)
+                {
+                    slider->applyAutomationConfig(config);
+                }
+            }
+        };
+        
+        automationConfigManager.onStartAutomation = [this](int sliderIndex) {
+            // This will be called when MIDI triggers a config
+            // For now, just apply the automation - actual triggering happens in applyAutomationConfig
+            DBG("MIDI triggered automation for slider " + juce::String(sliderIndex));
+        };
+        
+        automationConfigManager.onFindBestSlider = [this](const AutomationConfig& config) -> int {
+            // Simple logic: return the original slider if still valid, otherwise first available
+            if (config.originalSliderIndex >= 0 && config.originalSliderIndex < sliderControls.size())
+                return config.originalSliderIndex;
+            return 0; // Default to first slider
+        };
+        
+        // Set up config file path relative to preset directory
+        auto presetDir = settingsWindow.getPresetManager().getPresetDirectory();
+        automationConfigManager.setConfigFilePath(presetDir.getChildFile("AutomationConfigs.json"));
+        
+        // Load existing configs
+        automationConfigManager.loadFromFile();
     }
     
     void setupBankButtonLearnOverlays()
@@ -1467,6 +1461,7 @@ private:
     KeyboardController keyboardController;
     BankManager bankManager;
     Midi7BitController midi7BitController;
+    AutomationConfigManager automationConfigManager;
     
     // Layout and window managers
     MainControllerLayout mainLayout;

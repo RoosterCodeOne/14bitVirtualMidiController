@@ -89,8 +89,20 @@ public:
     
     void mouseDown(const juce::MouseEvent& event) override
     {
-        dragStartValue = currentValue;
-        dragStartY = event.position.y;
+        // CRITICAL: Check for right-click FIRST, before any other processing
+        if (event.mods.isRightButtonDown())
+        {
+            // Forward right-clicks to AutomationControlPanel for context menu
+            forwardRightClickToAutomationPanel(event);
+            return; // Don't process as knob interaction
+        }
+        
+        // Only handle left-clicks for knob interaction
+        if (event.mods.isLeftButtonDown())
+        {
+            dragStartValue = currentValue;
+            dragStartY = event.position.y;
+        }
     }
     
     void mouseDrag(const juce::MouseEvent& event) override
@@ -130,6 +142,25 @@ private:
     float dragStartY = 0.0f;
     bool isHovered = false;
     TimeMode timeMode;
+    
+    // Helper method to forward right-clicks to automation panel parent
+    void forwardRightClickToAutomationPanel(const juce::MouseEvent& event)
+    {
+        DBG("CustomKnob: Forwarding right-click from position " + juce::String(event.getPosition().x) + ", " + juce::String(event.getPosition().y));
+        
+        // Since knobs are directly inside AutomationControlPanel, forward to direct parent
+        if (auto* parent = getParentComponent())
+        {
+            DBG("CustomKnob: Forwarding to parent component");
+            // Convert coordinates to parent's coordinate system and forward the event
+            auto parentEvent = event.getEventRelativeTo(parent);
+            parent->mouseDown(parentEvent);
+        }
+        else
+        {
+            DBG("CustomKnob: No parent found to forward right-click to!");
+        }
+    }
     
     juce::String secondsToBeats(double seconds) const
     {

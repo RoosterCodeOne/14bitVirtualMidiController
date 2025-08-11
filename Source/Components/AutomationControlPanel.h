@@ -31,6 +31,9 @@ public:
         
         // Set default time mode
         setTimeMode(TimeMode::Seconds);
+        
+        // Enable mouse event interception to ensure right-clicks reach this component
+        setInterceptsMouseClicks(true, true);
     }
     
     ~AutomationControlPanel()
@@ -177,16 +180,32 @@ public:
     // Automation visualizer access
     AutomationVisualizer& getAutomationVisualizer() { return automationVisualizer; }
     
+    // Ensure the entire automation panel area can receive mouse events (including empty spaces)
+    bool hitTest(int x, int y) override
+    {
+        // Accept mouse events anywhere within the automation panel bounds
+        return getLocalBounds().contains(x, y);
+    }
+    
     // Mouse handling for context menu and learn mode
     void mouseDown(const juce::MouseEvent& event) override
     {
+        // RIGHT-CLICK TAKES PRIORITY - handle before any child components
         if (event.mods.isRightButtonDown() && !isInLearnMode)
         {
+            // Debug logging
+            DBG("AutomationControlPanel: Right-click detected at " + juce::String(event.getPosition().x) + ", " + juce::String(event.getPosition().y));
+            
             // Show context menu for automation area
             if (onContextMenuRequested)
             {
-                onContextMenuRequested(event.getScreenPosition());
-                return;
+                onContextMenuRequested(event.getPosition());
+                DBG("AutomationControlPanel: Context menu request sent");
+                return; // Don't pass to children
+            }
+            else
+            {
+                DBG("AutomationControlPanel: onContextMenuRequested callback is null!");
             }
         }
         
@@ -194,10 +213,15 @@ public:
         if (isInLearnMode)
         {
             handleLearnModeClick(event);
-            return;
+            return; // Don't pass to children in learn mode
         }
         
-        Component::mouseDown(event);
+        // Only pass left-clicks to children for normal component interaction
+        if (event.mods.isLeftButtonDown())
+        {
+            Component::mouseDown(event);
+        }
+        // For any other clicks, don't pass to children
     }
     
     // Learn mode management
