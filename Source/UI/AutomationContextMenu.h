@@ -112,41 +112,80 @@ private:
     
     void handleMenuResult(int result)
     {
-        if (result == 0) return; // User cancelled
-        
-        switch (result)
-        {
-            case SaveConfig:
-                if (onSaveConfig)
-                    onSaveConfig(currentSliderIndex);
-                break;
-                
-            case CopyConfig:
-                if (onCopyConfig)
-                    onCopyConfig(currentSliderIndex);
-                break;
-                
-            case PasteConfig:
-                if (onPasteConfig)
-                    onPasteConfig(currentSliderIndex);
-                break;
-                
-            case ManageConfigs:
-                if (onManageConfigs)
-                    onManageConfigs();
-                break;
-                
-            default:
-                // Check if it's a load config item
-                if (result >= LoadConfigStart && result <= LoadConfigEnd)
-                {
-                    auto it = configIdMap.find(result);
-                    if (it != configIdMap.end() && onLoadConfig)
-                    {
-                        onLoadConfig(currentSliderIndex, it->second);
+        try {
+            if (result == 0) return; // User cancelled
+            
+            // Validate slider index
+            if (currentSliderIndex < 0 || currentSliderIndex >= 16) {
+                DBG("ERROR: Invalid slider index in handleMenuResult: " + juce::String(currentSliderIndex));
+                return;
+            }
+            
+            switch (result)
+            {
+                case SaveConfig:
+                    if (onSaveConfig) {
+                        DBG("Calling onSaveConfig for slider " + juce::String(currentSliderIndex));
+                        onSaveConfig(currentSliderIndex);
+                    } else {
+                        DBG("ERROR: onSaveConfig callback is null");
                     }
-                }
-                break;
+                    break;
+                    
+                case CopyConfig:
+                    if (onCopyConfig) {
+                        DBG("Calling onCopyConfig for slider " + juce::String(currentSliderIndex));
+                        onCopyConfig(currentSliderIndex);
+                    } else {
+                        DBG("ERROR: onCopyConfig callback is null");
+                    }
+                    break;
+                    
+                case PasteConfig:
+                    if (onPasteConfig) {
+                        DBG("Calling onPasteConfig for slider " + juce::String(currentSliderIndex));
+                        onPasteConfig(currentSliderIndex);
+                    } else {
+                        DBG("ERROR: onPasteConfig callback is null");
+                    }
+                    break;
+                    
+                case ManageConfigs:
+                    if (onManageConfigs) {
+                        DBG("Calling onManageConfigs");
+                        onManageConfigs();
+                    } else {
+                        DBG("ERROR: onManageConfigs callback is null");
+                    }
+                    break;
+                    
+                default:
+                    // Check if it's a load config item
+                    if (result >= LoadConfigStart && result <= LoadConfigEnd)
+                    {
+                        auto it = configIdMap.find(result);
+                        if (it != configIdMap.end() && onLoadConfig)
+                        {
+                            if (!it->second.isEmpty()) {
+                                DBG("Calling onLoadConfig for slider " + juce::String(currentSliderIndex) + " with config: " + it->second);
+                                onLoadConfig(currentSliderIndex, it->second);
+                            } else {
+                                DBG("ERROR: Config ID is empty for menu item " + juce::String(result));
+                            }
+                        } else {
+                            DBG("ERROR: Load config callback not found or null for menu item " + juce::String(result));
+                        }
+                    } else {
+                        DBG("ERROR: Unknown menu result: " + juce::String(result));
+                    }
+                    break;
+            }
+        }
+        catch (const std::exception& e) {
+            DBG("EXCEPTION in handleMenuResult: " + juce::String(e.what()));
+        }
+        catch (...) {
+            DBG("UNKNOWN EXCEPTION in handleMenuResult");
         }
     }
     

@@ -291,16 +291,22 @@ public:
         setUsingNativeTitleBar(true);
         setResizable(false, false);
         
-        // Set up dialog callbacks
+        // Set up default dialog callbacks (can be overridden by showDialog)
         dialog.onSave = [this](const juce::String& name) {
             configName = name;
             userClickedSave = true;
-            setVisible(false);
+            if (isCurrentlyModal())
+                exitModalState(1);  // Exit with success code
+            else
+                setVisible(false);
         };
         
         dialog.onCancel = [this]() {
             userClickedSave = false;
-            setVisible(false);
+            if (isCurrentlyModal())
+                exitModalState(0);  // Exit with cancel code
+            else
+                setVisible(false);
         };
         
         setContentNonOwned(&dialog, true);
@@ -314,19 +320,31 @@ public:
     void closeButtonPressed() override
     {
         userClickedSave = false;
-        setVisible(false);
+        if (isCurrentlyModal())
+            exitModalState(0);  // Exit modal state with cancel code
+        else
+            setVisible(false);
     }
     
     // Show dialog and return result
     static std::pair<bool, juce::String> showDialog(const juce::String& initialName = "")
     {
-        AutomationSaveDialogWindow window(initialName);
-        window.setVisible(true);
+        // Use simple modal approach with automatic JUCE modal handling
+        auto window = std::make_unique<AutomationSaveDialogWindow>(initialName);
         
-        // Run modal loop
-        window.enterModalState(true);
+        // Set the dialog visible and let JUCE handle the modal state
+        window->setVisible(true);
+        window->enterModalState(true, nullptr, true);
         
-        return { window.userClickedSave, window.configName };
+        // The modal state will block here until exitModalState is called
+        // JUCE automatically handles the message loop during modal state
+        
+        // Extract results after modal completion
+        bool saved = window->userClickedSave;
+        juce::String name = window->configName;
+        
+        // Window automatically cleaned up by unique_ptr
+        return { saved, name };
     }
     
 private:
