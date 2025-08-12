@@ -830,42 +830,12 @@ public:
     
     void setupAutomationConfigManager()
     {
-        // Set up automation config manager callbacks
-        automationConfigManager.onGetSliderConfig = [this]() -> AutomationConfig {
-            // This shouldn't be called since we pass configs directly
-            return AutomationConfig(); 
-        };
+        // New automation config manager is self-contained and doesn't need callbacks
+        // Config operations are handled directly through the manager methods
+        DBG("AutomationConfigManager: Setup complete - self-contained system initialized");
         
-        automationConfigManager.onApplyConfigToSlider = [this](int sliderIndex, const AutomationConfig& config) {
-            if (sliderIndex < sliderControls.size())
-            {
-                auto* slider = sliderControls[sliderIndex];
-                if (slider)
-                {
-                    slider->applyAutomationConfig(config);
-                }
-            }
-        };
-        
-        automationConfigManager.onStartAutomation = [this](int sliderIndex) {
-            // This will be called when MIDI triggers a config
-            // For now, just apply the automation - actual triggering happens in applyAutomationConfig
-            DBG("MIDI triggered automation for slider " + juce::String(sliderIndex));
-        };
-        
-        automationConfigManager.onFindBestSlider = [this](const AutomationConfig& config) -> int {
-            // Simple logic: return the original slider if still valid, otherwise first available
-            if (config.originalSliderIndex >= 0 && config.originalSliderIndex < sliderControls.size())
-                return config.originalSliderIndex;
-            return 0; // Default to first slider
-        };
-        
-        // Set up config file path relative to preset directory
-        auto presetDir = settingsWindow.getPresetManager().getPresetDirectory();
-        automationConfigManager.setConfigFilePath(presetDir.getChildFile("AutomationConfigs.json"));
-        
-        // Load existing configs
-        automationConfigManager.loadFromFile();
+        // AutomationConfigManager is now self-contained and handles its own file management
+        // It automatically creates configs in the application data directory
     }
     
     void setupBankButtonLearnOverlays()

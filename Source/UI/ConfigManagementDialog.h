@@ -156,13 +156,8 @@ public:
             // Config name
             g.drawText(config.name, 5, 0, width - 100, height, juce::Justification::centredLeft);
             
-            // Show MIDI assignment indicator
-            auto midiAssignments = configManager.getMidiAssignmentsForConfig(config.id);
-            if (!midiAssignments.empty())
-            {
-                g.setColour(BlueprintColors::active);
-                g.drawText("[MIDI]", width - 95, 0, 50, height, juce::Justification::centredLeft);
-            }
+            // MIDI assignment indicator not implemented in current system
+            // Future enhancement: show MIDI assignment status
             
             // Time mode indicator
             juce::String timeMode = (config.timeMode == AutomationControlPanel::TimeMode::Beats) ? "♪" : "s";
@@ -248,19 +243,8 @@ private:
         details << "Curve: " << juce::String(config.curveValue, 2) << "\n\n";
         details << "Original Slider: " << juce::String(config.originalSliderIndex + 1) << "\n";
         
-        auto midiAssignments = configManager.getMidiAssignmentsForConfig(config.id);
-        if (!midiAssignments.empty())
-        {
-            details << "\nMIDI Assignments:\n";
-            for (const auto& assignment : midiAssignments)
-            {
-                details << "CC " << assignment.first << " Ch " << assignment.second << "\n";
-            }
-        }
-        else
-        {
-            details << "\nNo MIDI assignments";
-        }
+        // MIDI assignments not implemented in current system
+        details << "\nMIDI assignments: Not available (future enhancement)";
         
         detailsLabel.setText(details, juce::dontSendNotification);
     }

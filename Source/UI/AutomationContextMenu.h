@@ -58,12 +58,8 @@ public:
                 else
                     menuText += " (Sec)";
                 
-                // Add MIDI assignment indicator if any
-                auto midiAssignments = configManager.getMidiAssignmentsForConfig(config.id);
-                if (!midiAssignments.empty())
-                {
-                    menuText += " [MIDI]";
-                }
+                // MIDI assignments not implemented in current system
+                // Future enhancement: add MIDI assignment indicators
                 
                 loadSubmenu.addItem(itemId, menuText);
                 

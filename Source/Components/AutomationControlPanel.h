@@ -1,6 +1,7 @@
 // AutomationControlPanel.h - Automation controls (knobs, buttons, target input)
 #pragma once
 #include <JuceHeader.h>
+#include <cmath>
 #include "../CustomKnob.h"
 #include "../CustomLEDInput.h"
 #include "../Custom3DButton.h"
@@ -179,6 +180,60 @@ public:
     
     // Automation visualizer access
     AutomationVisualizer& getAutomationVisualizer() { return automationVisualizer; }
+    
+    // Config extraction and application methods for automation configuration management
+    // These methods are used by AutomationConfigManager to save/load configurations
+    
+    // Extract current automation state as AutomationConfig
+    // This captures all current knob values, target value, and time mode
+    void extractCurrentConfig(double& outTargetValue, double& outDelayTime, double& outAttackTime,
+                             double& outReturnTime, double& outCurveValue, TimeMode& outTimeMode) const
+    {
+        outTargetValue = getTargetValue();
+        outDelayTime = getDelayTime();
+        outAttackTime = getAttackTime();
+        outReturnTime = getReturnTime();
+        outCurveValue = getCurveValue();
+        outTimeMode = getTimeMode();
+    }
+    
+    // Apply automation configuration to panel controls
+    // This sets all knob values, target value, and time mode from a saved config
+    void applyConfig(double targetValue, double delayTime, double attackTime,
+                    double returnTime, double curveValue, TimeMode timeMode)
+    {
+        // Apply values to controls
+        setTargetValue(targetValue);
+        setDelayTime(delayTime);
+        setAttackTime(attackTime);
+        setReturnTime(returnTime);
+        setCurveValue(curveValue);
+        setTimeMode(timeMode);
+        
+        // Update automation visualizer with new parameters
+        updateVisualizerParameters();
+        
+        // Trigger callbacks to notify of changes
+        if (onKnobValueChanged)
+        {
+            // Notify about the configuration change (using delay time as representative value)
+            onKnobValueChanged(delayTime);
+        }
+    }
+    
+    // Check if current config matches given values (for detecting changes)
+    bool configMatches(double targetValue, double delayTime, double attackTime,
+                      double returnTime, double curveValue, TimeMode timeMode) const
+    {
+        const double tolerance = 0.001;
+        
+        return std::abs(getTargetValue() - targetValue) < tolerance &&
+               std::abs(getDelayTime() - delayTime) < tolerance &&
+               std::abs(getAttackTime() - attackTime) < tolerance &&
+               std::abs(getReturnTime() - returnTime) < tolerance &&
+               std::abs(getCurveValue() - curveValue) < tolerance &&
+               getTimeMode() == timeMode;
+    }
     
     // Ensure the entire automation panel area can receive mouse events (including empty spaces)
     bool hitTest(int x, int y) override

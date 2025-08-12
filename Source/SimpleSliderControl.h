@@ -9,12 +9,13 @@
 #include "Core/AutomationEngine.h"
 #include "Core/SliderDisplayManager.h"
 #include "Core/AutomationConfigManager.h"
+#include "Core/AutomationConfig.h"
 #include "Components/SliderInteractionHandler.h"
 #include "Components/AutomationControlPanel.h"
 #include "Components/SliderLearnZones.h"
 #include "UI/SliderLayoutManager.h"
 #include "UI/AutomationContextMenu.h"
-#include "UI/ConfigNameDialog.h"
+#include "UI/AutomationSaveDialog.h"
 
 //==============================================================================
 // Custom clickable label for lock functionality
@@ -137,9 +138,9 @@ public:
         currentValueLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background);
         currentValueLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         // Match LED input font style
-        juce::Font ledFont("Monaco", 12.0f, juce::Font::plain);
+        juce::Font ledFont(juce::FontOptions("Monaco", 12.0f, juce::Font::plain));
         if (!ledFont.getTypefaceName().contains("Monaco")) {
-            ledFont = juce::Font("Courier New", 12.0f, juce::Font::plain);
+            ledFont = juce::Font(juce::FontOptions("Courier New", 12.0f, juce::Font::plain));
         }
         currentValueLabel.setFont(ledFont);
         
@@ -809,16 +810,33 @@ public:
         
         // Set up context menu callbacks
         contextMenu.onSaveConfig = [this](int sliderIndex) {
-            if (!configManager) return;
+            DBG("=== onSaveConfig callback started for slider " + juce::String(sliderIndex));
             
-            AutomationConfig config = getCurrentAutomationConfig();
+            if (!configManager) {
+                DBG("ERROR: configManager is null!");
+                return;
+            }
+            
+            DBG("configManager is valid, creating default name...");
             juce::String defaultName = "Slider " + juce::String(sliderIndex + 1) + " Config";
             
-            ConfigNameDialog::showDialog(this, defaultName, [this, config](const juce::String& name) mutable {
-                config.name = name;
+            DBG("About to show AutomationSaveDialog...");
+            auto result = AutomationSaveDialogWindow::showDialog(defaultName);
+            
+            DBG("Dialog returned: success=" + juce::String(result.first ? "true" : "false") + ", name='" + result.second + "'");
+            
+            if (result.first) // User clicked Save
+            {
+                DBG("Getting current automation config...");
+                auto config = getCurrentAutomationConfig();
+                config.name = result.second;
+                
+                DBG("Saving config with name: " + result.second);
                 configManager->saveConfig(config);
-                DBG("Saved automation config: " + name);
-            });
+                DBG("Saved automation config: " + result.second);
+            }
+            
+            DBG("=== onSaveConfig callback completed");
         };
         
         contextMenu.onLoadConfig = [this](int sliderIndex, const juce::String& configId) {
@@ -832,15 +850,48 @@ public:
         };
         
         contextMenu.onCopyConfig = [this](int sliderIndex) {
-            if (!configManager) return;
-            configManager->copyConfigFromSlider(sliderIndex);
+            DBG("=== onCopyConfig callback started for slider " + juce::String(sliderIndex));
+            
+            if (!configManager) {
+                DBG("ERROR: configManager is null in onCopyConfig!");
+                return;
+            }
+            
+            DBG("Extracting current automation config from panel...");
+            
+            // Extract current automation config from automation panel
+            AutomationConfig config;
+            double targetValue, delayTime, attackTime, returnTime, curveValue;
+            AutomationControlPanel::TimeMode timeMode;
+            
+            DBG("Calling automationControlPanel.extractCurrentConfig...");
+            automationControlPanel.extractCurrentConfig(targetValue, delayTime, attackTime, returnTime, curveValue, timeMode);
+            
+            DBG("Creating AutomationConfig object...");
+            config = AutomationConfig("Copied Config", targetValue, delayTime, attackTime, returnTime, curveValue, timeMode, sliderIndex);
+            
+            DBG("Calling configManager->copyConfigFromSlider...");
+            configManager->copyConfigFromSlider(sliderIndex, config);
             DBG("Copied config from slider " + juce::String(sliderIndex));
+            
+            DBG("=== onCopyConfig callback completed");
         };
         
         contextMenu.onPasteConfig = [this](int sliderIndex) {
             if (!configManager) return;
-            configManager->pasteConfigToSlider(sliderIndex);
-            DBG("Pasted config to slider " + juce::String(sliderIndex));
+            
+            AutomationConfig config;
+            if (configManager->pasteConfigToSlider(sliderIndex, config))
+            {
+                // Apply the pasted config to automation panel
+                automationControlPanel.applyConfig(config.targetValue, config.delayTime, config.attackTime,
+                                          config.returnTime, config.curveValue, config.timeMode);
+                DBG("Pasted config to slider " + juce::String(sliderIndex));
+            }
+            else
+            {
+                DBG("No config to paste for slider " + juce::String(sliderIndex));
+            }
         };
         
         contextMenu.onManageConfigs = [this]() {

@@ -1,15 +1,16 @@
+// AutomationConfigManager.cpp - Implementation of automation configuration management system
 #include "AutomationConfigManager.h"
 
 //==============================================================================
 AutomationConfigManager::AutomationConfigManager()
 {
-    // Set default config file path (next to executable)
-    auto appDataDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-                      .getChildFile("14bit Virtual Midi Controller");
-    appDataDir.createDirectory();
+    // Set config file path in application data directory
+    appDataDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+                     .getChildFile("14bit Virtual Midi Controller");
     configFile = appDataDir.getChildFile("automation_configs.json");
     
-    // Load existing configs
+    // Ensure directory exists and load existing configs
+    ensureConfigDirectoryExists();
     loadFromFile();
     
     DBG("AutomationConfigManager: Initialized with " + juce::String(savedConfigs.size()) + " configs");
@@ -19,12 +20,19 @@ AutomationConfigManager::~AutomationConfigManager()
 {
     // Auto-save on destruction
     saveToFile();
-    DBG("AutomationConfigManager: Destroyed");
+    DBG("AutomationConfigManager: Destroyed, saved " + juce::String(savedConfigs.size()) + " configs");
 }
 
 //==============================================================================
+// Configuration Management
 juce::String AutomationConfigManager::saveConfig(const AutomationConfig& config)
 {
+    if (!config.isValid())
+    {
+        DBG("AutomationConfigManager: Cannot save invalid config");
+        return juce::String();
+    }
+    
     AutomationConfig configToSave = config;
     
     // Generate new ID if empty
@@ -32,15 +40,15 @@ juce::String AutomationConfigManager::saveConfig(const AutomationConfig& config)
         configToSave.id = generateUniqueId();
     
     // Update timestamp
-    configToSave.createdTime = juce::Time::getMillisecondCounterHiRes();
+    configToSave.createdTime = juce::Time::getCurrentTime().toMilliseconds();
     
     // Store config
-    savedConfigs[configToSave.id] = configToSave;
+    addOrUpdateConfig(configToSave);
     
     DBG("AutomationConfigManager: Saved config '" + configToSave.name + "' with ID " + configToSave.id);
     
     // Auto-save to file
-    notifySaveRequired();
+    saveToFile();
     
     return configToSave.id;
 }
@@ -55,7 +63,7 @@ AutomationConfig AutomationConfigManager::loadConfig(const juce::String& configI
     }
     
     DBG("AutomationConfigManager: Config not found with ID " + configId);
-    return AutomationConfig(); // Return default config
+    return AutomationConfig(); // Return invalid config
 }
 
 bool AutomationConfigManager::deleteConfig(const juce::String& configId)
@@ -65,16 +73,13 @@ bool AutomationConfigManager::deleteConfig(const juce::String& configId)
     {
         juce::String configName = it->second.name;
         
-        // Remove any MIDI assignments for this config
-        removeMidiAssignment(configId);
-        
         // Remove from saved configs
-        savedConfigs.erase(it);
+        removeConfigById(configId);
         
         DBG("AutomationConfigManager: Deleted config '" + configName + "' with ID " + configId);
         
         // Auto-save to file
-        notifySaveRequired();
+        saveToFile();
         
         return true;
     }
@@ -101,41 +106,81 @@ std::vector<AutomationConfig> AutomationConfigManager::getAllConfigs()
     return configs;
 }
 
-bool AutomationConfigManager::hasConfig(const juce::String& configId) const
+bool AutomationConfigManager::configExists(const juce::String& configId)
 {
     return savedConfigs.find(configId) != savedConfigs.end();
 }
 
-//==============================================================================
-void AutomationConfigManager::copyConfigFromSlider(int sliderIndex)
+std::vector<AutomationConfig> AutomationConfigManager::getConfigsSortedByName()
 {
-    if (onGetSliderConfig)
+    std::vector<AutomationConfig> configs;
+    configs.reserve(savedConfigs.size());
+    
+    for (const auto& pair : savedConfigs)
     {
-        clipboardConfig = onGetSliderConfig();
-        clipboardConfig.originalSliderIndex = sliderIndex;
-        hasClipboard = true;
-        
-        DBG("AutomationConfigManager: Copied config from slider " + juce::String(sliderIndex));
+        configs.push_back(pair.second);
     }
+    
+    // Sort by name alphabetically
+    std::sort(configs.begin(), configs.end(), 
+        [](const AutomationConfig& a, const AutomationConfig& b) {
+            return a.name.compareIgnoreCase(b.name) < 0;
+        });
+    
+    return configs;
 }
 
-void AutomationConfigManager::pasteConfigToSlider(int sliderIndex)
+AutomationConfig AutomationConfigManager::getConfigByName(const juce::String& name)
 {
-    if (hasClipboard && onApplyConfigToSlider)
+    for (const auto& pair : savedConfigs)
     {
-        onApplyConfigToSlider(sliderIndex, clipboardConfig);
-        DBG("AutomationConfigManager: Pasted config to slider " + juce::String(sliderIndex));
+        if (pair.second.name.equalsIgnoreCase(name))
+        {
+            return pair.second;
+        }
     }
+    
+    DBG("AutomationConfigManager: Config not found with name '" + name + "'");
+    return AutomationConfig(); // Return invalid config
+}
+
+bool AutomationConfigManager::configNameExists(const juce::String& name)
+{
+    for (const auto& pair : savedConfigs)
+    {
+        if (pair.second.name.equalsIgnoreCase(name))
+            return true;
+    }
+    return false;
+}
+
+//==============================================================================
+// Copy/Paste Clipboard System
+void AutomationConfigManager::copyConfigFromSlider(int sliderIndex, const AutomationConfig& config)
+{
+    clipboardConfig = config;
+    clipboardConfig.originalSliderIndex = sliderIndex;
+    hasClipboard = true;
+    
+    DBG("AutomationConfigManager: Copied config from slider " + juce::String(sliderIndex));
+}
+
+bool AutomationConfigManager::pasteConfigToSlider(int sliderIndex, AutomationConfig& outConfig)
+{
+    if (!hasClipboard)
+    {
+        DBG("AutomationConfigManager: Cannot paste - no config in clipboard");
+        return false;
+    }
+    
+    outConfig = clipboardConfig;
+    DBG("AutomationConfigManager: Pasted config to slider " + juce::String(sliderIndex));
+    return true;
 }
 
 bool AutomationConfigManager::hasClipboardConfig() const
 {
     return hasClipboard;
-}
-
-AutomationConfig AutomationConfigManager::getClipboardConfig() const
-{
-    return clipboardConfig;
 }
 
 void AutomationConfigManager::clearClipboard()
@@ -146,181 +191,33 @@ void AutomationConfigManager::clearClipboard()
 }
 
 //==============================================================================
-void AutomationConfigManager::assignMidiToConfig(const juce::String& configId, int ccNumber, int channel)
-{
-    if (!hasConfig(configId))
-    {
-        DBG("AutomationConfigManager: Cannot assign MIDI - config ID not found: " + configId);
-        return;
-    }
-    
-    auto key = std::make_pair(ccNumber, channel);
-    
-    // Remove any existing assignment for this MIDI input
-    auto existing = midiToConfigMap.find(key);
-    if (existing != midiToConfigMap.end())
-    {
-        DBG("AutomationConfigManager: Replacing existing MIDI assignment CC " + juce::String(ccNumber) + " Ch " + juce::String(channel));
-    }
-    
-    midiToConfigMap[key] = configId;
-    
-    auto config = loadConfig(configId);
-    DBG("AutomationConfigManager: Assigned MIDI CC " + juce::String(ccNumber) + " Ch " + juce::String(channel) + " to config '" + config.name + "'");
-    
-    // Auto-save to file
-    notifySaveRequired();
-}
-
-void AutomationConfigManager::removeMidiAssignment(const juce::String& configId)
-{
-    // Remove all MIDI assignments for this config
-    for (auto it = midiToConfigMap.begin(); it != midiToConfigMap.end();)
-    {
-        if (it->second == configId)
-        {
-            DBG("AutomationConfigManager: Removed MIDI assignment CC " + juce::String(it->first.first) + " Ch " + juce::String(it->first.second));
-            it = midiToConfigMap.erase(it);
-        }
-        else
-        {
-            ++it;
-        }
-    }
-    
-    // Auto-save to file
-    notifySaveRequired();
-}
-
-void AutomationConfigManager::removeMidiAssignment(int ccNumber, int channel)
-{
-    auto key = std::make_pair(ccNumber, channel);
-    auto it = midiToConfigMap.find(key);
-    if (it != midiToConfigMap.end())
-    {
-        DBG("AutomationConfigManager: Removed MIDI assignment CC " + juce::String(ccNumber) + " Ch " + juce::String(channel));
-        midiToConfigMap.erase(it);
-        
-        // Auto-save to file
-        notifySaveRequired();
-    }
-}
-
-juce::String AutomationConfigManager::getConfigForMidi(int ccNumber, int channel) const
-{
-    auto key = std::make_pair(ccNumber, channel);
-    auto it = midiToConfigMap.find(key);
-    if (it != midiToConfigMap.end())
-    {
-        return it->second;
-    }
-    return juce::String();
-}
-
-std::vector<std::pair<int, int>> AutomationConfigManager::getMidiAssignmentsForConfig(const juce::String& configId) const
-{
-    std::vector<std::pair<int, int>> assignments;
-    
-    for (const auto& pair : midiToConfigMap)
-    {
-        if (pair.second == configId)
-        {
-            assignments.push_back(pair.first);
-        }
-    }
-    
-    return assignments;
-}
-
-void AutomationConfigManager::triggerConfigFromMidi(int ccNumber, int channel, int ccValue)
-{
-    // Only trigger on high values (like button press)
-    if (ccValue < 64) return;
-    
-    juce::String configId = getConfigForMidi(ccNumber, channel);
-    if (configId.isEmpty())
-    {
-        DBG("AutomationConfigManager: No config assigned to MIDI CC " + juce::String(ccNumber) + " Ch " + juce::String(channel));
-        return;
-    }
-    
-    AutomationConfig config = loadConfig(configId);
-    if (!config.isValid())
-    {
-        DBG("AutomationConfigManager: Invalid config loaded for ID " + configId);
-        return;
-    }
-    
-    DBG("AutomationConfigManager: MIDI triggered config '" + config.name + "' from CC " + juce::String(ccNumber) + " Ch " + juce::String(channel));
-    
-    // Find which slider this config should apply to
-    int targetSlider = -1;
-    if (onFindBestSlider)
-    {
-        targetSlider = onFindBestSlider(config);
-    }
-    else
-    {
-        // Default: use original slider if available
-        targetSlider = config.originalSliderIndex;
-        if (targetSlider < 0 || targetSlider >= 16)
-            targetSlider = 0; // Default to first slider
-    }
-    
-    // Apply config to slider
-    if (onApplyConfigToSlider)
-    {
-        onApplyConfigToSlider(targetSlider, config);
-        DBG("AutomationConfigManager: Applied config '" + config.name + "' to slider " + juce::String(targetSlider));
-    }
-    
-    // Immediately start automation
-    if (onStartAutomation)
-    {
-        // Small delay to ensure config is fully applied
-        juce::Timer::callAfterDelay(50, [this, targetSlider]() {
-            onStartAutomation(targetSlider);
-            DBG("AutomationConfigManager: Started automation for slider " + juce::String(targetSlider));
-        });
-    }
-}
-
-//==============================================================================
+// File Persistence
 void AutomationConfigManager::saveToFile()
 {
-    auto json = new juce::DynamicObject();
+    ensureConfigDirectoryExists();
     
-    // Save configs
-    juce::Array<juce::var> configsArray;
+    // Create root JSON object
+    juce::var configArray;
     for (const auto& pair : savedConfigs)
     {
-        configsArray.add(pair.second.toJson());
+        configArray.append(pair.second.toVar());
     }
-    json->setProperty("configs", configsArray);
     
-    // Save MIDI assignments
-    juce::Array<juce::var> midiArray;
-    for (const auto& pair : midiToConfigMap)
+    juce::var rootObj = new juce::DynamicObject();
+    rootObj.getDynamicObject()->setProperty("automationConfigs", configArray);
+    rootObj.getDynamicObject()->setProperty("version", 1);
+    rootObj.getDynamicObject()->setProperty("lastSaved", juce::Time::getCurrentTime().toMilliseconds());
+    
+    // Convert to JSON string
+    juce::String jsonString = juce::JSON::toString(rootObj, true);
+    
+    if (writeConfigsToFile(rootObj))
     {
-        auto midiAssignment = new juce::DynamicObject();
-        midiAssignment->setProperty("ccNumber", pair.first.first);
-        midiAssignment->setProperty("channel", pair.first.second);
-        midiAssignment->setProperty("configId", pair.second);
-        midiArray.add(juce::var(midiAssignment));
-    }
-    json->setProperty("midiAssignments", midiArray);
-    
-    // Write to file
-    juce::var jsonVar(json);
-    juce::String jsonString = juce::JSON::toString(jsonVar, true);
-    
-    if (configFile.replaceWithText(jsonString))
-    {
-        DBG("AutomationConfigManager: Saved " + juce::String(savedConfigs.size()) + " configs and " + juce::String(midiToConfigMap.size()) + " MIDI assignments to " + configFile.getFullPathName());
+        DBG("AutomationConfigManager: Saved " + juce::String(savedConfigs.size()) + " configs to file");
     }
     else
     {
-        DBG("AutomationConfigManager: Failed to save to " + configFile.getFullPathName());
+        DBG("AutomationConfigManager: Failed to save configs to file");
     }
 }
 
@@ -332,86 +229,263 @@ void AutomationConfigManager::loadFromFile()
         return;
     }
     
-    juce::String jsonString = configFile.loadFileAsString();
-    if (jsonString.isEmpty())
+    juce::var configData = loadConfigsFromFile();
+    if (!configData.isObject())
     {
-        DBG("AutomationConfigManager: Config file is empty");
+        DBG("AutomationConfigManager: Invalid or empty config file");
         return;
     }
     
-    juce::var jsonVar = juce::JSON::parse(jsonString);
-    if (!jsonVar.isObject())
+    auto* rootObj = configData.getDynamicObject();
+    if (!rootObj)
     {
-        DBG("AutomationConfigManager: Invalid JSON in config file");
+        DBG("AutomationConfigManager: Failed to parse config file as JSON object");
         return;
     }
     
-    auto* jsonObj = jsonVar.getDynamicObject();
-    
-    // Load configs
-    if (jsonObj->hasProperty("configs"))
+    // Load configs array
+    if (rootObj->hasProperty("automationConfigs"))
     {
-        auto configsArray = jsonObj->getProperty("configs");
-        if (configsArray.isArray())
+        auto configsVar = rootObj->getProperty("automationConfigs");
+        if (configsVar.isArray())
         {
-            for (const auto& configVar : *configsArray.getArray())
+            auto* configsArray = configsVar.getArray();
+            for (const auto& configVar : *configsArray)
             {
-                AutomationConfig config = AutomationConfig::fromJson(configVar);
+                AutomationConfig config = AutomationConfig::fromVar(configVar);
                 if (config.isValid())
                 {
-                    savedConfigs[config.id] = config;
+                    addOrUpdateConfig(config);
                 }
-            }
-        }
-    }
-    
-    // Load MIDI assignments
-    if (jsonObj->hasProperty("midiAssignments"))
-    {
-        auto midiArray = jsonObj->getProperty("midiAssignments");
-        if (midiArray.isArray())
-        {
-            for (const auto& midiVar : *midiArray.getArray())
-            {
-                if (auto* midiObj = midiVar.getDynamicObject())
+                else
                 {
-                    int ccNumber = midiObj->getProperty("ccNumber");
-                    int channel = midiObj->getProperty("channel");
-                    juce::String configId = midiObj->getProperty("configId").toString();
-                    
-                    if (!configId.isEmpty() && hasConfig(configId))
-                    {
-                        midiToConfigMap[std::make_pair(ccNumber, channel)] = configId;
-                    }
+                    DBG("AutomationConfigManager: Skipped invalid config during load");
                 }
             }
         }
     }
     
-    DBG("AutomationConfigManager: Loaded " + juce::String(savedConfigs.size()) + " configs and " + juce::String(midiToConfigMap.size()) + " MIDI assignments from " + configFile.getFullPathName());
+    DBG("AutomationConfigManager: Loaded " + juce::String(savedConfigs.size()) + " configs from file");
 }
 
-void AutomationConfigManager::setConfigFilePath(const juce::File& filePath)
+juce::File AutomationConfigManager::getConfigFile()
 {
-    configFile = filePath;
-    DBG("AutomationConfigManager: Config file path set to " + configFile.getFullPathName());
+    return configFile;
 }
 
 //==============================================================================
-juce::String AutomationConfigManager::generateUniqueId() const
+// Config Creation Helpers
+juce::String AutomationConfigManager::generateUniqueId()
 {
     juce::String id;
     do {
-        id = juce::Uuid().toString();
-    } while (hasConfig(id));
+        // Generate random UUID-like identifier
+        juce::Random random;
+        id = "";
+        
+        // Generate hex string segments
+        for (int i = 0; i < 8; ++i)
+            id += juce::String::toHexString(random.nextInt(16));
+        id += "-";
+        for (int i = 0; i < 4; ++i)
+            id += juce::String::toHexString(random.nextInt(16));
+        id += "-";
+        for (int i = 0; i < 4; ++i)
+            id += juce::String::toHexString(random.nextInt(16));
+        id += "-";
+        for (int i = 0; i < 4; ++i)
+            id += juce::String::toHexString(random.nextInt(16));
+        id += "-";
+        for (int i = 0; i < 12; ++i)
+            id += juce::String::toHexString(random.nextInt(16));
+            
+        id = id.toUpperCase();
+        
+    } while (configExists(id)); // Ensure uniqueness
     
     return id;
 }
 
-void AutomationConfigManager::notifySaveRequired()
+AutomationConfig AutomationConfigManager::createConfigFromPanel(const AutomationControlPanel& panel, 
+                                                              const juce::String& name, 
+                                                              int sliderIndex)
 {
-    // Auto-save after a short delay to batch multiple changes
-    juce::Timer::callAfterDelay(1000, [this]() {
-        saveToFile();
-    });
+    AutomationConfig config(name,
+                           panel.getTargetValue(),
+                           panel.getDelayTime(),
+                           panel.getAttackTime(),
+                           panel.getReturnTime(),
+                           panel.getCurveValue(),
+                           panel.getTimeMode(),
+                           sliderIndex);
+    
+    return config;
+}
+
+//==============================================================================
+// Config Validation and Cleanup
+void AutomationConfigManager::validateConfigs()
+{
+    std::vector<juce::String> invalidIds;
+    
+    for (const auto& pair : savedConfigs)
+    {
+        if (!pair.second.isValid())
+        {
+            invalidIds.push_back(pair.first);
+        }
+    }
+    
+    for (const auto& id : invalidIds)
+    {
+        DBG("AutomationConfigManager: Removing invalid config with ID " + id);
+        removeConfigById(id);
+    }
+    
+    if (!invalidIds.empty())
+    {
+        saveToFile(); // Save after cleanup
+    }
+}
+
+void AutomationConfigManager::removeInvalidConfigs()
+{
+    validateConfigs(); // Same implementation
+}
+
+//==============================================================================
+// File Management Info
+bool AutomationConfigManager::configFileExists() const
+{
+    return configFile.existsAsFile();
+}
+
+juce::String AutomationConfigManager::getConfigFilePath() const
+{
+    return configFile.getFullPathName();
+}
+
+juce::int64 AutomationConfigManager::getConfigFileSize() const
+{
+    return configFile.getSize();
+}
+
+juce::Time AutomationConfigManager::getConfigFileLastModified() const
+{
+    return configFile.getLastModificationTime();
+}
+
+//==============================================================================
+// Debug and Maintenance
+void AutomationConfigManager::debugPrintAllConfigs()
+{
+    DBG("AutomationConfigManager: === CONFIG DEBUG DUMP ===");
+    DBG("Total configs: " + juce::String(savedConfigs.size()));
+    DBG("Config file: " + configFile.getFullPathName());
+    
+    for (const auto& pair : savedConfigs)
+    {
+        const auto& config = pair.second;
+        DBG("Config: '" + config.name + "' [" + config.id + "]");
+        DBG("  Target: " + juce::String(config.targetValue));
+        DBG("  Timing: D=" + juce::String(config.delayTime) + 
+            " A=" + juce::String(config.attackTime) + 
+            " R=" + juce::String(config.returnTime));
+        DBG("  Curve: " + juce::String(config.curveValue));
+        DBG("  Mode: " + juce::String(config.timeMode == AutomationControlPanel::TimeMode::Seconds ? "SEC" : "BEAT"));
+        DBG("  Created: " + juce::Time(static_cast<juce::int64>(config.createdTime)).toString(true, true));
+        DBG("  Original Slider: " + juce::String(config.originalSliderIndex));
+    }
+    
+    DBG("AutomationConfigManager: === END DEBUG DUMP ===");
+}
+
+juce::String AutomationConfigManager::getDebugInfo()
+{
+    juce::String info;
+    info += "AutomationConfigManager Debug Info\n";
+    info += "==================================\n";
+    info += "Config Count: " + juce::String(savedConfigs.size()) + "\n";
+    info += "Config File: " + configFile.getFullPathName() + "\n";
+    info += "File Exists: " + juce::String(configFile.existsAsFile() ? "Yes" : "No") + "\n";
+    
+    if (configFile.existsAsFile())
+    {
+        info += "File Size: " + juce::String(configFile.getSize()) + " bytes\n";
+        info += "Last Modified: " + configFile.getLastModificationTime().toString(true, true) + "\n";
+    }
+    
+    info += "Clipboard: " + juce::String(hasClipboard ? "Has Config" : "Empty") + "\n";
+    
+    if (hasClipboard)
+    {
+        info += "Clipboard Config: '" + clipboardConfig.name + "'\n";
+    }
+    
+    return info;
+}
+
+//==============================================================================
+// Private Helper Methods
+void AutomationConfigManager::ensureConfigDirectoryExists()
+{
+    if (!appDataDir.isDirectory())
+    {
+        if (!appDataDir.createDirectory())
+        {
+            DBG("AutomationConfigManager: Failed to create config directory: " + appDataDir.getFullPathName());
+        }
+        else
+        {
+            DBG("AutomationConfigManager: Created config directory: " + appDataDir.getFullPathName());
+        }
+    }
+}
+
+bool AutomationConfigManager::writeConfigsToFile(const juce::var& configData)
+{
+    juce::String jsonString = juce::JSON::toString(configData, true);
+    
+    if (configFile.replaceWithText(jsonString))
+    {
+        return true;
+    }
+    else
+    {
+        DBG("AutomationConfigManager: Failed to write to file: " + configFile.getFullPathName());
+        return false;
+    }
+}
+
+juce::var AutomationConfigManager::loadConfigsFromFile()
+{
+    juce::String jsonString = configFile.loadFileAsString();
+    if (jsonString.isEmpty())
+    {
+        DBG("AutomationConfigManager: Config file is empty");
+        return juce::var();
+    }
+    
+    juce::var jsonVar = juce::JSON::parse(jsonString);
+    if (jsonVar.isVoid())
+    {
+        DBG("AutomationConfigManager: Failed to parse JSON from config file");
+        return juce::var();
+    }
+    
+    return jsonVar;
+}
+
+void AutomationConfigManager::addOrUpdateConfig(const AutomationConfig& config)
+{
+    savedConfigs[config.id] = config;
+}
+
+void AutomationConfigManager::removeConfigById(const juce::String& configId)
+{
+    auto it = savedConfigs.find(configId);
+    if (it != savedConfigs.end())
+    {
+        savedConfigs.erase(it);
+    }
 }
