@@ -11,6 +11,7 @@
 #include "Core/BankManager.h"
 #include "Core/Midi7BitController.h"
 #include "Core/AutomationConfigManager.h"
+#include "UI/AutomationConfigManagementWindow.h"
 #include "UI/MainControllerLayout.h"
 #include "UI/WindowManager.h"
 #include "UI/BankButtonManager.h"
@@ -89,6 +90,11 @@ public:
             
             // Set up automation config manager
             sliderControl->setConfigManager(&automationConfigManager);
+            
+            // Set up config management window callback
+            sliderControl->onOpenConfigManagement = [this](int sliderIndex, AutomationConfigManagementWindow::Mode mode) {
+                openConfigManagementWindow(sliderIndex, mode);
+            };
             
             // Set up new learn zone callback
             sliderControl->onLearnZoneClicked = [this](const LearnZone& zone) {
@@ -928,6 +934,79 @@ public:
         }
     }
     
+    void openConfigManagementWindow(int sliderIndex, AutomationConfigManagementWindow::Mode mode)
+    {
+        // Create window if it doesn't exist
+        if (!configManagementWindow)
+        {
+            configManagementWindow = std::make_unique<AutomationConfigManagementWindow>(
+                automationConfigManager, mode);
+            
+            // Set up callbacks for the management window
+            configManagementWindow->onLoadConfig = [this](const AutomationConfig& config, int targetSlider) {
+                if (targetSlider >= 0 && targetSlider < sliderControls.size())
+                {
+                    sliderControls[targetSlider]->applyAutomationConfig(config);
+                    DBG("Loaded config '" + config.name + "' to slider " + juce::String(targetSlider + 1));
+                }
+            };
+            
+            configManagementWindow->onLoadAndSaveConfig = [this](const AutomationConfig& config, int targetSlider, bool alsoSave) {
+                if (targetSlider >= 0 && targetSlider < sliderControls.size())
+                {
+                    // Load the config
+                    sliderControls[targetSlider]->applyAutomationConfig(config);
+                    DBG("Loaded config '" + config.name + "' to slider " + juce::String(targetSlider + 1));
+                    
+                    if (alsoSave)
+                    {
+                        // Switch to save mode and enable highlighting
+                        configManagementWindow->setMode(AutomationConfigManagementWindow::Mode::Save, targetSlider);
+                        sliderControls[targetSlider]->setAutomationHighlighted(true);
+                    }
+                }
+            };
+            
+            configManagementWindow->onSaveNewConfig = [this](const juce::String& configName, int sourceSlider) {
+                if (sourceSlider >= 0 && sourceSlider < sliderControls.size())
+                {
+                    auto config = sliderControls[sourceSlider]->getCurrentAutomationConfig();
+                    config.name = configName;
+                    
+                    auto savedId = automationConfigManager.saveConfig(config);
+                    if (!savedId.isEmpty())
+                    {
+                        DBG("Saved new config '" + configName + "' from slider " + juce::String(sourceSlider + 1));
+                        configManagementWindow->refreshConfigList();
+                        
+                        // Clear highlighting after successful save
+                        sliderControls[sourceSlider]->setAutomationHighlighted(false);
+                    }
+                    else
+                    {
+                        DBG("Failed to save config '" + configName + "'");
+                    }
+                }
+            };
+            
+            configManagementWindow->onSourceHighlightChanged = [this](bool highlight, int sliderIndex) {
+                if (sliderIndex >= 0 && sliderIndex < sliderControls.size())
+                {
+                    sliderControls[sliderIndex]->setAutomationHighlighted(highlight);
+                }
+            };
+        }
+        
+        // Set mode and target slider
+        configManagementWindow->setMode(mode, sliderIndex);
+        
+        // Show the window
+        configManagementWindow->setVisible(true);
+        configManagementWindow->toFront(true);
+        
+        DBG("Opened config management window in mode " + juce::String((int)mode) + " for slider " + juce::String(sliderIndex + 1));
+    }
+    
     void setAllSlidersLearnMode(bool active)
     {
         // Activate/deactivate learn zones for ALL sliders (always-available system)
@@ -1423,6 +1502,7 @@ private:
     SettingsWindow settingsWindow;
     MidiLearnWindow midiLearnWindow;
     std::unique_ptr<MidiMonitorWindow> midiMonitorWindow;
+    std::unique_ptr<AutomationConfigManagementWindow> configManagementWindow;
     juce::Label movementSpeedLabel;
     juce::Label windowSizeLabel;
     

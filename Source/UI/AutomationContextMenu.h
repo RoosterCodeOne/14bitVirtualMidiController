@@ -24,11 +24,17 @@ public:
     };
     
     AutomationContextMenu(AutomationConfigManager& configManager)
-        : configManager(configManager)
+        : configManager(configManager), currentSliderIndex(-1)
     {
+        DBG("AutomationContextMenu created");
     }
     
-    void showForSlider(int sliderIndex, juce::Point<int> position, juce::Component* parentComponent)
+    ~AutomationContextMenu()
+    {
+        DBG("AutomationContextMenu destroyed, last slider index was: " + juce::String(currentSliderIndex));
+    }
+    
+    void showForSlider(int sliderIndex, juce::Point<int> position, juce::Component* parentComponent, std::shared_ptr<AutomationContextMenu> self = nullptr)
     {
         currentSliderIndex = sliderIndex;
         
@@ -91,10 +97,14 @@ public:
         #if JUCE_MODAL_LOOPS_PERMITTED
         int result = show(0, globalPos.x, globalPos.y);
         handleMenuResult(result);
+        // In synchronous mode, shared_ptr will handle cleanup automatically
         #else
         showMenuAsync(juce::PopupMenu::Options()
                          .withTargetScreenArea(juce::Rectangle<int>(globalPos.x, globalPos.y, 1, 1)),
-                     [this](int result) { handleMenuResult(result); });
+                     [this, self](int result) { 
+                         handleMenuResult(result); 
+                         // self shared_ptr keeps this object alive until callback completes
+                     });
         #endif
     }
     

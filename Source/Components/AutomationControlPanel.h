@@ -178,6 +178,32 @@ public:
     
     TimeMode getTimeMode() const { return currentTimeMode; }
     
+    // Automation highlighting for config management
+    void setHighlighted(bool highlighted) 
+    { 
+        if (isHighlighted != highlighted)
+        {
+            isHighlighted = highlighted;
+            repaint();
+        }
+    }
+    
+    bool isComponentHighlighted() const { return isHighlighted; }
+    
+    void paint(juce::Graphics& g) override
+    {
+        if (isHighlighted)
+        {
+            // Draw green highlighting border around entire automation area
+            g.setColour(juce::Colours::lime.withAlpha(0.4f));
+            g.fillAll();
+            
+            // Draw bright green border
+            g.setColour(juce::Colours::lime);
+            g.drawRect(getLocalBounds(), 2);
+        }
+    }
+    
     // Automation visualizer access
     AutomationVisualizer& getAutomationVisualizer() { return automationVisualizer; }
     
@@ -438,6 +464,9 @@ private:
     juce::ToggleButton secButton, beatButton;
     juce::Label secLabel, beatLabel;
     CustomButtonLookAndFeel buttonLookAndFeel;
+    
+    // Config management highlighting
+    bool isHighlighted = false;
     
     // Learn mode overlays
     LearnModeOverlay goButtonOverlay;

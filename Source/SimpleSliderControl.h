@@ -16,6 +16,7 @@
 #include "UI/SliderLayoutManager.h"
 #include "UI/AutomationContextMenu.h"
 #include "UI/AutomationSaveDialog.h"
+#include "UI/AutomationConfigManagementWindow.h"
 
 //==============================================================================
 // Custom clickable label for lock functionality
@@ -775,17 +776,32 @@ public:
     // Automation config management
     void setConfigManager(AutomationConfigManager* manager) { configManager = manager; }
     
+    // Automation highlighting for config management window
+    void setAutomationHighlighted(bool highlighted) 
+    { 
+        if (isAutomationHighlighted != highlighted)
+        {
+            isAutomationHighlighted = highlighted;
+            automationControlPanel.setHighlighted(highlighted); // Set highlighting on automation panel
+        }
+    }
+    
+    bool isAutomationComponentsHighlighted() const { return isAutomationHighlighted; }
+    
     AutomationConfig getCurrentAutomationConfig() const
     {
-        AutomationConfig config;
-        config.name = "Slider " + juce::String(index + 1) + " Config";
-        config.targetValue = displayManager.getDisplayValue();
-        config.delayTime = automationControlPanel.getDelayTime();
-        config.attackTime = automationControlPanel.getAttackTime();
-        config.returnTime = automationControlPanel.getReturnTime();
-        config.curveValue = automationControlPanel.getCurveValue();
-        config.timeMode = automationControlPanel.getTimeMode();
-        config.originalSliderIndex = index;
+        // Use the parameterized constructor which automatically generates ID and timestamp
+        juce::String configName = "Slider " + juce::String(index + 1) + " Config";
+        AutomationConfig config(
+            configName,
+            displayManager.getDisplayValue(),
+            automationControlPanel.getDelayTime(),
+            automationControlPanel.getAttackTime(),
+            automationControlPanel.getReturnTime(),
+            automationControlPanel.getCurveValue(),
+            automationControlPanel.getTimeMode(),
+            index
+        );
         return config;
     }
     
@@ -818,11 +834,16 @@ public:
             }
             
             DBG("Creating AutomationContextMenu for slider " + juce::String(index) + " at position (" + juce::String(position.x) + ", " + juce::String(position.y) + ")");
-            AutomationContextMenu contextMenu(*configManager);
+            
+            // Create context menu with shared ownership to prevent double-delete
+            auto contextMenu = std::make_shared<AutomationContextMenu>(*configManager);
+            
+            // Capture the slider index by value to ensure it's not corrupted
+            const int sliderIdx = this->index;
         
-        // Set up context menu callbacks
-        contextMenu.onSaveConfig = [this](int sliderIndex) {
-            DBG("=== onSaveConfig callback started for slider " + juce::String(sliderIndex));
+        // Set up context menu callbacks with captured slider index
+        contextMenu->onSaveConfig = [this, sliderIdx](int) {  // Ignore passed index, use captured
+            DBG("=== onSaveConfig callback started for slider " + juce::String(sliderIdx));
             
             try {
                 // Safety check for configManager
@@ -831,30 +852,15 @@ public:
                     return;
                 }
                 
-                DBG("configManager is valid, creating default name...");
-                juce::String defaultName = "Slider " + juce::String(sliderIndex + 1) + " Config";
-                
-                DBG("About to show AutomationSaveDialog...");
-                auto result = AutomationSaveDialogWindow::showDialog(defaultName);
-                
-                DBG("Dialog returned: success=" + juce::String(result.first ? "true" : "false") + ", name='" + result.second + "'");
-                
-                if (result.first && !result.second.isEmpty()) // User clicked Save and provided valid name
-                {
-                    DBG("Getting current automation config...");
-                    auto config = getCurrentAutomationConfig();
-                    config.name = result.second;
+                // Open management window in Save mode instead of modal dialog
+                if (onOpenConfigManagement) {
+                    DBG("Opening config management window in Save mode for slider " + juce::String(sliderIdx));
+                    onOpenConfigManagement(sliderIdx, AutomationConfigManagementWindow::Mode::Save);
                     
-                    DBG("Saving config with name: " + result.second);
-                    auto savedId = configManager->saveConfig(config);
-                    if (!savedId.isEmpty()) {
-                        DBG("Successfully saved automation config: " + result.second + " with ID: " + savedId);
-                    } else {
-                        DBG("ERROR: Failed to save automation config!");
-                    }
-                }
-                else if (result.first) {
-                    DBG("ERROR: Dialog returned success but empty name!");
+                    // Enable green highlighting to show what's being saved
+                    setAutomationHighlighted(true);
+                } else {
+                    DBG("ERROR: onOpenConfigManagement callback is null!");
                 }
                 
                 DBG("=== onSaveConfig callback completed successfully");
@@ -867,7 +873,7 @@ public:
             }
         };
         
-        contextMenu.onLoadConfig = [this](int sliderIndex, const juce::String& configId) {
+        contextMenu->onLoadConfig = [this, sliderIdx](int, const juce::String& configId) {  // Ignore passed index
             try {
                 // Safety check for configManager
                 if (!configManager) {
@@ -880,7 +886,7 @@ public:
                     return;
                 }
                 
-                DBG("Loading config: " + configId + " for slider " + juce::String(sliderIndex));
+                DBG("Loading config: " + configId + " for slider " + juce::String(sliderIdx));
                 auto config = configManager->loadConfig(configId);
                 if (config.isValid())
                 {
@@ -900,8 +906,8 @@ public:
             }
         };
         
-        contextMenu.onCopyConfig = [this](int sliderIndex) {
-            DBG("=== onCopyConfig callback started for slider " + juce::String(sliderIndex));
+        contextMenu->onCopyConfig = [this, sliderIdx](int) {  // Ignore passed index, use captured
+            DBG("=== onCopyConfig callback started for slider " + juce::String(sliderIdx));
             
             try {
                 // Safety check for configManager
@@ -921,11 +927,11 @@ public:
                 automationControlPanel.extractCurrentConfig(targetValue, delayTime, attackTime, returnTime, curveValue, timeMode);
                 
                 DBG("Creating AutomationConfig object...");
-                config = AutomationConfig("Copied Config", targetValue, delayTime, attackTime, returnTime, curveValue, timeMode, sliderIndex);
+                config = AutomationConfig("Copied Config", targetValue, delayTime, attackTime, returnTime, curveValue, timeMode, sliderIdx);
                 
                 DBG("Calling configManager->copyConfigFromSlider...");
-                configManager->copyConfigFromSlider(sliderIndex, config);
-                DBG("Successfully copied config from slider " + juce::String(sliderIndex));
+                configManager->copyConfigFromSlider(sliderIdx, config);
+                DBG("Successfully copied config from slider " + juce::String(sliderIdx));
                 
                 DBG("=== onCopyConfig callback completed successfully");
             }
@@ -937,7 +943,7 @@ public:
             }
         };
         
-        contextMenu.onPasteConfig = [this](int sliderIndex) {
+        contextMenu->onPasteConfig = [this, sliderIdx](int) {  // Ignore passed index, use captured
             try {
                 // Safety check for configManager
                 if (!configManager) {
@@ -945,22 +951,22 @@ public:
                     return;
                 }
                 
-                DBG("Attempting to paste config to slider " + juce::String(sliderIndex));
+                DBG("Attempting to paste config to slider " + juce::String(sliderIdx));
                 AutomationConfig config;
-                if (configManager->pasteConfigToSlider(sliderIndex, config))
+                if (configManager->pasteConfigToSlider(sliderIdx, config))
                 {
                     if (config.isValid()) {
                         // Apply the pasted config to automation panel
                         automationControlPanel.applyConfig(config.targetValue, config.delayTime, config.attackTime,
                                                   config.returnTime, config.curveValue, config.timeMode);
-                        DBG("Successfully pasted and applied config to slider " + juce::String(sliderIndex));
+                        DBG("Successfully pasted and applied config to slider " + juce::String(sliderIdx));
                     } else {
-                        DBG("ERROR: Pasted config is invalid for slider " + juce::String(sliderIndex));
+                        DBG("ERROR: Pasted config is invalid for slider " + juce::String(sliderIdx));
                     }
                 }
                 else
                 {
-                    DBG("No config available to paste for slider " + juce::String(sliderIndex));
+                    DBG("No config available to paste for slider " + juce::String(sliderIdx));
                 }
             }
             catch (const std::exception& e) {
@@ -971,15 +977,21 @@ public:
             }
         };
         
-        contextMenu.onManageConfigs = [this]() {
-            if (onConfigManagementRequested)
+        contextMenu->onManageConfigs = [this, sliderIdx]() {
+            if (onOpenConfigManagement) {
+                DBG("Opening config management window in Manage mode");
+                onOpenConfigManagement(sliderIdx, AutomationConfigManagementWindow::Mode::Manage);
+            } else if (onConfigManagementRequested) {
                 onConfigManagementRequested();
+            }
         };
         
-        // Show context menu
-        DBG("Showing context menu for slider " + juce::String(index));
-        contextMenu.showForSlider(index, position, this);
-        DBG("Context menu completed for slider " + juce::String(index));
+        // Show context menu with captured index
+        DBG("Showing context menu for slider " + juce::String(sliderIdx));
+        contextMenu->showForSlider(sliderIdx, position, this, contextMenu);
+        DBG("Context menu completed for slider " + juce::String(sliderIdx));
+        
+        // shared_ptr will automatically clean up when it goes out of scope
         
         } catch (const std::exception& e) {
             DBG("EXCEPTION in showAutomationContextMenu: " + juce::String(e.what()));
@@ -990,6 +1002,7 @@ public:
     
     // Automation config callbacks
     std::function<void()> onConfigManagementRequested;
+    std::function<void(int sliderIndex, AutomationConfigManagementWindow::Mode mode)> onOpenConfigManagement;
     
     // Learn mode callbacks
     std::function<void(MidiTargetType, int)> onLearnModeTargetClicked;
@@ -1284,6 +1297,9 @@ public:
     
     // MIDI learn markers
     bool showLearnMarkers = false;
+    
+    // Automation highlighting for config management
+    bool isAutomationHighlighted = false;
     
     // Flag to prevent infinite recursion when setting values programmatically
     bool isSettingValueProgrammatically = false;

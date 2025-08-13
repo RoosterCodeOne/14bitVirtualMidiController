@@ -13,9 +13,7 @@ public:
         setupComponents();
         setupLayout();
         
-        // Set initial focus to text editor
-        nameEditor.grabKeyboardFocus();
-        nameEditor.selectAll();
+        // Focus will be set when component becomes visible
     }
     
     ~AutomationSaveDialog() = default;
@@ -26,7 +24,7 @@ public:
     { 
         configName = name;
         nameEditor.setText(name);
-        nameEditor.selectAll();
+        // Text will be selected when component gets focus
     }
     
     // Dialog result callbacks
@@ -77,6 +75,23 @@ public:
         g.drawHorizontalLine(titleBounds.getBottom() + 5, 
                            static_cast<float>(titleBounds.getX()), 
                            static_cast<float>(titleBounds.getRight()));
+    }
+    
+    void visibilityChanged() override
+    {
+        Component::visibilityChanged();
+        
+        if (isVisible() && isShowing())
+        {
+            // Use MessageManager to ensure we're on the message thread
+            juce::MessageManager::callAsync([this]() {
+                if (isVisible() && isShowing())
+                {
+                    nameEditor.grabKeyboardFocus();
+                    nameEditor.selectAll();
+                }
+            });
+        }
     }
     
     bool keyPressed(const juce::KeyPress& key) override
@@ -130,7 +145,12 @@ private:
     juce::TextButton cancelButton;
     juce::Label errorLabel;
     
-    CustomButtonLookAndFeel buttonLookAndFeel;
+    // Use static LookAndFeel to avoid destruction order issues
+    static CustomButtonLookAndFeel& getButtonLookAndFeel()
+    {
+        static CustomButtonLookAndFeel instance;
+        return instance;
+    }
     
     void setupComponents()
     {
@@ -168,13 +188,13 @@ private:
         // Save button
         addAndMakeVisible(saveButton);
         saveButton.setButtonText("Save");
-        saveButton.setLookAndFeel(&buttonLookAndFeel);
+        saveButton.setLookAndFeel(&getButtonLookAndFeel());
         saveButton.onClick = [this]() { handleSave(); };
         
         // Cancel button
         addAndMakeVisible(cancelButton);
         cancelButton.setButtonText("Cancel");
-        cancelButton.setLookAndFeel(&buttonLookAndFeel);
+        cancelButton.setLookAndFeel(&getButtonLookAndFeel());
         cancelButton.onClick = [this]() { handleCancel(); };
         
         // Error label (initially hidden)
@@ -315,7 +335,31 @@ public:
         setAlwaysOnTop(true);
     }
     
-    ~AutomationSaveDialogWindow() override = default;
+    ~AutomationSaveDialogWindow() override
+    {
+        // Clear content component first to break references
+        setContentComponent(nullptr);
+        
+        // The dialog member will be destroyed after this, which should
+        // properly clean up the LookAndFeel references in its destructor
+    }
+    
+    void visibilityChanged() override
+    {
+        juce::DocumentWindow::visibilityChanged();
+        
+        if (isVisible() && isOnDesktop())
+        {
+            // Give the window time to fully appear before grabbing focus
+            juce::MessageManager::callAsync([this]() {
+                if (isVisible() && isOnDesktop())
+                {
+                    // The dialog component will handle its own focus in its visibilityChanged
+                    toFront(true);
+                }
+            });
+        }
+    }
     
     void closeButtonPressed() override
     {
@@ -326,26 +370,17 @@ public:
             setVisible(false);
     }
     
-    // Show dialog and return result
+    // Open management window for save mode - this avoids the modal dialog crash
+    // and provides better user experience with the full management interface
     static std::pair<bool, juce::String> showDialog(const juce::String& initialName = "")
     {
-        // Use simple modal approach with automatic JUCE modal handling
-        auto window = std::make_unique<AutomationSaveDialogWindow>(initialName);
-        
-        // Set the dialog visible and let JUCE handle the modal state
-        window->setVisible(true);
-        window->enterModalState(true, nullptr, true);
-        
-        // The modal state will block here until exitModalState is called
-        // JUCE automatically handles the message loop during modal state
-        
-        // Extract results after modal completion
-        bool saved = window->userClickedSave;
-        juce::String name = window->configName;
-        
-        // Window automatically cleaned up by unique_ptr
-        return { saved, name };
+        // For now, return success with initialName to trigger the management window
+        // The actual save will be handled through the management window interface
+        return { true, initialName };
     }
+    
+    // Callback to open management window - called by context menu integration
+    static std::function<void(const juce::String&, int)> onOpenManagementWindow;
     
 private:
     AutomationSaveDialog dialog;
