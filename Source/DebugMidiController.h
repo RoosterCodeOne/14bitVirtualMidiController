@@ -995,6 +995,15 @@ public:
                     sliderControls[sliderIndex]->setAutomationHighlighted(highlight);
                 }
             };
+            
+            configManagementWindow->onGetSliderCustomName = [this](int sliderIndex) -> juce::String {
+                if (sliderIndex >= 0 && sliderIndex < sliderControls.size())
+                {
+                    // Get custom name from settings window
+                    return settingsWindow.getSliderDisplayName(sliderIndex);
+                }
+                return {};
+            };
         }
         
         // Set mode and target slider

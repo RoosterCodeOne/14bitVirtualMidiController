@@ -17,8 +17,7 @@ public:
     {
         ConfigName = 1,
         SliderNumber = 2,
-        MidiInput = 3,
-        Actions = 4
+        MidiInput = 3
     };
     
     AutomationConfigTableModel(AutomationConfigManager& configManager)
@@ -77,10 +76,6 @@ public:
                 // TODO: Get MIDI assignment from MIDI learn system
                 text = "Ch 1 CC 10"; // Placeholder - will be populated from MIDI learn data
                 break;
-                
-            case Actions:
-                text = "Load | Delete";
-                break;
         }
         
         g.drawText(text, 2, 0, width - 4, height, juce::Justification::centredLeft, true);
@@ -99,11 +94,6 @@ public:
                 if (onMidiLearnClicked)
                     onMidiLearnClicked(config.id, rowNumber);
                 break;
-                
-            case Actions:
-                if (onActionClicked)
-                    onActionClicked(config.id, rowNumber, event.getPosition());
-                break;
         }
     }
     
@@ -117,7 +107,6 @@ public:
     
     // Callbacks
     std::function<void(const juce::String& configId, int rowNumber)> onMidiLearnClicked;
-    std::function<void(const juce::String& configId, int rowNumber, juce::Point<int> clickPos)> onActionClicked;
     std::function<void(const juce::String& configId, int rowNumber)> onConfigSelected;
     
 private:
@@ -157,9 +146,9 @@ public:
         // Setup callbacks
         setupCallbacks();
         
-        setResizable(true, true);
+        setResizable(false, false);
         setUsingNativeTitleBar(true);
-        centreWithSize(800, 600);
+        centreWithSize(475, 200);
         
         // Initial data refresh
         refreshConfigList();
@@ -193,6 +182,7 @@ public:
     std::function<void(const juce::String& configName, int sourceSlider)> onSaveNewConfig;
     std::function<void(bool highlight, int sliderIndex)> onSourceHighlightChanged;
     std::function<void(const juce::String& configId)> onStartMidiLearn;
+    std::function<juce::String(int sliderIndex)> onGetSliderCustomName;
     
 private:
     AutomationConfigManager& configManager;
@@ -211,7 +201,6 @@ private:
     juce::TextButton loadButton;
     juce::TextButton loadAndSaveButton;
     juce::TextButton deleteButton;
-    juce::TextButton closeButton;
     
     // Status and info
     juce::Label statusLabel;
@@ -230,7 +219,6 @@ private:
         content->addAndMakeVisible(loadButton);
         content->addAndMakeVisible(loadAndSaveButton);
         content->addAndMakeVisible(deleteButton);
-        content->addAndMakeVisible(closeButton);
         content->addAndMakeVisible(statusLabel);
         content->addAndMakeVisible(modeLabel);
     }
@@ -239,10 +227,9 @@ private:
     {
         // Configure table
         configTable.setModel(&tableModel);
-        configTable.getHeader().addColumn("Config Name", AutomationConfigTableModel::ConfigName, 200, 100, 300);
+        configTable.getHeader().addColumn("Config Name", AutomationConfigTableModel::ConfigName, 250, 150, 300);
         configTable.getHeader().addColumn("Slider #", AutomationConfigTableModel::SliderNumber, 80, 60, 100);
         configTable.getHeader().addColumn("MIDI Input", AutomationConfigTableModel::MidiInput, 120, 100, 150);
-        configTable.getHeader().addColumn("Actions", AutomationConfigTableModel::Actions, 120, 100, 150);
         
         configTable.setColour(juce::ListBox::backgroundColourId, BlueprintColors::panel);
         configTable.setColour(juce::ListBox::outlineColourId, BlueprintColors::active);
@@ -262,10 +249,9 @@ private:
         loadButton.setButtonText("Load");
         loadAndSaveButton.setButtonText("Load & Save");
         deleteButton.setButtonText("Delete");
-        closeButton.setButtonText("Close");
         
         // Apply blueprint styling to buttons
-        for (auto* button : { &saveButton, &loadButton, &loadAndSaveButton, &deleteButton, &closeButton })
+        for (auto* button : { &saveButton, &loadButton, &loadAndSaveButton, &deleteButton })
         {
             button->setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
             button->setColour(juce::TextButton::textColourOffId, BlueprintColors::textSecondary);
@@ -289,9 +275,6 @@ private:
             statusLabel.setText("Click MIDI Learn button, then send MIDI CC...", juce::dontSendNotification);
         };
         
-        tableModel.onActionClicked = [this](const juce::String& configId, int rowNumber, juce::Point<int> clickPos) {
-            showActionMenu(configId, rowNumber, clickPos);
-        };
         
         // Button callbacks
         saveButton.onClick = [this]() {
@@ -310,9 +293,6 @@ private:
             handleDeleteConfig();
         };
         
-        closeButton.onClick = [this]() {
-            setVisible(false);
-        };
         
         // Input validation
         configNameInput.onTextChange = [this]() {
@@ -323,9 +303,9 @@ private:
     void setupLayout()
     {
         auto* content = getContentComponent();
-        content->setSize(800, 600);
+        content->setSize(475, 200);
         
-        content->setBounds(0, 0, 800, 600);
+        content->setBounds(0, 0, 475, 200);
         
         // This will be called in resized()
         layoutComponents();
@@ -336,54 +316,48 @@ private:
         auto* content = getContentComponent();
         if (!content) return;
         
-        auto area = content->getLocalBounds().reduced(10);
+        auto area = content->getLocalBounds().reduced(8);
         
         // Mode label at top
-        auto modeArea = area.removeFromTop(25);
+        auto modeArea = area.removeFromTop(20);
         modeLabel.setBounds(modeArea);
-        area.removeFromTop(5);
+        area.removeFromTop(3);
         
         // Table takes most of the space
-        auto tableArea = area.removeFromTop(area.getHeight() - 80);
+        auto tableArea = area.removeFromTop(area.getHeight() - 40);
         configTable.setBounds(tableArea);
         
-        area.removeFromTop(10);
+        area.removeFromTop(3);
         
-        // Bottom area for controls
-        auto controlArea = area.removeFromTop(30);
-        auto buttonArea = controlArea.removeFromRight(300);
+        // Dynamic bottom panel based on mode (more compact)
+        auto bottomPanel = area.removeFromTop(25);
         
-        // Input area (left side)
-        if (currentMode == Mode::Save || currentMode == Mode::Manage)
+        if (currentMode == Mode::Save)
         {
-            inputLabel.setBounds(controlArea.removeFromLeft(100));
-            controlArea.removeFromLeft(5);
-            configNameInput.setBounds(controlArea);
+            // Save mode: input box + Save button (no label)
+            auto buttonArea = bottomPanel.removeFromRight(60);
+            saveButton.setBounds(buttonArea);
+            bottomPanel.removeFromRight(3);
+            
+            configNameInput.setBounds(bottomPanel);
+        }
+        else if (currentMode == Mode::Load || currentMode == Mode::Manage)
+        {
+            // Selection mode: Load, Load & Save, Delete buttons (more compact)
+            int buttonWidth = 55;
+            int wideButtonWidth = 70;
+            int buttonSpacing = 3;
+            
+            deleteButton.setBounds(bottomPanel.removeFromRight(buttonWidth));
+            bottomPanel.removeFromRight(buttonSpacing);
+            loadAndSaveButton.setBounds(bottomPanel.removeFromRight(wideButtonWidth));
+            bottomPanel.removeFromRight(buttonSpacing);
+            loadButton.setBounds(bottomPanel.removeFromRight(buttonWidth));
         }
         
-        // Button area (right side)
-        int buttonWidth = 70;
-        int buttonSpacing = 5;
-        
-        closeButton.setBounds(buttonArea.removeFromRight(buttonWidth));
-        buttonArea.removeFromRight(buttonSpacing);
-        
-        if (currentMode == Mode::Load)
-        {
-            loadAndSaveButton.setBounds(buttonArea.removeFromRight(buttonWidth + 20));
-            buttonArea.removeFromRight(buttonSpacing);
-            loadButton.setBounds(buttonArea.removeFromRight(buttonWidth));
-        }
-        else if (currentMode == Mode::Save || currentMode == Mode::Manage)
-        {
-            deleteButton.setBounds(buttonArea.removeFromRight(buttonWidth));
-            buttonArea.removeFromRight(buttonSpacing);
-            saveButton.setBounds(buttonArea.removeFromRight(buttonWidth));
-        }
-        
-        // Status at bottom
-        area.removeFromTop(5);
-        statusLabel.setBounds(area.removeFromTop(20));
+        // Status at very bottom (more space for tooltip)
+        area.removeFromTop(3);
+        statusLabel.setBounds(area);
     }
     
     void updateModeSpecificUI()
@@ -393,11 +367,12 @@ private:
         {
             case Mode::Save:
                 modeText = "Save Mode";
-                inputLabel.setVisible(true);
+                inputLabel.setVisible(false);
                 configNameInput.setVisible(true);
                 saveButton.setVisible(true);
                 loadButton.setVisible(false);
                 loadAndSaveButton.setVisible(false);
+                deleteButton.setVisible(false);
                 highlightConfigCreationSource(true);
                 break;
                 
@@ -408,16 +383,18 @@ private:
                 saveButton.setVisible(false);
                 loadButton.setVisible(true);
                 loadAndSaveButton.setVisible(true);
+                deleteButton.setVisible(true);
                 highlightConfigCreationSource(false);
                 break;
                 
             case Mode::Manage:
                 modeText = "Management Mode";
-                inputLabel.setVisible(true);
-                configNameInput.setVisible(true);
-                saveButton.setVisible(true);
-                loadButton.setVisible(false);
-                loadAndSaveButton.setVisible(false);
+                inputLabel.setVisible(false);
+                configNameInput.setVisible(false);
+                saveButton.setVisible(false);
+                loadButton.setVisible(true);
+                loadAndSaveButton.setVisible(true);
+                deleteButton.setVisible(true);
                 highlightConfigCreationSource(false);
                 break;
         }
@@ -437,34 +414,6 @@ private:
         saveButton.setEnabled(hasValidInput && (currentMode == Mode::Save || currentMode == Mode::Manage));
     }
     
-    void showActionMenu(const juce::String& configId, int rowNumber, juce::Point<int> clickPos)
-    {
-        juce::PopupMenu menu;
-        menu.addItem(1, "Load Config");
-        menu.addItem(2, "Load & Save");
-        menu.addSeparator();
-        menu.addItem(3, "Delete Config");
-        
-        // Use async pattern for JUCE v8 compatibility
-        auto options = juce::PopupMenu::Options()
-            .withTargetScreenArea(juce::Rectangle<int>(clickPos.x, clickPos.y, 1, 1))
-            .withParentComponent(this);
-            
-        menu.showMenuAsync(options, [this, configId](int result) {
-            switch (result)
-            {
-                case 1: // Load
-                    loadConfigById(configId, false);
-                    break;
-                case 2: // Load & Save
-                    loadConfigById(configId, true);
-                    break;
-                case 3: // Delete
-                    deleteConfigById(configId);
-                    break;
-            }
-        });
-    }
     
     void handleSaveConfig()
     {
@@ -476,7 +425,21 @@ private:
             onSaveNewConfig(name, currentTargetSlider);
             configNameInput.clear();
             refreshConfigList();
+            
+            // Update tooltip with most recent action
+            juce::String sliderInfo = "Slider " + juce::String(currentTargetSlider + 1);
+            if (onGetSliderCustomName)
+            {
+                auto customName = onGetSliderCustomName(currentTargetSlider);
+                if (!customName.isEmpty())
+                    sliderInfo += " (" + customName + ")";
+            }
+            
+            setHelpText("Config saved: " + name);
             statusLabel.setText("Config saved: " + name, juce::dontSendNotification);
+            
+            // Switch back to selection mode after saving
+            setMode(Mode::Load, currentTargetSlider);
         }
     }
     
@@ -491,14 +454,35 @@ private:
         if (alsoSave && onLoadAndSaveConfig)
         {
             onLoadAndSaveConfig(config, currentTargetSlider, true);
-            // Switch to save mode after loading
+            // Switch to save mode after loading with pre-populated name
             setMode(Mode::Save, currentTargetSlider);
-            configNameInput.setText(config.name + " Copy");
+            
+            // Get slider custom name if available
+            juce::String sliderName = "Slider " + juce::String(currentTargetSlider + 1);
+            if (onGetSliderCustomName)
+            {
+                auto customName = onGetSliderCustomName(currentTargetSlider);
+                if (!customName.isEmpty())
+                    sliderName += " (" + customName + ")";
+            }
+            
+            configNameInput.setText(config.name + " - " + sliderName);
             statusLabel.setText("Config loaded and ready to save", juce::dontSendNotification);
         }
         else if (onLoadConfig)
         {
             onLoadConfig(config, currentTargetSlider);
+            
+            // Update tooltip with most recent action
+            juce::String sliderInfo = "Slider " + juce::String(currentTargetSlider + 1);
+            if (onGetSliderCustomName)
+            {
+                auto customName = onGetSliderCustomName(currentTargetSlider);
+                if (!customName.isEmpty())
+                    sliderInfo += " (" + customName + ")";
+            }
+            
+            setHelpText("Config " + config.name + " loaded on " + sliderInfo);
             statusLabel.setText("Config loaded: " + config.name, juce::dontSendNotification);
         }
     }
