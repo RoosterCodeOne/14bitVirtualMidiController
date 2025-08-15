@@ -44,10 +44,36 @@ public:
     
     void paintRowBackground(juce::Graphics& g, int rowNumber, int width, int height, bool rowIsSelected) override
     {
-        if (rowIsSelected)
-            g.fillAll(BlueprintColors::active.withAlpha(0.3f));
+        auto bounds = juce::Rectangle<float>(0, 0, static_cast<float>(width), static_cast<float>(height));
+        
+        // Custom selection highlighting - MIDI learn ready takes priority over regular selection
+        if (isRowReadyForMidiLearn(rowNumber))
+        {
+            DBG("Painting amber highlighting for MIDI learn ready row: " + juce::String(rowNumber));
+            // Row ready for MIDI learn - use warning color (amber/orange)
+            g.setColour(BlueprintColors::warning.withAlpha(0.4f));
+            g.fillRoundedRectangle(bounds.reduced(1.0f), 2.0f);
+            
+            // Draw ready-for-learn border - thicker for emphasis
+            g.setColour(BlueprintColors::warning);
+            g.drawRoundedRectangle(bounds.reduced(1.0f), 2.0f, 2.0f);
+        }
+        else if (isRowSelected(rowNumber))
+        {
+            // Selected row - use blueprint active color with rounded corners
+            g.setColour(BlueprintColors::active.withAlpha(0.4f));
+            g.fillRoundedRectangle(bounds.reduced(1.0f), 2.0f);
+            
+            // Draw selection border 
+            g.setColour(BlueprintColors::active);
+            g.drawRoundedRectangle(bounds.reduced(1.0f), 2.0f, 1.5f);
+        }
         else if (rowNumber % 2 == 0)
-            g.fillAll(BlueprintColors::panel.withAlpha(0.1f));
+        {
+            // Alternating row background
+            g.setColour(BlueprintColors::panel.withAlpha(0.1f));
+            g.fillRoundedRectangle(bounds.reduced(1.0f), 2.0f);
+        }
     }
     
     void paintCell(juce::Graphics& g, int rowNumber, int columnId, int width, int height, bool rowIsSelected) override
@@ -57,8 +83,23 @@ public:
             
         const auto& config = configs[rowNumber];
         
-        g.setColour(rowIsSelected ? BlueprintColors::textPrimary : BlueprintColors::textSecondary);
-        g.setFont(12.0f);
+        // Enhanced text color based on selection and MIDI learn state
+        juce::Colour textColor;
+        if (isRowSelected(rowNumber))
+        {
+            textColor = BlueprintColors::textPrimary.brighter(0.2f);
+        }
+        else if (isRowReadyForMidiLearn(rowNumber))
+        {
+            textColor = BlueprintColors::warning.brighter(0.3f);
+        }
+        else
+        {
+            textColor = BlueprintColors::textSecondary;
+        }
+        
+        g.setColour(textColor);
+        g.setFont(juce::Font(12.0f, isRowSelected(rowNumber) ? juce::Font::bold : juce::Font::plain));
         
         juce::String text;
         switch (columnId)
@@ -73,12 +114,14 @@ public:
                 break;
                 
             case MidiInput:
-                // TODO: Get MIDI assignment from MIDI learn system
-                text = "Ch 1 CC 10"; // Placeholder - will be populated from MIDI learn data
+                if (isRowReadyForMidiLearn(rowNumber))
+                    text = "Ready...";
+                else
+                    text = "Ch 1 CC 10"; // Placeholder - will be populated from MIDI learn data
                 break;
         }
         
-        g.drawText(text, 2, 0, width - 4, height, juce::Justification::centredLeft, true);
+        g.drawText(text, 4, 0, width - 8, height, juce::Justification::centredLeft, true);
     }
     
     void cellClicked(int rowNumber, int columnId, const juce::MouseEvent& event) override
@@ -88,11 +131,23 @@ public:
             
         const auto& config = configs[rowNumber];
         
+        // Handle row selection
+        setSelectedRow(rowNumber);
+        
+        // Handle column-specific actions
         switch (columnId)
         {
             case MidiInput:
+                DBG("MIDI Input column clicked - row: " + juce::String(rowNumber) + ", config: " + config.id);
                 if (onMidiLearnClicked)
                     onMidiLearnClicked(config.id, rowNumber);
+                // Don't call onConfigSelected for MIDI Input column clicks
+                return;
+                
+            default:
+                // General row selection - notify selection change
+                if (onConfigSelected)
+                    onConfigSelected(config.id, rowNumber);
                 break;
         }
     }
@@ -105,6 +160,77 @@ public:
         return AutomationConfig();
     }
     
+    // Selection management
+    void setSelectedRow(int rowNumber)
+    {
+        if (selectedRowIndex != rowNumber)
+        {
+            selectedRowIndex = rowNumber;
+            // Trigger repaint to update visual highlighting
+            if (auto* tableComponent = getTableListBox())
+                tableComponent->repaint();
+        }
+    }
+    
+    void clearSelection()
+    {
+        setSelectedRow(-1);
+    }
+    
+    int getSelectedRow() const
+    {
+        return selectedRowIndex;
+    }
+    
+    bool isRowSelected(int rowNumber) const
+    {
+        return selectedRowIndex == rowNumber;
+    }
+    
+    // MIDI learn state management
+    void setRowReadyForMidiLearn(int rowNumber, bool isReady)
+    {
+        DBG("Table model: Setting row " + juce::String(rowNumber) + " ready for MIDI learn: " + (isReady ? "true" : "false"));
+        if (isReady)
+            midiLearnReadyRow = rowNumber;
+        else
+            midiLearnReadyRow = -1;
+            
+        DBG("Table model: MIDI learn ready row is now: " + juce::String(midiLearnReadyRow));
+            
+        // Trigger repaint to update visual highlighting
+        if (auto* tableComponent = getTableListBox())
+            tableComponent->repaint();
+    }
+    
+    bool isRowReadyForMidiLearn(int rowNumber) const
+    {
+        return midiLearnReadyRow == rowNumber;
+    }
+    
+    int getMidiLearnReadyRow() const
+    {
+        return midiLearnReadyRow;
+    }
+    
+    // Get selected config
+    AutomationConfig getSelectedConfig() const
+    {
+        return getConfigAt(selectedRowIndex);
+    }
+    
+    // Helper to get parent table component for repainting
+    juce::TableListBox* getTableListBox()
+    {
+        // This will be set by the AutomationConfigManagementWindow
+        return parentTableComponent;
+    }
+    
+    void setParentTableComponent(juce::TableListBox* table)
+    {
+        parentTableComponent = table;
+    }
+    
     // Callbacks
     std::function<void(const juce::String& configId, int rowNumber)> onMidiLearnClicked;
     std::function<void(const juce::String& configId, int rowNumber)> onConfigSelected;
@@ -112,6 +238,11 @@ public:
 private:
     AutomationConfigManager& configManager;
     std::vector<AutomationConfig> configs;
+    
+    // Selection state
+    int selectedRowIndex = -1;        // Currently selected row (-1 = none)
+    int midiLearnReadyRow = -1;       // Row ready for MIDI learn (-1 = none)
+    juce::TableListBox* parentTableComponent = nullptr;  // Reference for repainting
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AutomationConfigTableModel)
 };
@@ -148,6 +279,10 @@ public:
         
         setResizable(false, false);
         setUsingNativeTitleBar(true);
+        
+        // Set window to always stay on top
+        setAlwaysOnTop(true);
+        
         centreWithSize(475, 200);
         
         // Initial data refresh
@@ -165,8 +300,26 @@ public:
     
     void refreshConfigList()
     {
+        // Preserve selection if possible
+        auto selectedConfig = getSelectedConfig();
+        juce::String selectedConfigId = selectedConfig.isValid() ? selectedConfig.id : juce::String();
+        
         tableModel.refreshData();
         configTable.updateContent();
+        
+        // Try to restore selection if the config still exists
+        if (selectedConfigId.isNotEmpty())
+        {
+            for (int i = 0; i < tableModel.getNumRows(); ++i)
+            {
+                auto config = tableModel.getConfigAt(i);
+                if (config.id == selectedConfigId)
+                {
+                    selectConfig(i);
+                    break;
+                }
+            }
+        }
     }
     
     void highlightConfigCreationSource(bool shouldHighlight)
@@ -176,6 +329,71 @@ public:
             onSourceHighlightChanged(shouldHighlight, currentTargetSlider);
     }
     
+    // Selection management for external access
+    void selectConfig(int rowNumber)
+    {
+        tableModel.setSelectedRow(rowNumber);
+    }
+    
+    void clearConfigSelection()
+    {
+        tableModel.clearSelection();
+    }
+    
+    AutomationConfig getSelectedConfig() const
+    {
+        return tableModel.getSelectedConfig();
+    }
+    
+    int getSelectedConfigRow() const
+    {
+        return tableModel.getSelectedRow();
+    }
+    
+    // MIDI learn state management
+    void setConfigReadyForMidiLearn(int rowNumber, bool isReady = true)
+    {
+        DBG("Setting config ready for MIDI learn - row: " + juce::String(rowNumber) + ", ready: " + (isReady ? "true" : "false"));
+        tableModel.setRowReadyForMidiLearn(rowNumber, isReady);
+        
+        if (isReady)
+        {
+            statusLabel.setText("Config ready for MIDI learn - send MIDI CC...", juce::dontSendNotification);
+        }
+        else
+        {
+            statusLabel.setText("", juce::dontSendNotification);
+        }
+    }
+    
+    int getMidiLearnReadyConfig() const
+    {
+        return tableModel.getMidiLearnReadyRow();
+    }
+    
+    // Learn mode state management
+    void setLearnModeActive(bool isActive)
+    {
+        isLearnModeActive = isActive;
+        learnModeIndicator.setVisible(isActive);
+        
+        if (isActive)
+        {
+            DBG("Config Manager: Learn Mode activated");
+        }
+        else
+        {
+            DBG("Config Manager: Learn Mode deactivated");
+            // Clear any MIDI learn ready state when learn mode ends
+            setConfigReadyForMidiLearn(-1, false);
+        }
+    }
+    
+    bool getLearnModeActive() const
+    {
+        return isLearnModeActive;
+    }
+    
     // Callbacks for external integration
     std::function<void(const AutomationConfig& config, int targetSlider)> onLoadConfig;
     std::function<void(const AutomationConfig& config, int targetSlider, bool alsoSave)> onLoadAndSaveConfig;
@@ -183,12 +401,14 @@ public:
     std::function<void(bool highlight, int sliderIndex)> onSourceHighlightChanged;
     std::function<void(const juce::String& configId)> onStartMidiLearn;
     std::function<juce::String(int sliderIndex)> onGetSliderCustomName;
+    std::function<void(const juce::String& configId, int rowNumber)> onConfigSelectionChanged;
     
 private:
     AutomationConfigManager& configManager;
     Mode currentMode;
     int currentTargetSlider = -1;
     bool isHighlightingSource = false;
+    bool isLearnModeActive = false;
     
     // UI Components
     AutomationConfigTableModel tableModel;
@@ -205,11 +425,18 @@ private:
     // Status and info
     juce::Label statusLabel;
     juce::Label modeLabel;
+    juce::Label learnModeIndicator;
     
     void setupWindow()
     {
         setContentOwned(new juce::Component(), true);
         auto* content = getContentComponent();
+        
+        // Setup table with custom mouse handling for empty area clicks
+        configTable.getViewport()->setScrollBarsShown(true, false);
+        
+        // Override mouse handling for empty area selection clearing
+        configTable.setMouseClickGrabsKeyboardFocus(false);
         
         // Add all components to content
         content->addAndMakeVisible(configTable);
@@ -221,6 +448,10 @@ private:
         content->addAndMakeVisible(deleteButton);
         content->addAndMakeVisible(statusLabel);
         content->addAndMakeVisible(modeLabel);
+        content->addAndMakeVisible(learnModeIndicator);
+        
+        // Add mouse listener to clear selection on empty clicks
+        configTable.addMouseListener(this, true);
     }
     
     void setupComponents()
@@ -230,6 +461,13 @@ private:
         configTable.getHeader().addColumn("Config Name", AutomationConfigTableModel::ConfigName, 250, 150, 300);
         configTable.getHeader().addColumn("Slider #", AutomationConfigTableModel::SliderNumber, 80, 60, 100);
         configTable.getHeader().addColumn("MIDI Input", AutomationConfigTableModel::MidiInput, 120, 100, 150);
+        
+        // Set up table component reference for repainting
+        tableModel.setParentTableComponent(&configTable);
+        
+        // Disable default JUCE selection highlighting - we handle it ourselves
+        configTable.setMultipleSelectionEnabled(false);
+        configTable.setRowSelectedOnMouseDown(false);
         
         configTable.setColour(juce::ListBox::backgroundColourId, BlueprintColors::panel);
         configTable.setColour(juce::ListBox::outlineColourId, BlueprintColors::active);
@@ -264,15 +502,30 @@ private:
         
         modeLabel.setColour(juce::Label::textColourId, BlueprintColors::active);
         modeLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+        
+        // Learn mode indicator
+        learnModeIndicator.setText("Learn Mode Active", juce::dontSendNotification);
+        learnModeIndicator.setColour(juce::Label::textColourId, BlueprintColors::warning);
+        learnModeIndicator.setFont(juce::FontOptions(10.0f, juce::Font::bold));
+        learnModeIndicator.setJustificationType(juce::Justification::centredRight);
+        learnModeIndicator.setVisible(false); // Hidden by default
     }
     
     void setupCallbacks()
     {
         // Table callbacks
         tableModel.onMidiLearnClicked = [this](const juce::String& configId, int rowNumber) {
+            // Set this config as ready for MIDI learn
+            setConfigReadyForMidiLearn(rowNumber, true);
+            
             if (onStartMidiLearn)
                 onStartMidiLearn(configId);
-            statusLabel.setText("Click MIDI Learn button, then send MIDI CC...", juce::dontSendNotification);
+        };
+        
+        tableModel.onConfigSelected = [this](const juce::String& configId, int rowNumber) {
+            // Notify external components about selection change
+            if (onConfigSelectionChanged)
+                onConfigSelectionChanged(configId, rowNumber);
         };
         
         
@@ -318,9 +571,11 @@ private:
         
         auto area = content->getLocalBounds().reduced(8);
         
-        // Mode label at top
-        auto modeArea = area.removeFromTop(20);
-        modeLabel.setBounds(modeArea);
+        // Mode label at top left, learn mode indicator at top right
+        auto topArea = area.removeFromTop(20);
+        auto learnIndicatorArea = topArea.removeFromRight(120);
+        modeLabel.setBounds(topArea);
+        learnModeIndicator.setBounds(learnIndicatorArea);
         area.removeFromTop(3);
         
         // Table takes most of the space
@@ -445,10 +700,14 @@ private:
     
     void handleLoadConfig(bool alsoSave)
     {
-        int selectedRow = configTable.getSelectedRow();
-        if (selectedRow < 0) return;
+        int selectedRow = getSelectedConfigRow();
+        if (selectedRow < 0) 
+        {
+            statusLabel.setText("Please select a config to load", juce::dontSendNotification);
+            return;
+        }
         
-        auto config = tableModel.getConfigAt(selectedRow);
+        auto config = getSelectedConfig();
         if (!config.isValid()) return;
         
         if (alsoSave && onLoadAndSaveConfig)
@@ -489,10 +748,14 @@ private:
     
     void handleDeleteConfig()
     {
-        int selectedRow = configTable.getSelectedRow();
-        if (selectedRow < 0) return;
+        int selectedRow = getSelectedConfigRow();
+        if (selectedRow < 0) 
+        {
+            statusLabel.setText("Please select a config to delete", juce::dontSendNotification);
+            return;
+        }
         
-        auto config = tableModel.getConfigAt(selectedRow);
+        auto config = getSelectedConfig();
         if (!config.isValid()) return;
         
         deleteConfigById(config.id);
@@ -526,6 +789,26 @@ private:
     {
         highlightConfigCreationSource(false);
         setVisible(false);
+    }
+    
+    void mouseDown(const juce::MouseEvent& event) override
+    {
+        // Check if click was in empty area of table (not on a row)
+        if (event.eventComponent == &configTable)
+        {
+            auto clickPosition = event.getPosition();
+            int rowAtPosition = configTable.getRowContainingPosition(clickPosition.x, clickPosition.y);
+            
+            if (rowAtPosition < 0 || rowAtPosition >= tableModel.getNumRows())
+            {
+                // Clicked in empty area - clear selection
+                clearConfigSelection();
+                setConfigReadyForMidiLearn(-1, false);
+            }
+        }
+        
+        // Call parent implementation
+        juce::DocumentWindow::mouseDown(event);
     }
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AutomationConfigManagementWindow)

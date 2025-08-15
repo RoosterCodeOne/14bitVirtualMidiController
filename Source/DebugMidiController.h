@@ -1004,6 +1004,42 @@ public:
                 }
                 return {};
             };
+            
+            configManagementWindow->onStartMidiLearn = [this](const juce::String& configId) {
+                // Start MIDI learn mode for the selected config
+                DBG("Starting MIDI learn for config: " + configId);
+                
+                // Enter learn mode if not already active
+                if (!isInLearnMode)
+                {
+                    isInLearnMode = true;
+                    midi7BitController.startLearnMode();
+                    setBankButtonLearnMode(true);
+                    setAllSlidersLearnMode(true);
+                    learnButton.setButtonText("Select Target");
+                    
+                    // Show learn window if not visible
+                    if (!midiLearnWindow.isVisible())
+                    {
+                        addAndMakeVisible(midiLearnWindow);
+                        resized();
+                    }
+                }
+                
+                // Notify config manager that learn mode is active
+                configManagementWindow->setLearnModeActive(true);
+                
+                // Store the config ID that's ready for MIDI learn
+                // This would be used when MIDI input is received
+                midiLearnConfigId = configId;
+                
+                DBG("Learn mode activated for config MIDI pairing: " + configId);
+            };
+            
+            configManagementWindow->onConfigSelectionChanged = [this](const juce::String& configId, int rowNumber) {
+                // Handle config selection changes
+                DBG("Config selected: " + configId + " at row " + juce::String(rowNumber));
+            };
         }
         
         // Set mode and target slider
@@ -1237,6 +1273,13 @@ private:
             learnButton.setButtonText("Learn");
             midiLearnWindow.setVisible(false);
             
+            // Clear MIDI learn config pairing state
+            midiLearnConfigId = {};
+            if (configManagementWindow)
+            {
+                configManagementWindow->setLearnModeActive(false);
+            }
+            
             // Clear any learn markers
             for (auto* slider : sliderControls)
                 slider->setShowLearnMarkers(false);
@@ -1424,20 +1467,35 @@ private:
     void toggleLearnMode()
     {
         auto onLearnModeEnter = [this]() {
+            isInLearnMode = true;
             midi7BitController.startLearnMode();
             setBankButtonLearnMode(true);
             setAllSlidersLearnMode(true); // NEW: Activate all slider learn zones
             DBG("Entered learn mode: isLearningMode=" << (int)midi7BitController.isInLearnMode());
             learnButton.setButtonText("Select Target");
+            
+            // Notify config manager that learn mode is active
+            if (configManagementWindow)
+            {
+                configManagementWindow->setLearnModeActive(true);
+            }
         };
         
         auto onLearnModeExit = [this]() {
+            isInLearnMode = false;
             midi7BitController.stopLearnMode();
             setBankButtonLearnMode(false);
             setAllSlidersLearnMode(false); // NEW: Deactivate all slider learn zones
             clearAllActiveLearnZones(); // NEW: Clear any active zone selections
             DBG("Exited learn mode: isLearningMode=" << (int)midi7BitController.isInLearnMode());
             learnButton.setButtonText("Learn");
+            
+            // Clear MIDI learn config pairing state
+            midiLearnConfigId = {};
+            if (configManagementWindow)
+            {
+                configManagementWindow->setLearnModeActive(false);
+            }
             
             // Clear any learn markers
             for (auto* slider : sliderControls)
@@ -1532,6 +1590,7 @@ private:
     bool isInLearnMode = false;
     int selectedSliderForEditing = -1; // -1 means no selection, 0-15 for slider index
     bool updatingFromSettingsWindow = false; // Flag to prevent circular callbacks
+    juce::String midiLearnConfigId; // Config ID ready for MIDI learn pairing
     
     
     // MIDI Input handling
