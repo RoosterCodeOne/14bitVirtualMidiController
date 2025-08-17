@@ -378,7 +378,7 @@ public:
         // The actual save will be handled through the management window interface
         return { true, initialName };
     }
-    
+    //
     // Callback to open management window - called by context menu integration
     static std::function<void(const juce::String&, int)> onOpenManagementWindow;
     
