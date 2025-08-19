@@ -54,9 +54,18 @@ public:
             g.setColour(BlueprintColors::warning.withAlpha(0.4f));
             g.fillRoundedRectangle(bounds.reduced(1.0f), 2.0f);
             
-            // Draw ready-for-learn border - thicker for emphasis
-            g.setColour(BlueprintColors::warning);
-            g.drawRoundedRectangle(bounds.reduced(1.0f), 2.0f, 2.0f);
+            // Draw corner brackets for MIDI learn ready state
+            drawMidiLearnBrackets(g, bounds);
+        }
+        else if (isRowHovered(rowNumber) && isLearnModeActive)
+        {
+            // Hovered row in learn mode - use orange/amber highlighting
+            g.setColour(BlueprintColors::warning.withAlpha(0.25f));
+            g.fillRoundedRectangle(bounds.reduced(1.0f), 2.0f);
+            
+            // Draw hover border in learn mode
+            g.setColour(BlueprintColors::warning.withAlpha(0.6f));
+            g.drawRoundedRectangle(bounds.reduced(1.0f), 2.0f, 1.0f);
         }
         else if (isRowSelected(rowNumber))
         {
@@ -83,7 +92,7 @@ public:
             
         const auto& config = configs[rowNumber];
         
-        // Enhanced text color based on selection and MIDI learn state
+        // Enhanced text color based on selection, hover, and MIDI learn state
         juce::Colour textColor;
         if (isRowSelected(rowNumber))
         {
@@ -92,6 +101,10 @@ public:
         else if (isRowReadyForMidiLearn(rowNumber))
         {
             textColor = BlueprintColors::warning.brighter(0.3f);
+        }
+        else if (isRowHovered(rowNumber) && isLearnModeActive)
+        {
+            textColor = BlueprintColors::warning.brighter(0.15f);
         }
         else
         {
@@ -117,7 +130,13 @@ public:
                 if (isRowReadyForMidiLearn(rowNumber))
                     text = "Ready...";
                 else
-                    text = "Ch 1 CC 10"; // Placeholder - will be populated from MIDI learn data
+                {
+                    // Get actual MIDI assignment - we'll use a callback stored in the model
+                    if (getMidiAssignmentString)
+                        text = getMidiAssignmentString(config.id);
+                    else
+                        text = "Not Assigned";
+                }
                 break;
         }
         
@@ -150,6 +169,17 @@ public:
                     onConfigSelected(config.id, rowNumber);
                 break;
         }
+    }
+    
+    // Mouse tracking for hover highlighting - these are not virtual in JUCE TableListBoxModel
+    void cellHover(int rowNumber, int columnId, const juce::MouseEvent& event)
+    {
+        setHoveredRow(rowNumber);
+    }
+    
+    void cellExit(int rowNumber, int columnId, const juce::MouseEvent& event)
+    {
+        clearHover();
     }
     
     // Get config at row
@@ -185,6 +215,37 @@ public:
     bool isRowSelected(int rowNumber) const
     {
         return selectedRowIndex == rowNumber;
+    }
+    
+    // Mouse hover management
+    void setHoveredRow(int rowNumber)
+    {
+        if (hoveredRowIndex != rowNumber)
+        {
+            hoveredRowIndex = rowNumber;
+            // Trigger repaint to update visual highlighting
+            if (auto* tableComponent = getTableListBox())
+                tableComponent->repaint();
+        }
+    }
+    
+    void clearHover()
+    {
+        setHoveredRow(-1);
+    }
+    
+    bool isRowHovered(int rowNumber) const
+    {
+        return hoveredRowIndex == rowNumber;
+    }
+    
+    // Learn mode state management
+    void setLearnModeActive(bool isActive)
+    {
+        isLearnModeActive = isActive;
+        // Trigger repaint to update hover highlighting behavior
+        if (auto* tableComponent = getTableListBox())
+            tableComponent->repaint();
     }
     
     // MIDI learn state management
@@ -234,6 +295,7 @@ public:
     // Callbacks
     std::function<void(const juce::String& configId, int rowNumber)> onMidiLearnClicked;
     std::function<void(const juce::String& configId, int rowNumber)> onConfigSelected;
+    std::function<juce::String(const juce::String& configId)> getMidiAssignmentString;
     
 private:
     AutomationConfigManager& configManager;
@@ -242,7 +304,44 @@ private:
     // Selection state
     int selectedRowIndex = -1;        // Currently selected row (-1 = none)
     int midiLearnReadyRow = -1;       // Row ready for MIDI learn (-1 = none)
+    int hoveredRowIndex = -1;         // Currently hovered row (-1 = none)
+    bool isLearnModeActive = false;   // Track learn mode state for highlighting
     juce::TableListBox* parentTableComponent = nullptr;  // Reference for repainting
+    
+    // Draw corner brackets for MIDI learn ready state
+    void drawMidiLearnBrackets(juce::Graphics& g, juce::Rectangle<float> bounds)
+    {
+        const float bracketLength = 8.0f;
+        const float bracketThickness = 2.0f;
+        const float cornerOffset = 2.0f;
+        
+        juce::Colour bracketColor = BlueprintColors::warning; // Orange brackets
+        g.setColour(bracketColor);
+        
+        // Top-left bracket
+        g.fillRect(bounds.getX() + cornerOffset, bounds.getY() + cornerOffset, 
+                  bracketLength, bracketThickness); // Horizontal
+        g.fillRect(bounds.getX() + cornerOffset, bounds.getY() + cornerOffset, 
+                  bracketThickness, bracketLength); // Vertical
+        
+        // Top-right bracket
+        g.fillRect(bounds.getRight() - cornerOffset - bracketLength, bounds.getY() + cornerOffset, 
+                  bracketLength, bracketThickness); // Horizontal
+        g.fillRect(bounds.getRight() - cornerOffset - bracketThickness, bounds.getY() + cornerOffset, 
+                  bracketThickness, bracketLength); // Vertical
+        
+        // Bottom-left bracket
+        g.fillRect(bounds.getX() + cornerOffset, bounds.getBottom() - cornerOffset - bracketThickness, 
+                  bracketLength, bracketThickness); // Horizontal
+        g.fillRect(bounds.getX() + cornerOffset, bounds.getBottom() - cornerOffset - bracketLength, 
+                  bracketThickness, bracketLength); // Vertical
+        
+        // Bottom-right bracket
+        g.fillRect(bounds.getRight() - cornerOffset - bracketLength, bounds.getBottom() - cornerOffset - bracketThickness, 
+                  bracketLength, bracketThickness); // Horizontal
+        g.fillRect(bounds.getRight() - cornerOffset - bracketThickness, bounds.getBottom() - cornerOffset - bracketLength, 
+                  bracketThickness, bracketLength); // Vertical
+    }
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AutomationConfigTableModel)
 };
@@ -306,6 +405,7 @@ public:
         
         tableModel.refreshData();
         configTable.updateContent();
+        configTable.repaint(); // Force repaint to update MIDI assignment display
         
         // Try to restore selection if the config still exists
         if (selectedConfigId.isNotEmpty())
@@ -320,6 +420,12 @@ public:
                 }
             }
         }
+    }
+    
+    // Refresh MIDI assignment display
+    void refreshMidiAssignments()
+    {
+        configTable.repaint();
     }
     
     void highlightConfigCreationSource(bool shouldHighlight)
@@ -376,17 +482,27 @@ public:
     {
         isLearnModeActive = isActive;
         learnModeIndicator.setVisible(isActive);
+        windowHighlighted = isActive;
+        
+        // Update table model learn mode state for hover highlighting
+        tableModel.setLearnModeActive(isActive);
         
         if (isActive)
         {
             DBG("Config Manager: Learn Mode activated");
+            // Add visual highlighting to the entire window
+            setColour(juce::DocumentWindow::backgroundColourId, BlueprintColors::warning.withAlpha(0.05f));
         }
         else
         {
             DBG("Config Manager: Learn Mode deactivated");
+            // Remove window highlighting
+            setColour(juce::DocumentWindow::backgroundColourId, BlueprintColors::background);
             // Clear any MIDI learn ready state when learn mode ends
             setConfigReadyForMidiLearn(-1, false);
         }
+        
+        repaint();
     }
     
     bool getLearnModeActive() const
@@ -402,6 +518,7 @@ public:
     std::function<void(const juce::String& configId)> onStartMidiLearn;
     std::function<juce::String(int sliderIndex)> onGetSliderCustomName;
     std::function<void(const juce::String& configId, int rowNumber)> onConfigSelectionChanged;
+    std::function<juce::String(const juce::String& configId)> onGetMidiAssignmentString;
     
 private:
     AutomationConfigManager& configManager;
@@ -426,6 +543,9 @@ private:
     juce::Label statusLabel;
     juce::Label modeLabel;
     juce::Label learnModeIndicator;
+    
+    // Visual state
+    bool windowHighlighted = false;
     
     void setupWindow()
     {
@@ -471,6 +591,10 @@ private:
         
         configTable.setColour(juce::ListBox::backgroundColourId, BlueprintColors::panel);
         configTable.setColour(juce::ListBox::outlineColourId, BlueprintColors::active);
+        
+        // Enable mouse tracking for hover effects
+        configTable.setWantsKeyboardFocus(false);
+        configTable.addMouseListener(this, true);
         
         // Input components
         inputLabel.setText("Config Name:", juce::dontSendNotification);
@@ -526,6 +650,13 @@ private:
             // Notify external components about selection change
             if (onConfigSelectionChanged)
                 onConfigSelectionChanged(configId, rowNumber);
+        };
+        
+        // Wire up MIDI assignment string callback
+        tableModel.getMidiAssignmentString = [this](const juce::String& configId) -> juce::String {
+            if (onGetMidiAssignmentString)
+                return onGetMidiAssignmentString(configId);
+            return "Not Assigned";
         };
         
         
@@ -809,6 +940,58 @@ private:
         
         // Call parent implementation
         juce::DocumentWindow::mouseDown(event);
+    }
+    
+    void mouseMove(const juce::MouseEvent& event) override
+    {
+        // Handle mouse movement for hover effects in table
+        if (isLearnModeActive)
+        {
+            // Convert mouse position to table coordinates
+            auto mousePosition = configTable.getLocalPoint(event.eventComponent, event.getPosition());
+            int rowAtPosition = configTable.getRowContainingPosition(mousePosition.x, mousePosition.y);
+            
+            DBG("Mouse move - eventComponent: " + juce::String((int64_t)event.eventComponent) + 
+                ", table: " + juce::String((int64_t)&configTable) + 
+                ", row: " + juce::String(rowAtPosition) + 
+                ", learnMode: " + juce::String(isLearnModeActive));
+            
+            if (rowAtPosition >= 0 && rowAtPosition < tableModel.getNumRows())
+            {
+                tableModel.setHoveredRow(rowAtPosition);
+            }
+            else
+            {
+                tableModel.clearHover();
+            }
+        }
+        else
+        {
+            // Clear hover when not in learn mode
+            tableModel.clearHover();
+        }
+        
+        juce::DocumentWindow::mouseMove(event);
+    }
+    
+    void mouseExit(const juce::MouseEvent& event) override
+    {
+        // Clear hover when mouse leaves the window
+        tableModel.clearHover();
+        juce::DocumentWindow::mouseExit(event);
+    }
+    
+    void paint(juce::Graphics& g) override
+    {
+        juce::DocumentWindow::paint(g);
+        
+        // Add subtle border highlighting when in learn mode
+        if (windowHighlighted && isLearnModeActive)
+        {
+            auto bounds = getLocalBounds().toFloat();
+            g.setColour(BlueprintColors::warning.withAlpha(0.3f));
+            g.drawRoundedRectangle(bounds.reduced(1.0f), 4.0f, 2.0f);
+        }
     }
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AutomationConfigManagementWindow)

@@ -1,6 +1,8 @@
 // DebugMidiController.h - Production Version with Preset System
 #pragma once
 #include <JuceHeader.h>
+#include <algorithm>
+#include <vector>
 #include "CustomLookAndFeel.h"
 #include "SimpleSliderControl.h"
 #include "SettingsWindow.h"
@@ -558,6 +560,50 @@ public:
                                    " target=" + midi7BitController.getCurrentLearnTarget().getDisplayName() + ")";
             DBG(debugMsg);
             
+            // === AUTOMATION CONFIG MIDI LEARN PAIRING ===
+            // Check if we're waiting to pair a config with incoming MIDI
+            if (!midiLearnConfigId.isEmpty() && isInLearnMode && channel != ourOutputChannel)
+            {
+                DBG("MIDI Learn Pairing: Config " + midiLearnConfigId + " paired with Ch" + juce::String(channel) + " CC" + juce::String(ccNumber));
+                
+                // Store the MIDI assignment for this config
+                handleConfigMidiPairing(midiLearnConfigId, channel, ccNumber);
+                
+                // Clear the pairing state
+                midiLearnConfigId = {};
+                
+                // Update the config management window
+                if (configManagementWindow)
+                {
+                    configManagementWindow->setConfigReadyForMidiLearn(-1, false);
+                    configManagementWindow->refreshMidiAssignments();
+                }
+                
+                // If this was one-shot learn mode, turn off learn mode now
+                if (isOneShotLearnMode)
+                {
+                    DBG("One-shot MIDI learn complete - turning off learn mode");
+                    isInLearnMode = false;
+                    isOneShotLearnMode = false;
+                    midi7BitController.stopLearnMode();
+                    setBankButtonLearnMode(false);
+                    setAllSlidersLearnMode(false);
+                    clearAllActiveLearnZones();
+                    learnButton.setButtonText("Learn");
+                    
+                    if (configManagementWindow)
+                    {
+                        configManagementWindow->setLearnModeActive(false);
+                    }
+                    
+                    // Clear any learn markers
+                    for (auto* slider : sliderControls)
+                        slider->setShowLearnMarkers(false);
+                }
+                
+                return; // Don't process further for pairing
+            }
+            
             // === MIDI FEEDBACK PREVENTION ===
             // The app outputs MIDI on 'ourOutputChannel', so we must prevent processing
             // incoming MIDI on the same channel to avoid feedback loops where:
@@ -652,6 +698,9 @@ public:
         
         // Set initial bank button colors
         updateBankButtonStates();
+        
+        // Load config MIDI assignments from file
+        loadConfigMidiAssignments();
     }
     
     void setupKeyboardController()
@@ -1007,16 +1056,17 @@ public:
             
             configManagementWindow->onStartMidiLearn = [this](const juce::String& configId) {
                 // Start MIDI learn mode for the selected config
-                DBG("Starting MIDI learn for config: " + configId);
+                DBG("Starting one-shot MIDI learn for config: " + configId);
                 
                 // Enter learn mode if not already active
                 if (!isInLearnMode)
                 {
                     isInLearnMode = true;
+                    isOneShotLearnMode = true; // Flag this as one-shot mode
                     midi7BitController.startLearnMode();
                     setBankButtonLearnMode(true);
                     setAllSlidersLearnMode(true);
-                    learnButton.setButtonText("Select Target");
+                    learnButton.setButtonText("Pairing...");
                     
                     // Show learn window if not visible
                     if (!midiLearnWindow.isVisible())
@@ -1025,20 +1075,32 @@ public:
                         resized();
                     }
                 }
+                else
+                {
+                    // Already in learn mode - just set one-shot flag if not already set
+                    if (!isOneShotLearnMode)
+                    {
+                        DBG("Already in normal learn mode, setting up config pairing without one-shot behavior");
+                    }
+                }
                 
                 // Notify config manager that learn mode is active
                 configManagementWindow->setLearnModeActive(true);
                 
                 // Store the config ID that's ready for MIDI learn
-                // This would be used when MIDI input is received
                 midiLearnConfigId = configId;
                 
-                DBG("Learn mode activated for config MIDI pairing: " + configId);
+                DBG("Learn mode activated for config MIDI pairing: " + configId + " (one-shot: " + juce::String(isOneShotLearnMode) + ")");
             };
             
             configManagementWindow->onConfigSelectionChanged = [this](const juce::String& configId, int rowNumber) {
                 // Handle config selection changes
                 DBG("Config selected: " + configId + " at row " + juce::String(rowNumber));
+            };
+            
+            // Provide access to MIDI assignment display strings
+            configManagementWindow->onGetMidiAssignmentString = [this](const juce::String& configId) -> juce::String {
+                return getConfigMidiAssignmentString(configId);
             };
         }
         
@@ -1062,6 +1124,7 @@ public:
         }
     }
     
+
 private:
     
     
@@ -1591,7 +1654,113 @@ private:
     int selectedSliderForEditing = -1; // -1 means no selection, 0-15 for slider index
     bool updatingFromSettingsWindow = false; // Flag to prevent circular callbacks
     juce::String midiLearnConfigId; // Config ID ready for MIDI learn pairing
+    bool isOneShotLearnMode = false; // True when learn mode was initiated by config manager (turns off after pairing)
     
+    // MIDI assignments for automation configs (configId -> channel/CC mapping)
+    struct ConfigMidiAssignment
+    {
+        int channel;
+        int ccNumber;
+        juce::String configId;
+        
+        ConfigMidiAssignment() : channel(-1), ccNumber(-1) {}
+        ConfigMidiAssignment(int ch, int cc, const juce::String& id) : channel(ch), ccNumber(cc), configId(id) {}
+        
+        bool isValid() const { return channel >= 0 && ccNumber >= 0 && configId.isNotEmpty(); }
+    };
+    
+    std::vector<ConfigMidiAssignment> configMidiAssignments;
+    
+    // MIDI config assignment methods
+    void handleConfigMidiPairing(const juce::String& configId, int channel, int ccNumber)
+    {
+        DBG("Pairing config " + configId + " with MIDI Ch" + juce::String(channel) + " CC" + juce::String(ccNumber));
+        
+        // Remove any existing assignment for this config
+        configMidiAssignments.erase(
+            std::remove_if(configMidiAssignments.begin(), configMidiAssignments.end(),
+                [&configId](const ConfigMidiAssignment& assignment) {
+                    return assignment.configId == configId;
+                }),
+            configMidiAssignments.end());
+        
+        // Add the new assignment
+        configMidiAssignments.emplace_back(channel, ccNumber, configId);
+        
+        DBG("Config MIDI assignment added. Total assignments: " + juce::String(configMidiAssignments.size()));
+        
+        // Save assignments to file for persistence
+        saveConfigMidiAssignments();
+    }
+    
+    ConfigMidiAssignment getConfigMidiAssignment(const juce::String& configId) const
+    {
+        auto it = std::find_if(configMidiAssignments.begin(), configMidiAssignments.end(),
+            [&configId](const ConfigMidiAssignment& assignment) {
+                return assignment.configId == configId;
+            });
+        
+        return (it != configMidiAssignments.end()) ? *it : ConfigMidiAssignment();
+    }
+    
+    juce::String getConfigMidiAssignmentString(const juce::String& configId) const
+    {
+        auto assignment = getConfigMidiAssignment(configId);
+        if (assignment.isValid())
+        {
+            return "Ch " + juce::String(assignment.channel) + " CC " + juce::String(assignment.ccNumber);
+        }
+        return "Not Assigned";
+    }
+    
+    void saveConfigMidiAssignments()
+    {
+        auto file = automationConfigManager.getConfigFile().getSiblingFile("config_midi_assignments.json");
+        
+        juce::var assignmentsArray;
+        for (const auto& assignment : configMidiAssignments)
+        {
+            auto* obj = new juce::DynamicObject();
+            obj->setProperty("configId", assignment.configId);
+            obj->setProperty("channel", assignment.channel);
+            obj->setProperty("ccNumber", assignment.ccNumber);
+            assignmentsArray.append(obj);
+        }
+        
+        auto json = juce::JSON::toString(assignmentsArray);
+        file.replaceWithText(json);
+        
+        DBG("Saved " + juce::String(configMidiAssignments.size()) + " config MIDI assignments to " + file.getFullPathName());
+    }
+    
+    void loadConfigMidiAssignments()
+    {
+        auto file = automationConfigManager.getConfigFile().getSiblingFile("config_midi_assignments.json");
+        if (!file.existsAsFile()) return;
+        
+        auto json = file.loadFileAsString();
+        auto result = juce::JSON::parse(json);
+        
+        if (result.isArray())
+        {
+            configMidiAssignments.clear();
+            for (const auto& item : *result.getArray())
+            {
+                if (auto* obj = item.getDynamicObject())
+                {
+                    ConfigMidiAssignment assignment;
+                    assignment.configId = obj->getProperty("configId").toString();
+                    assignment.channel = obj->getProperty("channel");
+                    assignment.ccNumber = obj->getProperty("ccNumber");
+                    
+                    if (assignment.isValid())
+                        configMidiAssignments.push_back(assignment);
+                }
+            }
+            
+            DBG("Loaded " + juce::String(configMidiAssignments.size()) + " config MIDI assignments from " + file.getFullPathName());
+        }
+    }
     
     // MIDI Input handling
     struct MidiCCState
@@ -1618,6 +1787,11 @@ private:
     int lastMidiCC = -1;
     int lastMidiValue = -1;
     
+    // State variables
+    bool isInSettingsMode = false;
+    bool isInLearnMode = false;
+    int selectedSliderForEditing = -1; // -1 means no selection, 0-15 for slider index
+    bool updatingFromSettingsWindow = false; // Flag to prevent circular callbacks
     
     // Note: Simple channel-based MIDI filtering - no complex tracking needed
     

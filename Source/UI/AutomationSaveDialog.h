@@ -338,7 +338,7 @@ public:
     ~AutomationSaveDialogWindow() override
     {
         // Clear content component first to break references
-        setContentComponent(nullptr);
+        setContentNonOwned(nullptr, false);
         
         // The dialog member will be destroyed after this, which should
         // properly clean up the LookAndFeel references in its destructor
