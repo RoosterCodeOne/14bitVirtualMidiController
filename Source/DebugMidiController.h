@@ -105,10 +105,10 @@ public:
         }
         
         // Bank buttons - setup through BankButtonManager
-        addAndMakeVisible(bankAButton);
-        addAndMakeVisible(bankBButton);
-        addAndMakeVisible(bankCButton);
-        addAndMakeVisible(bankDButton);
+        addAndMakeVisible(&bankAButton);
+        addAndMakeVisible(&bankBButton);
+        addAndMakeVisible(&bankCButton);
+        addAndMakeVisible(&bankDButton);
         
         bankButtonManager.setupBankButtons(bankAButton, bankBButton, bankCButton, bankDButton,
                                           customButtonLookAndFeel, 
@@ -123,7 +123,7 @@ public:
         };
         
         // Mode toggle button - blueprint style with custom look and feel
-        addAndMakeVisible(modeButton);
+        addAndMakeVisible(&modeButton);
         modeButton.setButtonText(bankManager.isEightSliderMode() ? "8" : "4");
         modeButton.setLookAndFeel(&customButtonLookAndFeel);
         modeButton.onClick = [this]() {
@@ -131,14 +131,14 @@ public:
         };
         
         // Showing label for mode button - blueprint style
-        addAndMakeVisible(showingLabel);
+        addAndMakeVisible(&showingLabel);
         showingLabel.setText("Showing:", juce::dontSendNotification);
         showingLabel.setJustificationType(juce::Justification::centredRight);
         showingLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
         showingLabel.setFont(juce::FontOptions(11.0f));
         
         // Learn button for MIDI mapping - blueprint style
-        addAndMakeVisible(learnButton);
+        addAndMakeVisible(&learnButton);
         learnButton.setButtonText("Learn");
         learnButton.setLookAndFeel(&customButtonLookAndFeel);
         learnButton.onClick = [this]() {
@@ -146,7 +146,7 @@ public:
         };
         
         // MIDI Monitor button - blueprint style
-        addAndMakeVisible(monitorButton);
+        addAndMakeVisible(&monitorButton);
         monitorButton.setButtonText("MIDI Monitor");
         monitorButton.setLookAndFeel(&customButtonLookAndFeel);
         monitorButton.onClick = [this]() {
@@ -154,7 +154,7 @@ public:
         };
         
         // Settings window
-        addChildComponent(settingsWindow);
+        addChildComponent(&settingsWindow);
         settingsWindow.onSettingsChanged = [this]() { 
             updateSliderSettings(); 
         };
@@ -173,7 +173,7 @@ public:
         };
         
         // MIDI Learn window
-        addChildComponent(midiLearnWindow);
+        addChildComponent(&midiLearnWindow);
         midiLearnWindow.onMappingAdded = [this](int sliderIndex, int midiChannel, int ccNumber) {
             // The mapping is already handled by Midi7BitController
             // Update tooltip to show current mapping
@@ -197,14 +197,14 @@ public:
         };
         
         // Movement speed tooltip - blueprint style
-        addAndMakeVisible(movementSpeedLabel);
+        addAndMakeVisible(&movementSpeedLabel);
         movementSpeedLabel.setJustificationType(juce::Justification::centredLeft);
         movementSpeedLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
         movementSpeedLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background);
         movementSpeedLabel.setFont(juce::FontOptions(10.0f));
         
         // MIDI tracking tooltip - blueprint style
-        addAndMakeVisible(windowSizeLabel);
+        addAndMakeVisible(&windowSizeLabel);
         windowSizeLabel.setJustificationType(juce::Justification::centredRight);
         windowSizeLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
         windowSizeLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background);
@@ -1090,7 +1090,7 @@ public:
                 // Store the config ID that's ready for MIDI learn
                 midiLearnConfigId = configId;
                 
-                DBG("Learn mode activated for config MIDI pairing: " + configId + " (one-shot: " + juce::String(isOneShotLearnMode) + ")");
+                DBG("Learn mode activated for config MIDI pairing: " + configId + " (one-shot: " + juce::String(isOneShotLearnMode ? "true" : "false") + ")");
             };
             
             configManagementWindow->onConfigSelectionChanged = [this](const juce::String& configId, int rowNumber) {
@@ -1786,12 +1786,6 @@ private:
     int lastMidiChannel = -1;
     int lastMidiCC = -1;
     int lastMidiValue = -1;
-    
-    // State variables
-    bool isInSettingsMode = false;
-    bool isInLearnMode = false;
-    int selectedSliderForEditing = -1; // -1 means no selection, 0-15 for slider index
-    bool updatingFromSettingsWindow = false; // Flag to prevent circular callbacks
     
     // Note: Simple channel-based MIDI filtering - no complex tracking needed
     

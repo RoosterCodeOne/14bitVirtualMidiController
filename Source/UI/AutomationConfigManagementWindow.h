@@ -954,7 +954,7 @@ private:
             DBG("Mouse move - eventComponent: " + juce::String((int64_t)event.eventComponent) + 
                 ", table: " + juce::String((int64_t)&configTable) + 
                 ", row: " + juce::String(rowAtPosition) + 
-                ", learnMode: " + juce::String(isLearnModeActive));
+                ", learnMode: " + juce::String(isLearnModeActive ? "true" : "false"));
             
             if (rowAtPosition >= 0 && rowAtPosition < tableModel.getNumRows())
             {
