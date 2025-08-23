@@ -20,7 +20,8 @@ public:
         PasteConfig = 201,
         ManageConfigs = 202,
         Separator1 = 203,
-        Separator2 = 204
+        Separator2 = 204,
+        ResetAutomation = 205
     };
     
     AutomationContextMenu(AutomationConfigManager& configManager)
@@ -86,6 +87,9 @@ public:
         addItem(CopyConfig, "Copy Config");
         addItem(PasteConfig, "Paste Config", configManager.hasClipboardConfig());
         
+        // Reset automation
+        addItem(ResetAutomation, "Reset Automation");
+        
         addSeparator();
         
         // Management
@@ -113,6 +117,7 @@ public:
     std::function<void(int sliderIndex, const juce::String& configId)> onLoadConfig;
     std::function<void(int sliderIndex)> onCopyConfig;
     std::function<void(int sliderIndex)> onPasteConfig;
+    std::function<void(int sliderIndex)> onResetAutomation;
     std::function<void()> onManageConfigs;
     
 private:
@@ -157,6 +162,15 @@ private:
                         onPasteConfig(currentSliderIndex);
                     } else {
                         DBG("ERROR: onPasteConfig callback is null");
+                    }
+                    break;
+                    
+                case ResetAutomation:
+                    if (onResetAutomation) {
+                        DBG("Calling onResetAutomation for slider " + juce::String(currentSliderIndex));
+                        onResetAutomation(currentSliderIndex);
+                    } else {
+                        DBG("ERROR: onResetAutomation callback is null");
                     }
                     break;
                     

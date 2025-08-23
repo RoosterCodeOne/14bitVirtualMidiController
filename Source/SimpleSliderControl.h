@@ -977,6 +977,23 @@ public:
             }
         };
         
+        contextMenu->onResetAutomation = [this, sliderIdx](int) {  // Ignore passed index, use captured
+            try {
+                DBG("Attempting to reset automation for slider " + juce::String(sliderIdx));
+                
+                // Reset automation parameters to defaults
+                automationControlPanel.resetToDefaults();
+                
+                DBG("Successfully reset automation parameters for slider " + juce::String(sliderIdx));
+            }
+            catch (const std::exception& e) {
+                DBG("EXCEPTION in onResetAutomation: " + juce::String(e.what()));
+            }
+            catch (...) {
+                DBG("UNKNOWN EXCEPTION in onResetAutomation");
+            }
+        };
+        
         contextMenu->onManageConfigs = [this, sliderIdx]() {
             if (onOpenConfigManagement) {
                 DBG("Opening config management window in Manage mode");

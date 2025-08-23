@@ -261,6 +261,33 @@ public:
                getTimeMode() == timeMode;
     }
     
+    // Reset automation parameters to their default values
+    void resetToDefaults()
+    {
+        // Reset all parameters to defaults
+        setTargetValue(0.0);        // Target: 0.0 (or current slider value)
+        setDelayTime(0.0);          // Delay: 0.0 seconds
+        setAttackTime(1.0);         // Attack: 1.0 seconds
+        setReturnTime(0.0);         // Return: 0.0 seconds
+        setCurveValue(1.0);         // Curve: 1.0 (linear)
+        setTimeMode(TimeMode::Seconds);  // Time Mode: Seconds (default)
+        
+        // Update automation visualizer with new parameters
+        updateVisualizerParameters();
+        
+        // Trigger callbacks to notify of changes
+        if (onKnobValueChanged)
+        {
+            // Notify about the reset (using delay time as representative value)
+            onKnobValueChanged(0.0);
+        }
+        
+        // Trigger repaint to update the UI
+        repaint();
+        
+        DBG("Automation parameters reset to defaults");
+    }
+    
     // Ensure the entire automation panel area can receive mouse events (including empty spaces)
     bool hitTest(int x, int y) override
     {
