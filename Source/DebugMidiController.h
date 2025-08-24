@@ -749,6 +749,15 @@ public:
         keyboardController.getVisibleSliderIndex = [this](int keyboardPosition) -> int {
             return bankManager.getVisibleSliderIndex(keyboardPosition);
         };
+        
+        keyboardController.getSliderStepSize = [this](int sliderIndex) -> double {
+            if (sliderIndex < sliderControls.size())
+            {
+                auto* slider = sliderControls[sliderIndex];
+                return slider ? slider->getEffectiveStepSize() : 1.0;
+            }
+            return 1.0; // Default to single unit steps
+        };
     }
     
     void setupMidi7BitController()

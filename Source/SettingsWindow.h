@@ -40,7 +40,6 @@ public:
     double getIncrement(int sliderIndex) const;
     bool isStepCustom(int sliderIndex) const;
     bool useDeadzone(int sliderIndex) const;
-    juce::String getDisplayUnit(int sliderIndex) const;
     SliderOrientation getSliderOrientation(int sliderIndex) const;
     BipolarSettings getBipolarSettings(int sliderIndex) const;
     juce::String getSliderDisplayName(int sliderIndex) const;
@@ -80,7 +79,6 @@ private:
         bool is14Bit = true;
         double rangeMin = 0.0;
         double rangeMax = 16383.0;
-        juce::String displayUnit;
         double increment = 1.0;
         bool isCustomStep = false; // true = user-set custom step, false = auto-calculated step
         bool useDeadzone = true;
@@ -96,7 +94,6 @@ private:
             is14Bit = true;
             rangeMin = 0.0;
             rangeMax = 16383.0;
-            displayUnit = juce::String();
             increment = 1.0;
             isCustomStep = false;
             useDeadzone = true;
@@ -122,7 +119,6 @@ private:
     void validateAndApplyCCNumber(int value);
     void applyOutputMode(bool is14Bit);
     void validateAndApplyRange(double minVal, double maxVal);
-    void applyDisplayUnit(const juce::String& unit);
     void applyIncrements(double increment);
     void applyInputMode(bool useDeadzone);
     void selectColor(int colorId);
@@ -292,7 +288,6 @@ inline void SettingsWindow::initializeSliderData()
         settings.is14Bit = true;
         settings.rangeMin = 0.0;
         settings.rangeMax = 16383.0;
-        settings.displayUnit = juce::String();
         settings.increment = 1.0; // Will be auto-calculated
         settings.isCustomStep = false; // Start with auto-calculated step
         settings.useDeadzone = true;
@@ -514,12 +509,6 @@ inline bool SettingsWindow::useDeadzone(int sliderIndex) const
     return true;
 }
 
-inline juce::String SettingsWindow::getDisplayUnit(int sliderIndex) const
-{
-    if (sliderIndex >= 0 && sliderIndex < 16)
-        return sliderSettingsData[sliderIndex].displayUnit;
-    return juce::String();
-}
 
 inline SliderOrientation SettingsWindow::getSliderOrientation(int sliderIndex) const
 {
@@ -632,7 +621,6 @@ inline void SettingsWindow::saveCurrentSliderSettings()
         settings.is14Bit = controllerTab->getCurrentIs14Bit();
         settings.rangeMin = controllerTab->getCurrentRangeMin();
         settings.rangeMax = controllerTab->getCurrentRangeMax();
-        settings.displayUnit = controllerTab->getCurrentDisplayUnit();
         settings.increment = controllerTab->getCurrentIncrement();
         settings.isCustomStep = controllerTab->getCurrentIsCustomStep();
         settings.useDeadzone = controllerTab->getCurrentUseDeadzone();
@@ -662,7 +650,6 @@ inline void SettingsWindow::updateControlsForSelectedSlider()
             settings.is14Bit,
             settings.rangeMin,
             settings.rangeMax,
-            settings.displayUnit,
             settings.increment,
             settings.isCustomStep,
             settings.useDeadzone,

@@ -25,7 +25,7 @@ public:
     void updateBankSelectorAppearance(int selectedBank);
     void applyPreset(const ControllerPreset& preset);
     void setSliderSettings(int ccNumber, bool is14Bit, double rangeMin, double rangeMax, 
-                          const juce::String& displayUnit, double increment, bool isCustomStep, bool useDeadzone, int colorId,
+                          double increment, bool isCustomStep, bool useDeadzone, int colorId,
                           SliderOrientation orientation = SliderOrientation::Normal,
                           const juce::String& customName = "", SnapThreshold snapThreshold = SnapThreshold::Medium,
                           bool showAutomation = true);
@@ -41,7 +41,6 @@ public:
     bool getCurrentIs14Bit() const { return output14BitButton.getToggleState(); }
     double getCurrentRangeMin() const { return rangeMinInput.getText().getDoubleValue(); }
     double getCurrentRangeMax() const { return rangeMaxInput.getText().getDoubleValue(); }
-    juce::String getCurrentDisplayUnit() const { return displayUnitInput.getText(); }
     double getCurrentIncrement() const { return incrementsInput.getText().getDoubleValue(); }
     bool getCurrentIsCustomStep() const { return isCustomStepFlag; }
     bool getCurrentUseDeadzone() const { return deadzoneButton.getToggleState(); }
@@ -105,8 +104,6 @@ private:
     juce::Label rangeLabel;
     juce::TextEditor rangeMinInput, rangeMaxInput;
     juce::Label rangeDashLabel;
-    juce::Label displayUnitLabel;
-    juce::TextEditor displayUnitInput;
     juce::Label incrementsLabel;
     juce::TextEditor incrementsInput;
     juce::TextButton autoStepButton;
@@ -189,7 +186,6 @@ private:
     void validateAndApplyCCNumber();
     void applyOutputMode();
     void validateAndApplyRange();
-    void applyDisplayUnit();
     void applyIncrements();
     void setAutoStepMode();
     void updateStepIndicationVisuals();
@@ -271,7 +267,7 @@ inline void ControllerSettingsTab::paint(juce::Graphics& g)
     bounds.removeFromTop(sectionSpacing);
     
     // Section 3 - Display & Range Box (expanded)
-    auto section3Height = headerHeight + (labelHeight + controlSpacing) * 7 + 60 + controlSpacing * 2;
+    auto section3Height = headerHeight + (labelHeight + controlSpacing) * 6 + 60 + controlSpacing * 2;
     auto section3Bounds = bounds.removeFromTop(section3Height);
     section3Bounds = section3Bounds.expanded(8, 4);
     
@@ -647,17 +643,6 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     rangeMaxInput.onReturnKey = [this]() { rangeMaxInput.moveKeyboardFocusToSibling(true); };
     rangeMaxInput.onFocusLost = [this]() { validateAndApplyRange(); };
     
-    addAndMakeVisible(displayUnitLabel);
-    displayUnitLabel.setText("Display Unit:", juce::dontSendNotification);
-    displayUnitLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-    
-    addAndMakeVisible(displayUnitInput);
-    displayUnitInput.setInputRestrictions(4);
-    displayUnitInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
-    displayUnitInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
-    displayUnitInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
-    displayUnitInput.onReturnKey = [this]() { displayUnitInput.moveKeyboardFocusToSibling(true); };
-    displayUnitInput.onFocusLost = [this]() { applyDisplayUnit(); };
     
     addAndMakeVisible(incrementsLabel);
     incrementsLabel.setText("Custom Steps:", juce::dontSendNotification);
@@ -843,7 +828,7 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     bounds.removeFromBottom(20); // Blank space above reset button
     
     // Section 3 - Display & Range (expanded to include color, automation visibility)
-    auto section3Bounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 7 + controlSpacing * 2);
+    auto section3Bounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 6 + controlSpacing * 2);
     
     section3Header.setBounds(section3Bounds.removeFromTop(headerHeight));
     section3Bounds.removeFromTop(controlSpacing);
@@ -857,14 +842,6 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     rangeDashLabel.setBounds(rangeRow.removeFromLeft(10));
     rangeRow.removeFromLeft(2);
     rangeMaxInput.setBounds(rangeRow.removeFromLeft(80));
-    
-    section3Bounds.removeFromTop(controlSpacing);
-    
-    // Display Unit row
-    auto unitRow = section3Bounds.removeFromTop(labelHeight);
-    displayUnitLabel.setBounds(unitRow.removeFromLeft(120));
-    unitRow.removeFromLeft(8);
-    displayUnitInput.setBounds(unitRow.removeFromLeft(60));
     
     section3Bounds.removeFromTop(controlSpacing);
     
@@ -1143,14 +1120,6 @@ inline void ControllerSettingsTab::validateAndApplyRange()
         onSliderSettingChanged(selectedSlider);
 }
 
-inline void ControllerSettingsTab::applyDisplayUnit()
-{
-    // Get the display unit text and notify parent
-    juce::String unit = displayUnitInput.getText();
-    
-    if (onSliderSettingChanged)
-        onSliderSettingChanged(selectedSlider);
-}
 
 inline void ControllerSettingsTab::applyIncrements()
 {
@@ -1278,7 +1247,6 @@ inline void ControllerSettingsTab::resetCurrentSlider()
     output7BitButton.setToggleState(false, juce::dontSendNotification);
     rangeMinInput.setText("0", juce::dontSendNotification);
     rangeMaxInput.setText("16383", juce::dontSendNotification);
-    displayUnitInput.setText("", juce::dontSendNotification);
     incrementsInput.setText("1", juce::dontSendNotification);
     deadzoneButton.setToggleState(true, juce::dontSendNotification);
     directButton.setToggleState(false, juce::dontSendNotification);
@@ -1396,7 +1364,7 @@ inline void ControllerSettingsTab::updateControlsForSelectedSlider(int sliderInd
 }
 
 inline void ControllerSettingsTab::setSliderSettings(int ccNumber, bool is14Bit, double rangeMin, double rangeMax, 
-                                                    const juce::String& displayUnit, double increment, bool isCustomStep,
+                                                    double increment, bool isCustomStep,
                                                     bool useDeadzone, int colorId,
                                                     SliderOrientation orientation,
                                                     const juce::String& customName, SnapThreshold snapThreshold,
@@ -1408,7 +1376,6 @@ inline void ControllerSettingsTab::setSliderSettings(int ccNumber, bool is14Bit,
     output7BitButton.setToggleState(!is14Bit, juce::dontSendNotification);
     rangeMinInput.setText(juce::String(rangeMin, 2), juce::dontSendNotification);
     rangeMaxInput.setText(juce::String(rangeMax, 2), juce::dontSendNotification);
-    displayUnitInput.setText(displayUnit, juce::dontSendNotification);
     incrementsInput.setText(juce::String(increment, 3), juce::dontSendNotification);
     isCustomStepFlag = isCustomStep; // Update custom step flag
     

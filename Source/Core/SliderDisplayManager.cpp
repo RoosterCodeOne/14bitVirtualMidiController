@@ -95,6 +95,20 @@ void SliderDisplayManager::setOrientation(SliderOrientation newOrientation)
 {
     orientation = newOrientation;
     
+    // Reset movement tracking when changing orientations to prevent phantom behavior
+    isActivelyMoving = false;
+    lastMovementTime = 0.0;
+    isKeyboardNavigation = false;  // Reset keyboard navigation timing state
+    
+    // Force disable snap if not bipolar to prevent lingering center lock
+    if (orientation != SliderOrientation::Bipolar)
+    {
+        bipolarSettings.snapToCenter = false;
+        DBG("SliderDisplayManager: Disabled bipolar snap - switched to " 
+            << (orientation == SliderOrientation::Normal ? "Normal" : "Inverted") 
+            << " orientation");
+    }
+    
     // No manual center value setting needed - it's automatically calculated
     
     // Trigger callbacks to update UI
@@ -309,18 +323,51 @@ double SliderDisplayManager::getTargetMidiValue() const
 //==============================================================================
 double SliderDisplayManager::midiToDisplay(double midiValue) const
 {
-    // Convert MIDI value (0-16383) to display value based on custom range
+    // Convert MIDI value to display value based on custom range
     // NOTE: This conversion is independent of bipolar centerValue - linear mapping across full range
+    
+    // For 7-bit ranges (0-127), handle the quantization boundary correctly
+    // 7-bit quantized values go: 0, 128, 256, ..., 16128, 16256 (127*128)
+    // The effective maximum is 16256, not 16383
+    if (std::abs(displayMax - 127.0) < 0.1 && std::abs(displayMin - 0.0) < 0.1)
+    {
+        // This appears to be a 7-bit range (0-127)
+        // Use 16256 as the effective maximum for proper scaling
+        double normalized = midiValue / 16256.0;  // Use 127*128 as max
+        double displayValue = displayMin + (normalized * (displayMax - displayMin));
+        
+        // Debug logging for 7-bit display conversion
+        if (midiValue >= 16128.0) // Log values near the maximum
+        {
+            DBG("7-bit Display: MIDI " << midiValue << " -> Display " << displayValue 
+                << " (normalized " << normalized << ")");
+        }
+        
+        return displayValue;
+    }
+    
+    // Standard 14-bit conversion
     double normalized = midiValue / 16383.0;
     return displayMin + (normalized * (displayMax - displayMin));
 }
 
 double SliderDisplayManager::displayToMidi(double displayValue) const
 {
-    // Convert display value to MIDI value (0-16383)
+    // Convert display value to MIDI value
     // NOTE: This conversion is independent of bipolar centerValue - linear mapping across full range
     // For bipolar mode: centerValue affects display formatting only, not MIDI output
+    
     double normalized = (displayValue - displayMin) / (displayMax - displayMin);
+    
+    // For 7-bit ranges (0-127), scale to the 7-bit quantized range
+    if (std::abs(displayMax - 127.0) < 0.1 && std::abs(displayMin - 0.0) < 0.1)
+    {
+        // This appears to be a 7-bit range (0-127)
+        // Scale to 16256 (127*128) to match quantization boundaries
+        return juce::jlimit(0.0, 16256.0, normalized * 16256.0);
+    }
+    
+    // Standard 14-bit conversion
     return juce::jlimit(0.0, 16383.0, normalized * 16383.0);
 }
 

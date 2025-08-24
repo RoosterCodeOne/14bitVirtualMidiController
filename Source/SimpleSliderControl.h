@@ -573,6 +573,17 @@ public:
         });
     }
     
+    // Get the effective step size for keyboard movement (128 for 7-bit, 1 for 14-bit)
+    double getEffectiveStepSize() const
+    {
+        // Check if this is 7-bit mode
+        if (is14BitMode && !is14BitMode(index))
+        {
+            return 128.0; // 7-bit mode uses 128-unit steps
+        }
+        return 1.0; // 14-bit mode uses single-unit steps
+    }
+    
     // For MIDI input - updates slider without triggering output (prevents feedback loops)
     void setValueFromMIDI(double newValue)
     {
@@ -1230,7 +1241,20 @@ private:
             // Scale 0-16383 to 0-127, then back to 0-16383 in discrete steps
             int value7bit = (int)((midiValue / 16383.0) * 127.0 + 0.5); // Round to nearest
             value7bit = juce::jlimit(0, 127, value7bit);
-            return (double)(value7bit * 128); // Scale back to 14-bit range in 128-step increments
+            double quantizedValue = (double)(value7bit * 128);
+            
+            // Debug logging for 7-bit quantization
+            if (quantizedValue != midiValue || midiValue > 16000.0)
+            {
+                juce::String rangeIndicator = (midiValue < 8191.5) ? "Lower" : "Upper";
+                double percentageOfRange = (midiValue / 16383.0) * 100.0;
+                bool isInDeadZone = (midiValue > 16256.0 && midiValue <= 16383.0);
+                DBG("7-bit Quantization: Input " << midiValue << " (" << rangeIndicator << " " << (int)percentageOfRange << "%)"
+                    << " -> 7bit(" << value7bit << ") -> Output " << quantizedValue 
+                    << (isInDeadZone ? " [DEAD ZONE]" : ""));
+            }
+            
+            return quantizedValue; // Scale back to 14-bit range in 128-step increments
         }
         
         if (stepIncrement <= 0.0) return midiValue; // No quantization
