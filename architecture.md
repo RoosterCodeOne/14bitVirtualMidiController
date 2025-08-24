@@ -4,7 +4,7 @@
 
 This document provides comprehensive architectural guidance for the 14-bit Virtual MIDI Controller project. This is a JUCE-based desktop application that provides hardware-realistic slider control with professional MIDI capabilities, blueprint-style visual design, and advanced automation features.
 
-**Last Updated**: August 23, 2025 (Reset Automation Context Menu Feature Complete)  
+**Last Updated**: August 24, 2025 (7-Bit Keyboard Control Analysis & Debug Implementation)  
 **Current Version**: Production-ready with advanced Learn mode integration, one-shot MIDI pairing, comprehensive cross-window highlighting system, and reset automation functionality
 
 ## Table of Contents
@@ -1341,5 +1341,134 @@ The recent features represent significant advancements in user interaction and w
 **✅ Reset Automation Complete**: Context menu-based reset functionality fully implemented and ready for production use.
 
 This architecture provides a solid foundation for continued development and feature expansion, with the Learn mode integration system now providing professional-grade MIDI pairing capabilities and comprehensive visual feedback for advanced automation workflows.
+
+---
+
+## 7-Bit Keyboard Control Analysis (August 24, 2025)
+
+### Critical Issues Identified
+
+During comprehensive debugging of keyboard control functionality, two persistent issues were identified that affect 7-bit MIDI output mode:
+
+1. **Midpoint Stopping Bug**: Sliders stop progressing at approximately the midpoint (~8192) instead of reaching maximum when using keyboard keys (Q,W,E,R) at speeds ≤5000 units/sec in 7-bit mode
+2. **Speed Degradation in Upper Range**: At 10000 units/sec keyboard speed, noticeable slowdown occurs in the top half of slider travel when approaching maximum values
+
+### Root Cause Analysis
+
+**Architectural Challenge**: The system uses 14-bit internal values (0-16383) but outputs 7-bit MIDI (0-127), creating quantization boundaries that interfere with keyboard control logic.
+
+**Mathematical Issues Discovered**:
+- 7-bit quantization creates 128-unit jumps: 0, 128, 256, 384, ..., 16128, 16256
+- Keyboard accumulation works with single-unit precision (1-5 units per cycle)
+- Small increments get "stuck" when they don't cross quantization boundaries
+- Effective maximum mismatch: instant mode targets 16383, gradual mode caps at 16256
+
+### Implementation Attempts
+
+**Changes Made**:
+1. **Step-Size Aware Accumulation** (KeyboardController.cpp)
+   - Added `getSliderStepSize()` callback system
+   - Modified movement logic to accumulate 128 units for 7-bit mode
+   - Enhanced debug logging for movement tracking
+
+2. **Mode-Aware Effective Maximums** (KeyboardController.cpp)
+   - Instant mode now uses 16256 for 7-bit mode (not 16383)
+   - Gradual movement respects 16256 boundary
+   - Eliminated "dead zone" from 16256-16383
+
+3. **Display Range Corrections** (SliderDisplayManager.cpp)
+   - Fixed 0-126 vs 0-127 display issue
+   - Enhanced midiToDisplay/displayToMidi conversion for 7-bit ranges
+   - Added 7-bit boundary detection
+
+4. **Bipolar State Management** (SliderDisplayManager.cpp)
+   - Reset movement tracking on orientation changes
+   - Force disable snap logic when switching away from bipolar mode
+
+### Technical Implementation Details
+
+```cpp
+// KeyboardController.cpp - Step-size aware movement
+double stepSize = getSliderStepSize ? getSliderStepSize(mapping.currentSliderIndex) : 1.0;
+if (std::abs(mapping.accumulatedMovement) >= stepSize) {
+    double wholeStepsToMove = std::floor(std::abs(mapping.accumulatedMovement) / stepSize);
+    double unitsToMove = wholeStepsToMove * stepSize;
+    // Movement logic with 128-unit steps for 7-bit mode
+}
+
+// SimpleSliderControl.h - Effective step size detection
+double getEffectiveStepSize() const {
+    if (is14BitMode && !is14BitMode(index))
+        return 128.0; // 7-bit mode uses 128-unit steps
+    return 1.0; // 14-bit mode uses single-unit steps
+}
+
+// SliderDisplayManager.cpp - 7-bit display range correction
+if (std::abs(displayMax - 127.0) < 0.1 && std::abs(displayMin - 0.0) < 0.1) {
+    double normalized = midiValue / 16256.0;  // Use 127*128 as max
+    return displayMin + (normalized * (displayMax - displayMin));
+}
+```
+
+### Debug Logging Implementation
+
+Comprehensive debug output added across all components:
+- **KeyboardController**: Movement deltas, accumulation tracking, range analysis
+- **SimpleSliderControl**: 7-bit quantization process with dead zone detection
+- **SliderDisplayManager**: Display conversion validation and boundary analysis
+
+### Problematic Architecture Sections
+
+**1. Value Conversion Chain** (REQUIRES REDESIGN):
+```
+Internal 14-bit (0-16383) → 7-bit Quantization (0,128,256...16256) → MIDI Output (0-127)
+```
+The multi-stage conversion creates mathematical artifacts that keyboard control cannot overcome.
+
+**2. KeyboardController Movement Logic** (PARTIALLY ADDRESSED):
+- Location: `Source/Core/KeyboardController.cpp:234-285`
+- Issues: Accumulation thresholds work but fundamental quantization mismatch remains
+- Status: Enhanced with step-size awareness but core issue persists
+
+**3. SimpleSliderControl Quantization** (NEEDS COMPLETE REWRITE):
+- Location: `Source/SimpleSliderControl.h:1227-1256`
+- Issues: Formula `(value7bit * 128)` creates fixed boundaries that don't align with smooth movement expectations
+- Status: Added debug logging but core quantization math unchanged
+
+**4. SliderDisplayManager Range Mapping** (PARTIALLY FIXED):
+- Location: `Source/Core/SliderDisplayManager.cpp:310-349`
+- Issues: Display conversion improved but still depends on flawed quantization
+- Status: 7-bit range detection working but limited by upstream quantization
+
+### Recommended Future Approach
+
+**Option 1: Dual Value System**
+- Maintain separate 14-bit internal values for smooth keyboard control
+- Apply 7-bit quantization only at final MIDI output stage
+- Keyboard controller operates on continuous 14-bit space
+
+**Option 2: Native 7-bit Mode**
+- Switch to true 0-127 internal representation for 7-bit sliders
+- Eliminate quantization step entirely
+- Redesign display and movement systems for native 7-bit operation
+
+**Option 3: Hybrid Smoothing System**
+- Implement movement interpolation that "smooths over" quantization boundaries
+- Use predictive movement that anticipates quantization destinations
+- Maintain current architecture but add smoothing layer
+
+### Current Status
+
+**Issues Persist**: Despite mathematical improvements, the fundamental architectural mismatch between 14-bit internal representation and 7-bit output quantization continues to cause keyboard control problems.
+
+**Debug System Ready**: Comprehensive logging now provides complete visibility into the movement and quantization process for future development efforts.
+
+**Components Modified**:
+- `Source/Core/KeyboardController.cpp/.h` (Enhanced movement logic + debug)
+- `Source/SimpleSliderControl.h` (Step size detection + quantization debug)
+- `Source/Core/SliderDisplayManager.cpp` (Display range corrections + state reset)
+- `Source/DebugMidiController.h` (Callback integration)
+
+**Next Steps**: Requires architectural redesign of the 7-bit conversion system or implementation of alternative approach to eliminate the quantization boundary mismatch that prevents smooth keyboard control in 7-bit mode.
 
 **For Development Questions**: Refer to individual component documentation and follow the established patterns demonstrated in the existing codebase.
