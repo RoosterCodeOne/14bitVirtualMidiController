@@ -96,7 +96,7 @@ private:
     // Section 1 - Core MIDI
     juce::Label ccNumberLabel;
     juce::TextEditor ccNumberInput;
-    juce::Label outputModeLabel;
+    // outputModeLabel removed - no longer needed without 7-bit/14-bit toggle
     
     // Section 2 - Display & Range
     juce::Label rangeLabel;
@@ -566,9 +566,7 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     ccNumberInput.onReturnKey = [this]() { ccNumberInput.moveKeyboardFocusToSibling(true); };
     ccNumberInput.onFocusLost = [this]() { validateAndApplyCCNumber(); };
     
-    addAndMakeVisible(outputModeLabel);
-    outputModeLabel.setText("Output Mode:", juce::dontSendNotification);
-    outputModeLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    // outputModeLabel setup removed - no longer needed
     
     
     // Input Behavior controls (moved to Slider Configuration section)
@@ -762,7 +760,7 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     const int inputHeight = 22;
     const int headerHeight = 22;
     
-    // Section 2 - Slider Configuration (Name, CC Number, Output Mode, Input Behavior)
+    // Section 2 - Slider Configuration (Name, CC Number, Input Behavior)
     auto section2Bounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 4 + controlSpacing);
     
     section2Header.setBounds(section2Bounds.removeFromTop(headerHeight));
@@ -786,7 +784,7 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     
     // Output mode row
     auto outputRow = section2Bounds.removeFromTop(labelHeight);
-    outputModeLabel.setBounds(outputRow.removeFromLeft(120));
+    // outputModeLabel bounds removed
     // Output mode buttons removed - always 14-bit
     
     section2Bounds.removeFromTop(controlSpacing);
@@ -1207,6 +1205,9 @@ inline void ControllerSettingsTab::resetCurrentSlider()
     }
     
     selectColor(defaultColorId);
+    
+    // Reset Show Automation to default (true)
+    showAutomationButton.setToggleState(true, juce::dontSendNotification);
     
     if (onSliderSettingChanged)
         onSliderSettingChanged(selectedSlider);

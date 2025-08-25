@@ -106,15 +106,15 @@ public:
         // Settings button - positioned on left within top area bounds
         int settingsButtonX = topAreaBounds.getX() + 10;
         int settingsButtonY = topAreaBounds.getY() + 23;
-        settingsButton.setBounds(settingsButtonX, settingsButtonY, 100, 20);
+        settingsButton.setBounds(settingsButtonX, settingsButtonY, 75, 20);
         
         // Learn button - positioned closer to settings button
-        int learnButtonX = settingsButtonX + 105;
-        learnButton.setBounds(learnButtonX, settingsButtonY, 50, 20);
+        int learnButtonX = settingsButtonX + 80;
+        learnButton.setBounds(learnButtonX, settingsButtonY, 45, 20);
         
         // MIDI Monitor button - positioned next to Learn button
-        int monitorButtonX = learnButtonX + 55;
-        monitorButton.setBounds(monitorButtonX, settingsButtonY, 90, 20);
+        int monitorButtonX = learnButtonX + 50;
+        monitorButton.setBounds(monitorButtonX, settingsButtonY, 80, 20);
         
         // Bank buttons - positioned as 2x2 grid in top right of top area
         const int buttonWidth = 35;
@@ -135,9 +135,9 @@ public:
         bankDButton.setBounds(gridStartX + buttonWidth + buttonSpacing, gridStartY + buttonHeight + buttonSpacing, buttonWidth, buttonHeight);
         
         // Mode button - positioned to the left of C bank button with "Showing:" label
-        int showingLabelX = gridStartX - 85;
+        int showingLabelX = gridStartX - 100;
         int modeButtonX = gridStartX - 40;
-        showingLabel.setBounds(showingLabelX, gridStartY + buttonHeight + buttonSpacing, 40, 20);
+        showingLabel.setBounds(showingLabelX, gridStartY + buttonHeight + buttonSpacing, 55, 20);
         modeButton.setBounds(modeButtonX, gridStartY + buttonHeight + buttonSpacing, 30, 20);
     }
     

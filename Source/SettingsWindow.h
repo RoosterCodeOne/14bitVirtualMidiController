@@ -291,6 +291,7 @@ inline void SettingsWindow::initializeSliderData()
         settings.orientation = SliderOrientation::Normal;
         settings.bipolarSettings = BipolarSettings(); // Center value now auto-calculated
         settings.customName = ""; // Clear custom names on reset
+        settings.showAutomation = true; // Reset to default automation visibility
         
         // Set default colors based on bank (using direct mapping 0-7)
         int bankIndex = i / 4;

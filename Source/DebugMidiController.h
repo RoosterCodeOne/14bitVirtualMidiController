@@ -127,8 +127,8 @@ public:
         addAndMakeVisible(&showingLabel);
         showingLabel.setText("Showing:", juce::dontSendNotification);
         showingLabel.setJustificationType(juce::Justification::centredRight);
-        showingLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
-        showingLabel.setFont(juce::FontOptions(11.0f));
+        showingLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        showingLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
         
         // Learn button for MIDI mapping - blueprint style
         addAndMakeVisible(&learnButton);
