@@ -192,25 +192,8 @@ void MidiManager::sendCC14BitWithSlider(int sliderNumber, int channel, int ccNum
     }
 }
 
-void MidiManager::sendCC7BitWithSlider(int sliderNumber, int channel, int ccNumber, int value14bit)
-{
-    if (!midiOutput) return;
-    
-    // Convert 14-bit value to 7-bit (scale down from 0-16383 to 0-127)
-    int value7bit = (value14bit >> 7) & 0x7F;
-    
-    // Send single CC message
-    juce::MidiMessage ccMessage = juce::MidiMessage::controllerEvent(channel, ccNumber, value7bit);
-    midiOutput->sendMessageNow(ccMessage);
-    
-    // Notify MIDI monitor of outgoing message (LSB will be -1 to indicate 7-bit mode)
-    if (onMidiSent)
-    {
-        juce::MessageManager::callAsync([this, sliderNumber, channel, ccNumber, value7bit, value14bit]() {
-            onMidiSent(sliderNumber, channel, ccNumber, value7bit, -1, value14bit);
-        });
-    }
-}
+// sendCC7BitWithSlider method removed as part of 7-bit mode cleanup
+// System now always uses sendCC14BitWithSlider for universal compatibility
 
 //==============================================================================
 void MidiManager::saveDevicePreference()

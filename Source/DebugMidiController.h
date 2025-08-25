@@ -34,24 +34,17 @@ public:
                 int midiChannel = settingsWindow.getMidiChannel();
                 int ccNumber = settingsWindow.getCCNumber(sliderIndex);
                 
-                // Check if slider is configured for 7-bit or 14-bit output
-                if (settingsWindow.is14BitOutput(sliderIndex))
-                {
-                    midiManager.sendCC14BitWithSlider(sliderIndex + 1, midiChannel, ccNumber, value);
-                }
-                else
-                {
-                    midiManager.sendCC7BitWithSlider(sliderIndex + 1, midiChannel, ccNumber, value);
-                }
+                // Always use 14-bit output (compatible with both 7-bit and 14-bit receivers)
+                midiManager.sendCC14BitWithSlider(sliderIndex + 1, midiChannel, ccNumber, value);
                 
                 // Trigger MIDI activity indicator AFTER successful MIDI send
                 if (sliderIndex < sliderControls.size())
                     sliderControls[sliderIndex]->triggerMidiActivity();
             });
             
-            // Set up 14-bit mode callback for quantization
+            // Always use 14-bit mode
             sliderControl->is14BitMode = [this](int sliderIndex) -> bool {
-                return settingsWindow.is14BitOutput(sliderIndex);
+                return true;
             };
             
             // Add click handler for learn mode
@@ -750,14 +743,8 @@ public:
             return bankManager.getVisibleSliderIndex(keyboardPosition);
         };
         
-        keyboardController.getSliderStepSize = [this](int sliderIndex) -> double {
-            if (sliderIndex < sliderControls.size())
-            {
-                auto* slider = sliderControls[sliderIndex];
-                return slider ? slider->getEffectiveStepSize() : 1.0;
-            }
-            return 1.0; // Default to single unit steps
-        };
+        // Note: getSliderStepSize callback removed as part of 7-bit mode cleanup
+        // KeyboardController now uses standard 1-unit steps for all movement
     }
     
     void setupMidi7BitController()

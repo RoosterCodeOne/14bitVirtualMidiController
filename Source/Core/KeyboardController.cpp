@@ -226,25 +226,9 @@ void KeyboardController::processKeyboardMovement()
                 if (keyboardMovementRate == -1)
                 {
                     if (mapping.isUpDirection)
-                    {
-                        // Get the effective maximum for this slider mode
-                        double stepSize = getSliderStepSize ? getSliderStepSize(mapping.currentSliderIndex) : 1.0;
-                        if (stepSize >= 128.0)
-                        {
-                            // 7-bit mode: effective maximum is 127*128 = 16256
-                            newValue = 16256.0;
-                            DBG("KeyboardController: Instant mode - 7-bit max: " << newValue);
-                        }
-                        else
-                        {
-                            // 14-bit mode: standard maximum
-                            newValue = 16383.0;
-                        }
-                    }
+                        newValue = 16383.0; // Go to max instantly
                     else
-                    {
                         newValue = 0.0; // Go to min instantly
-                    }
                 }
                 else
                 {
@@ -252,54 +236,36 @@ void KeyboardController::processKeyboardMovement()
                     double deltaTime = 1.0 / 60.0; // Assuming 60fps timer
                     double movementDelta = keyboardMovementRate * deltaTime;
                     
-                    // Get the effective step size for this slider (128 for 7-bit, 1 for 14-bit)
-                    double stepSize = 1.0; // Default to 1 unit steps
-                    if (getSliderStepSize)
-                    {
-                        stepSize = getSliderStepSize(mapping.currentSliderIndex);
-                        if (stepSize <= 0.0) stepSize = 1.0; // Safety fallback
-                    }
-                    
                     // Accumulate fractional movement
                     double direction = mapping.isUpDirection ? 1.0 : -1.0;
                     mapping.accumulatedMovement += movementDelta * direction;
                     
-                    // Only move when we've accumulated at least one step size
-                    if (std::abs(mapping.accumulatedMovement) >= stepSize)
+                    // Only move when we've accumulated at least 1 unit
+                    if (std::abs(mapping.accumulatedMovement) >= 1.0)
                     {
-                        double wholeStepsToMove = std::floor(std::abs(mapping.accumulatedMovement) / stepSize);
-                        double unitsToMove = wholeStepsToMove * stepSize;
+                        double wholeUnitsToMove = std::floor(std::abs(mapping.accumulatedMovement));
                         
                         if (mapping.accumulatedMovement > 0)
                         {
-                            // Use effective maximum for this slider mode
-                            double effectiveMax = (stepSize >= 128.0) ? 16256.0 : 16383.0;
-                            newValue = juce::jmin(effectiveMax, currentValue + unitsToMove);
-                            mapping.accumulatedMovement -= unitsToMove;
+                            newValue = juce::jmin(16383.0, currentValue + wholeUnitsToMove);
+                            mapping.accumulatedMovement -= wholeUnitsToMove;
                         }
                         else
                         {
-                            newValue = juce::jmax(0.0, currentValue - unitsToMove);
-                            mapping.accumulatedMovement += unitsToMove;
+                            newValue = juce::jmax(0.0, currentValue - wholeUnitsToMove);
+                            mapping.accumulatedMovement += wholeUnitsToMove;
                         }
                     }
                 }
                 
                 if (newValue != currentValue)
                 {
-                    // Debug logging for movement tracking - with range analysis
-                    double stepSize = getSliderStepSize ? getSliderStepSize(mapping.currentSliderIndex) : 1.0;
-                    juce::String rangeIndicator = (currentValue < 8191.5) ? "Lower" : "Upper";
-                    double percentageOfRange = (currentValue / 16383.0) * 100.0;
-                    double actualMovement = newValue - currentValue;
-                    
+                    // Simplified debug logging for movement tracking
                     DBG("KeyboardController: Slider " << mapping.currentSliderIndex 
                         << (mapping.isUpDirection ? " UP" : " DOWN")
-                        << ", Current: " << currentValue << " (" << rangeIndicator << " " << (int)percentageOfRange << "%)"
+                        << ", Current: " << currentValue 
                         << ", New: " << newValue 
-                        << ", ActualMove: " << actualMovement
                         << ", Accumulated: " << mapping.accumulatedMovement
-                        << ", StepSize: " << stepSize
                         << ", Delta: " << (keyboardMovementRate * (1.0/60.0)));
                     
                     // Update slider value using callback

@@ -24,7 +24,7 @@ public:
     void updateControlsForSelectedSlider(int sliderIndex);
     void updateBankSelectorAppearance(int selectedBank);
     void applyPreset(const ControllerPreset& preset);
-    void setSliderSettings(int ccNumber, bool is14Bit, double rangeMin, double rangeMax, 
+    void setSliderSettings(int ccNumber, double rangeMin, double rangeMax, 
                           double increment, bool isCustomStep, bool useDeadzone, int colorId,
                           SliderOrientation orientation = SliderOrientation::Normal,
                           const juce::String& customName = "", SnapThreshold snapThreshold = SnapThreshold::Medium,
@@ -38,7 +38,6 @@ public:
     
     // Getter methods for current slider settings (for parent coordination)
     int getCurrentCCNumber() const { return ccNumberInput.getText().getIntValue(); }
-    bool getCurrentIs14Bit() const { return output14BitButton.getToggleState(); }
     double getCurrentRangeMin() const { return rangeMinInput.getText().getDoubleValue(); }
     double getCurrentRangeMax() const { return rangeMaxInput.getText().getDoubleValue(); }
     double getCurrentIncrement() const { return incrementsInput.getText().getDoubleValue(); }
@@ -98,7 +97,6 @@ private:
     juce::Label ccNumberLabel;
     juce::TextEditor ccNumberInput;
     juce::Label outputModeLabel;
-    juce::ToggleButton output7BitButton, output14BitButton;
     
     // Section 2 - Display & Range
     juce::Label rangeLabel;
@@ -184,7 +182,6 @@ private:
     
     // Validation and application methods
     void validateAndApplyCCNumber();
-    void applyOutputMode();
     void validateAndApplyRange();
     void applyIncrements();
     void setAutoStepMode();
@@ -573,22 +570,6 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     outputModeLabel.setText("Output Mode:", juce::dontSendNotification);
     outputModeLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
-    addAndMakeVisible(output7BitButton);
-    output7BitButton.setButtonText("7-bit");
-    output7BitButton.setRadioGroupId(1);
-    output7BitButton.onClick = [this]() { 
-        applyOutputMode();
-        if (onRequestFocus) onRequestFocus();
-    };
-    
-    addAndMakeVisible(output14BitButton);
-    output14BitButton.setButtonText("14-bit");
-    output14BitButton.setRadioGroupId(1);
-    output14BitButton.setToggleState(true, juce::dontSendNotification);
-    output14BitButton.onClick = [this]() { 
-        applyOutputMode();
-        if (onRequestFocus) onRequestFocus();
-    };
     
     // Input Behavior controls (moved to Slider Configuration section)
     addAndMakeVisible(inputModeLabel);
@@ -806,10 +787,7 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     // Output mode row
     auto outputRow = section2Bounds.removeFromTop(labelHeight);
     outputModeLabel.setBounds(outputRow.removeFromLeft(120));
-    outputRow.removeFromLeft(8);
-    output7BitButton.setBounds(outputRow.removeFromLeft(60));
-    outputRow.removeFromLeft(8);
-    output14BitButton.setBounds(outputRow.removeFromLeft(60));
+    // Output mode buttons removed - always 14-bit
     
     section2Bounds.removeFromTop(controlSpacing);
     
@@ -1047,47 +1025,7 @@ inline void ControllerSettingsTab::validateAndApplyCCNumber()
         onSliderSettingChanged(selectedSlider);
 }
 
-inline void ControllerSettingsTab::applyOutputMode()
-{
-    // Get the 14-bit state and notify parent
-    bool is14Bit = output14BitButton.getToggleState();
-    
-    // Auto-set optimal ranges when switching modes (only if in auto-step mode)
-    if (!isCustomStepFlag)
-    {
-        double currentMin = rangeMinInput.getText().getDoubleValue();
-        double currentMax = rangeMaxInput.getText().getDoubleValue();
-        
-        if (!is14Bit)
-        {
-            // Switching to 7-bit mode: auto-set to 0-127 if currently using default 14-bit range
-            if (std::abs(currentMin - 0.0) < 0.1 && std::abs(currentMax - 16383.0) < 0.1)
-            {
-                rangeMinInput.setText("0", juce::dontSendNotification);
-                rangeMaxInput.setText("127", juce::dontSendNotification);
-            }
-        }
-        else
-        {
-            // Switching to 14-bit mode: auto-set to 0-16383 if currently using default 7-bit range
-            if (std::abs(currentMin - 0.0) < 0.1 && std::abs(currentMax - 127.0) < 0.1)
-            {
-                rangeMinInput.setText("0", juce::dontSendNotification);
-                rangeMaxInput.setText("16383", juce::dontSendNotification);
-            }
-        }
-    }
-    
-    // Auto-recalculate step if in auto mode
-    if (!isCustomStepFlag)
-    {
-        setAutoStepMode();
-        return; // setAutoStepMode() already calls onSliderSettingChanged
-    }
-    
-    if (onSliderSettingChanged)
-        onSliderSettingChanged(selectedSlider);
-}
+// applyOutputMode method removed - no longer needed as system always uses 14-bit output
 
 inline void ControllerSettingsTab::validateAndApplyRange()
 {
@@ -1141,12 +1079,11 @@ inline void ControllerSettingsTab::applyIncrements()
 
 inline void ControllerSettingsTab::setAutoStepMode()
 {
-    // Calculate auto step based on current range and 7-bit/14-bit mode
-    bool is14Bit = output14BitButton.getToggleState();
+    // Calculate auto step based on current range (always 14-bit mode)
     double rangeMin = rangeMinInput.getText().getDoubleValue();
     double rangeMax = rangeMaxInput.getText().getDoubleValue();
     
-    int numSteps = is14Bit ? 16384 : 128;
+    int numSteps = 16384; // Always use 14-bit resolution
     double range = std::abs(rangeMax - rangeMin);
     double autoStep = range / (numSteps - 1);
     
@@ -1243,8 +1180,7 @@ inline void ControllerSettingsTab::resetCurrentSlider()
 {
     // Reset all controls to defaults for the current slider
     ccNumberInput.setText(juce::String(selectedSlider), juce::dontSendNotification);
-    output14BitButton.setToggleState(true, juce::dontSendNotification);
-    output7BitButton.setToggleState(false, juce::dontSendNotification);
+    // Always 14-bit mode - no button to reset
     rangeMinInput.setText("0", juce::dontSendNotification);
     rangeMaxInput.setText("16383", juce::dontSendNotification);
     incrementsInput.setText("1", juce::dontSendNotification);
@@ -1363,7 +1299,7 @@ inline void ControllerSettingsTab::updateControlsForSelectedSlider(int sliderInd
     updateColorButtonSelection();
 }
 
-inline void ControllerSettingsTab::setSliderSettings(int ccNumber, bool is14Bit, double rangeMin, double rangeMax, 
+inline void ControllerSettingsTab::setSliderSettings(int ccNumber, double rangeMin, double rangeMax, 
                                                     double increment, bool isCustomStep,
                                                     bool useDeadzone, int colorId,
                                                     SliderOrientation orientation,
@@ -1372,8 +1308,7 @@ inline void ControllerSettingsTab::setSliderSettings(int ccNumber, bool is14Bit,
 {
     // Update all controls with the provided settings (without triggering callbacks)
     ccNumberInput.setText(juce::String(ccNumber), juce::dontSendNotification);
-    output14BitButton.setToggleState(is14Bit, juce::dontSendNotification);
-    output7BitButton.setToggleState(!is14Bit, juce::dontSendNotification);
+    // Always 14-bit mode - is14Bit parameter ignored
     rangeMinInput.setText(juce::String(rangeMin, 2), juce::dontSendNotification);
     rangeMaxInput.setText(juce::String(rangeMax, 2), juce::dontSendNotification);
     incrementsInput.setText(juce::String(increment, 3), juce::dontSendNotification);

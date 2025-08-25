@@ -325,28 +325,7 @@ double SliderDisplayManager::midiToDisplay(double midiValue) const
 {
     // Convert MIDI value to display value based on custom range
     // NOTE: This conversion is independent of bipolar centerValue - linear mapping across full range
-    
-    // For 7-bit ranges (0-127), handle the quantization boundary correctly
-    // 7-bit quantized values go: 0, 128, 256, ..., 16128, 16256 (127*128)
-    // The effective maximum is 16256, not 16383
-    if (std::abs(displayMax - 127.0) < 0.1 && std::abs(displayMin - 0.0) < 0.1)
-    {
-        // This appears to be a 7-bit range (0-127)
-        // Use 16256 as the effective maximum for proper scaling
-        double normalized = midiValue / 16256.0;  // Use 127*128 as max
-        double displayValue = displayMin + (normalized * (displayMax - displayMin));
-        
-        // Debug logging for 7-bit display conversion
-        if (midiValue >= 16128.0) // Log values near the maximum
-        {
-            DBG("7-bit Display: MIDI " << midiValue << " -> Display " << displayValue 
-                << " (normalized " << normalized << ")");
-        }
-        
-        return displayValue;
-    }
-    
-    // Standard 14-bit conversion
+    // Always use standard 14-bit conversion (0-16383)
     double normalized = midiValue / 16383.0;
     return displayMin + (normalized * (displayMax - displayMin));
 }
@@ -356,18 +335,9 @@ double SliderDisplayManager::displayToMidi(double displayValue) const
     // Convert display value to MIDI value
     // NOTE: This conversion is independent of bipolar centerValue - linear mapping across full range
     // For bipolar mode: centerValue affects display formatting only, not MIDI output
+    // Always use standard 14-bit conversion (0-16383)
     
     double normalized = (displayValue - displayMin) / (displayMax - displayMin);
-    
-    // For 7-bit ranges (0-127), scale to the 7-bit quantized range
-    if (std::abs(displayMax - 127.0) < 0.1 && std::abs(displayMin - 0.0) < 0.1)
-    {
-        // This appears to be a 7-bit range (0-127)
-        // Scale to 16256 (127*128) to match quantization boundaries
-        return juce::jlimit(0.0, 16256.0, normalized * 16256.0);
-    }
-    
-    // Standard 14-bit conversion
     return juce::jlimit(0.0, 16383.0, normalized * 16383.0);
 }
 
@@ -631,7 +601,7 @@ void SliderDisplayManager::setAutoStep(bool is14Bit)
     if (onTargetTextChanged)
         onTargetTextChanged(getFormattedTargetValue());
         
-    DBG("SliderDisplayManager: Set auto step " << stepIncrement << " for " << (is14Bit ? "14-bit" : "7-bit") << " mode, range " << displayMin << "-" << displayMax);
+    DBG("SliderDisplayManager: Set auto step " << stepIncrement << " for 14-bit mode, range " << displayMin << "-" << displayMax);
 }
 
 void SliderDisplayManager::setCustomStep(double customStep)

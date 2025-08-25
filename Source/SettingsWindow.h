@@ -36,7 +36,6 @@ public:
     void updateBankSelection(int bankIndex);
     
     // New per-slider settings access methods
-    bool is14BitOutput(int sliderIndex) const;
     double getIncrement(int sliderIndex) const;
     bool isStepCustom(int sliderIndex) const;
     bool useDeadzone(int sliderIndex) const;
@@ -76,7 +75,6 @@ private:
     // Data storage for all 16 sliders
     struct SliderSettings {
         int ccNumber = 0;
-        bool is14Bit = true;
         double rangeMin = 0.0;
         double rangeMax = 16383.0;
         double increment = 1.0;
@@ -91,7 +89,6 @@ private:
         SliderSettings()
         {
             ccNumber = 0;
-            is14Bit = true;
             rangeMin = 0.0;
             rangeMax = 16383.0;
             increment = 1.0;
@@ -117,7 +114,7 @@ private:
     void updateControlsForSelectedSlider();
     void saveCurrentSliderSettings();
     void validateAndApplyCCNumber(int value);
-    void applyOutputMode(bool is14Bit);
+    // applyOutputMode method removed - system always uses 14-bit output
     void validateAndApplyRange(double minVal, double maxVal);
     void applyIncrements(double increment);
     void applyInputMode(bool useDeadzone);
@@ -285,7 +282,7 @@ inline void SettingsWindow::initializeSliderData()
     {
         auto& settings = sliderSettingsData[i];
         settings.ccNumber = i;
-        settings.is14Bit = true;
+        // Note: is14Bit field removed - system always uses 14-bit output
         settings.rangeMin = 0.0;
         settings.rangeMax = 16383.0;
         settings.increment = 1.0; // Will be auto-calculated
@@ -481,12 +478,6 @@ inline void SettingsWindow::updateBankSelection(int bankIndex)
     updatingFromMainWindow = false;
 }
 
-inline bool SettingsWindow::is14BitOutput(int sliderIndex) const
-{
-    if (sliderIndex >= 0 && sliderIndex < 16)
-        return sliderSettingsData[sliderIndex].is14Bit;
-    return true;
-}
 
 inline double SettingsWindow::getIncrement(int sliderIndex) const
 {
@@ -618,7 +609,7 @@ inline void SettingsWindow::saveCurrentSliderSettings()
         // Save current UI values to the current slider's data
         auto& settings = sliderSettingsData[selectedSlider];
         settings.ccNumber = controllerTab->getCurrentCCNumber();
-        settings.is14Bit = controllerTab->getCurrentIs14Bit();
+        // Always 14-bit mode
         settings.rangeMin = controllerTab->getCurrentRangeMin();
         settings.rangeMax = controllerTab->getCurrentRangeMax();
         settings.increment = controllerTab->getCurrentIncrement();
@@ -647,7 +638,6 @@ inline void SettingsWindow::updateControlsForSelectedSlider()
         // Update the controller tab with the current slider's settings
         controllerTab->setSliderSettings(
             settings.ccNumber,
-            settings.is14Bit,
             settings.rangeMin,
             settings.rangeMax,
             settings.increment,

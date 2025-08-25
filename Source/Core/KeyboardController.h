@@ -36,7 +36,6 @@ public:
     std::function<bool(int sliderIndex)> isSliderLocked; // Check if slider is locked
     std::function<double(int sliderIndex)> getSliderValue; // Get current slider value
     std::function<int(int keyboardPosition)> getVisibleSliderIndex; // Map keyboard position to slider index
-    std::function<double(int sliderIndex)> getSliderStepSize; // Get effective step size for quantization
     
 private:
     // Timer callback for continuous movement
