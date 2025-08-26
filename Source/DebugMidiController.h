@@ -20,9 +20,12 @@
 #include "Components/BankButtonLearnOverlay.h"
 #include "Components/BankButtonLearnZone.h"
 #include "Components/LearnZoneTypes.h"
+#include "UI/GlobalUIScale.h"
 
 //==============================================================================
-class DebugMidiController : public juce::Component, public juce::Timer
+class DebugMidiController : public juce::Component, 
+                            public juce::Timer, 
+                            public GlobalUIScale::ScaleChangeListener
 {
 public:
     DebugMidiController()
@@ -237,6 +240,9 @@ public:
         // Apply initial window constraints to prevent manual resizing
         updateWindowConstraints();
         
+        // Register for scale change notifications
+        GlobalUIScale::getInstance().addScaleChangeListener(this);
+        
     }
     
     ~DebugMidiController()
@@ -244,6 +250,9 @@ public:
         // CRITICAL: Stop all timers before destruction
         stopTimer();
         midi7BitController.stopTimer();
+        
+        // Remove scale change listener
+        GlobalUIScale::getInstance().removeScaleChangeListener(this);
         
         // Auto-save current state before destruction
         saveCurrentState();
@@ -320,6 +329,8 @@ public:
     
     void paint(juce::Graphics& g) override
     {
+        auto& scale = GlobalUIScale::getInstance();
+        
         // Blueprint background - dark navy base
         g.fillAll(BlueprintColors::background);
         
@@ -400,36 +411,36 @@ public:
                 
                 // Draw thick border around ENTIRE slider plate (3px thick border)
                 g.setColour(highlightColor);
-                g.drawRect(fullPlateBounds, 3.0f);
+                g.drawRect(fullPlateBounds, scale.getScaled(3.0f));
                 
                 // Add subtle inner glow effect
                 g.setColour(highlightColor.withAlpha(0.3f));
-                g.drawRect(fullPlateBounds.reduced(3.0f), 1.0f);
+                g.drawRect(fullPlateBounds.reduced(scale.getScaled(3.0f)), scale.getScaledLineThickness());
             }
         }
         
         // Use layout bounds for top area positioning  
-        juce::Rectangle<int> topAreaBounds = layoutBounds.topArea.withY(2).withHeight(layoutBounds.topArea.getHeight() - 2);
+        juce::Rectangle<int> topAreaBounds = layoutBounds.topArea.withY(scale.getScaled(2)).withHeight(layoutBounds.topArea.getHeight() - scale.getScaled(2));
         
         // Draw blueprint-style outline around top area
         g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
-        g.drawRect(topAreaBounds.toFloat(), 1.0f);
+        g.drawRect(topAreaBounds.toFloat(), scale.getScaledLineThickness());
         
         // Draw MIDI input indicator next to Learn button - blueprint style
-        int learnButtonX = topAreaBounds.getX() + 10 + 105;
-        int indicatorY = topAreaBounds.getY() + 26; // Adjusted to be relative to top area bounds
-        midiInputIndicatorBounds = juce::Rectangle<float>(learnButtonX + 55, indicatorY, 12, 12);
+        int learnButtonX = topAreaBounds.getX() + scale.getScaled(10) + scale.getScaled(105);
+        int indicatorY = topAreaBounds.getY() + scale.getScaled(26); // Adjusted to be relative to top area bounds
+        midiInputIndicatorBounds = juce::Rectangle<float>(learnButtonX + scale.getScaled(55), indicatorY, scale.getScaled(12), scale.getScaled(12));
         
         juce::Colour inputIndicatorColor = BlueprintColors::warning;
         float inputAlpha = midiManager.getMidiInputActivity() ? 1.0f : 0.2f;
         g.setColour(inputIndicatorColor.withAlpha(inputAlpha));
         g.fillRect(midiInputIndicatorBounds);
         g.setColour(BlueprintColors::blueprintLines);
-        g.drawRect(midiInputIndicatorBounds, 1.0f);
+        g.drawRect(midiInputIndicatorBounds, scale.getScaledLineThickness());
         
         // Show MIDI status with blueprint styling
         g.setColour(BlueprintColors::textPrimary);
-        g.setFont(juce::FontOptions(12.0f));
+        g.setFont(scale.getScaledFont(12.0f));
         juce::String status = "MIDI: ";
         if (midiManager.isOutputConnected() && midiManager.isInputConnected())
             status += "IN/OUT Connected";
@@ -1117,6 +1128,33 @@ public:
         {
             if (slider)
                 slider->activateAllLearnZones(active);
+        }
+    }
+    
+    // Scale change notification implementation
+    void scaleFactorChanged(float newScale) override
+    {
+        // Update window constraints for new scale
+        updateWindowConstraints();
+        
+        // Trigger full layout update
+        resized();
+        repaint();
+        
+        // Notify child windows of scale change
+        if (settingsWindow.isVisible())
+        {
+            settingsWindow.repaint();
+        }
+        
+        if (midiLearnWindow.isVisible())
+        {
+            midiLearnWindow.repaint();
+        }
+        
+        if (midiMonitorWindow.isVisible())
+        {
+            midiMonitorWindow.repaint();
         }
     }
     
