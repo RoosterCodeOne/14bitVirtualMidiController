@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 #include "CustomLookAndFeel.h"
 #include "Core/Midi7BitController.h" // For MidiTargetType
+#include "UI/GlobalUIScale.h"
 
 //==============================================================================
 class MidiLearnWindow : public juce::Component
@@ -13,14 +14,14 @@ public:
         // Title label
         addAndMakeVisible(titleLabel);
         titleLabel.setText("MIDI Learn Mappings", juce::dontSendNotification);
-        titleLabel.setFont(juce::FontOptions(18.0f, juce::Font::bold));
+        titleLabel.setFont(GlobalUIScale::getInstance().getScaledFont(18.0f).boldened());
         titleLabel.setJustificationType(juce::Justification::centred);
         titleLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         
         // MIDI Input Device Selection Section
         addAndMakeVisible(inputDeviceLabel);
         inputDeviceLabel.setText("MIDI Input Device:", juce::dontSendNotification);
-        inputDeviceLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        inputDeviceLabel.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
         inputDeviceLabel.setJustificationType(juce::Justification::centredLeft);
         inputDeviceLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         

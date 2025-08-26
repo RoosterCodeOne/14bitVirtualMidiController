@@ -2,6 +2,7 @@
 #pragma once
 #include <JuceHeader.h>
 #include "CustomLookAndFeel.h"
+#include "UI/GlobalUIScale.h"
 #include <deque>
 #include <map>
 #include <vector>

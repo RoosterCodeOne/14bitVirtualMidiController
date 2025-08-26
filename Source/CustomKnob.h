@@ -2,11 +2,19 @@
 #pragma once
 #include <JuceHeader.h>
 #include "CustomLookAndFeel.h"
+#include "UI/GlobalUIScale.h"
 
 //==============================================================================
-class CustomKnob : public juce::Component
+class CustomKnob : public juce::Component, 
+                   public GlobalUIScale::ScaleChangeListener
 {
 public:
+    // Scaled knob size calculation methods
+    static int getKnobSize(int baseSize)
+    {
+        return GlobalUIScale::getInstance().getScaled(baseSize);
+    }
+    
     enum KnobSize
     {
         Large = 42,
@@ -20,10 +28,19 @@ public:
     CustomKnob(const juce::String& labelText, double minValue = 0.0, double maxValue = 10.0, KnobSize size = Small)
         : label(labelText), minVal(minValue), maxVal(maxValue), knobSize(size), currentValue(minValue), timeMode(TimeMode::Seconds)
     {
-        setSize(knobSize + 14, knobSize + 29); // Extra space for label and 2px bezel on each side (4px total + 4px more for height)
+        auto& scale = GlobalUIScale::getInstance();
+        int scaledKnobSize = scale.getScaled(knobSize);
+        setSize(scaledKnobSize + scale.getScaled(14), scaledKnobSize + scale.getScaled(29)); // Extra space for label and 2px bezel on each side (4px total + 4px more for height)
+        
+        // Register for scale change notifications
+        scale.addScaleChangeListener(this);
     }
     
-    ~CustomKnob() = default;
+    ~CustomKnob() 
+    {
+        // Remove scale change listener
+        GlobalUIScale::getInstance().removeScaleChangeListener(this);
+    }
     
     void setValue(double newValue)
     {
@@ -73,11 +90,14 @@ public:
     
     void paint(juce::Graphics& g) override
     {
+        auto& scale = GlobalUIScale::getInstance();
         auto bounds = getLocalBounds();
+        int scaledKnobSize = scale.getScaled(knobSize);
+        
         // Allocate enough space for knob + bezel (knobSize + 4 pixels)
-        auto knobAreaHeight = knobSize + 4;
+        auto knobAreaHeight = scaledKnobSize + scale.getScaled(4);
         auto knobAreaBounds = bounds.removeFromTop(knobAreaHeight);
-        auto knobArea = knobAreaBounds.withSizeKeepingCentre(knobSize, knobSize);
+        auto knobArea = knobAreaBounds.withSizeKeepingCentre(scaledKnobSize, scaledKnobSize);
         auto labelArea = bounds;
         
         drawKnobShadow(g, knobArea);
@@ -107,9 +127,10 @@ public:
     
     void mouseDrag(const juce::MouseEvent& event) override
     {
-        // Vertical drag sensitivity - 100 pixels for full range
+        auto& scale = GlobalUIScale::getInstance();
+        // Vertical drag sensitivity - scale-aware 100 pixels for full range
         double dragDistance = dragStartY - event.position.y;
-        double sensitivity = (maxVal - minVal) / 100.0;
+        double sensitivity = (maxVal - minVal) / scale.getScaled(100.0);
         double newValue = dragStartValue + (dragDistance * sensitivity);
         
         setValue(newValue);
@@ -132,6 +153,16 @@ public:
         
         // Set the value which will trigger the callback and repaint
         setValue(defaultValue);
+    }
+    
+    // Scale change notification implementation
+    void scaleFactorChanged(float newScale) override
+    {
+        // Update knob size for new scale
+        auto& scale = GlobalUIScale::getInstance();
+        int scaledKnobSize = scale.getScaled(knobSize);
+        setSize(scaledKnobSize + scale.getScaled(14), scaledKnobSize + scale.getScaled(29));
+        repaint();
     }
     
 private:
