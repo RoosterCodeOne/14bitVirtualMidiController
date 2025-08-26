@@ -463,13 +463,13 @@ public:
         // Position the active window (Settings OR Learn, never both)
         if (isInSettingsMode && settingsWindow.isVisible())
         {
-            windowManager.positionSideWindow(settingsWindow, area, MainControllerLayout::Constants::TOP_AREA_HEIGHT, 
-                                            MainControllerLayout::Constants::SETTINGS_PANEL_WIDTH);
+            windowManager.positionSideWindow(settingsWindow, area, MainControllerLayout::Constants::getTopAreaHeight(), 
+                                            MainControllerLayout::Constants::getSettingsPanelWidth());
         }
         else if (isInLearnMode && midiLearnWindow.isVisible())
         {
-            windowManager.positionSideWindow(midiLearnWindow, area, MainControllerLayout::Constants::TOP_AREA_HEIGHT,
-                                            MainControllerLayout::Constants::SETTINGS_PANEL_WIDTH);
+            windowManager.positionSideWindow(midiLearnWindow, area, MainControllerLayout::Constants::getTopAreaHeight(),
+                                            MainControllerLayout::Constants::getSettingsPanelWidth());
         }
         
         // Layout sliders using MainControllerLayout
@@ -1384,7 +1384,7 @@ private:
     {
         windowManager.updateWindowConstraints(getTopLevelComponent(), bankManager.isEightSliderMode(),
                                             isInSettingsMode, isInLearnMode, 
-                                            MainControllerLayout::Constants::SETTINGS_PANEL_WIDTH);
+                                            MainControllerLayout::Constants::getSettingsPanelWidth());
     }
     
     void saveCurrentState()
@@ -1563,7 +1563,7 @@ private:
         
         windowManager.toggleLearnWindow(getTopLevelComponent(), midiLearnWindow, settingsWindow,
                                        isInLearnMode, isInSettingsMode, bankManager.isEightSliderMode(),
-                                       MainControllerLayout::Constants::SETTINGS_PANEL_WIDTH,
+                                       MainControllerLayout::Constants::getSettingsPanelWidth(),
                                        onLearnModeEnter, onLearnModeExit);
         
         if (isInLearnMode)
