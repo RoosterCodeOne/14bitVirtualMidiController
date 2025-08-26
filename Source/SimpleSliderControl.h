@@ -17,6 +17,7 @@
 #include "UI/AutomationContextMenu.h"
 #include "UI/AutomationSaveDialog.h"
 #include "UI/AutomationConfigManagementWindow.h"
+#include "UI/GlobalUIScale.h"
 
 //==============================================================================
 // Custom clickable label for lock functionality
@@ -33,7 +34,9 @@ public:
 };
 
 //==============================================================================
-class SimpleSliderControl : public juce::Component, public juce::Timer
+class SimpleSliderControl : public juce::Component, 
+                            public juce::Timer, 
+                            public GlobalUIScale::ScaleChangeListener
 {
 public:
     // Import time mode from automation control panel
@@ -181,6 +184,9 @@ public:
         
         // Initialize learn zones
         setupLearnZones();
+        
+        // Register for scale change notifications
+        GlobalUIScale::getInstance().addScaleChangeListener(this);
     }
     
     ~SimpleSliderControl()
@@ -188,6 +194,9 @@ public:
         // CRITICAL: Stop automation and timer before destruction
         automationEngine.stopAutomation(index);
         stopTimer();
+        
+        // Remove scale change listener
+        GlobalUIScale::getInstance().removeScaleChangeListener(this);
         
         // CRITICAL: Remove look and feel before destruction
         mainSlider.setLookAndFeel(nullptr);
@@ -247,6 +256,8 @@ public:
     
     void paint(juce::Graphics& g) override
     {
+        auto& scale = GlobalUIScale::getInstance();
+        
         // Draw MIDI activity indicator above value label - blueprint style
         juce::Colour indicatorColor = BlueprintColors::warning;
         float alpha = midiActivityState ? 1.0f : 0.2f;
@@ -256,7 +267,7 @@ public:
         
         // Technical outline
         g.setColour(BlueprintColors::blueprintLines);
-        g.drawRect(midiIndicatorBounds, 1.0f);
+        g.drawRect(midiIndicatorBounds, scale.getScaledLineThickness());
         
         // Draw learn mode corner markers
         if (showLearnMarkers)
@@ -1074,6 +1085,20 @@ public:
     // Snap logic moved to SliderDisplayManager::setMidiValueWithSnap()
     // This ensures consistent snap behavior across all interaction paths
     
+    // Scale change notification implementation
+    void scaleFactorChanged(float newScale) override
+    {
+        // Trigger layout updates when scale changes
+        resized();
+        repaint();
+        
+        // Notify child components that support scaling
+        automationControlPanel.repaint();
+        
+        // Update learn zone bounds for new scale
+        updateLearnZoneBounds();
+    }
+    
 private:
     void setupDisplayManager()
     {
@@ -1175,9 +1200,10 @@ private:
     
     void drawLearnModeMarkers(juce::Graphics& g)
     {
+        auto& scale = GlobalUIScale::getInstance();
         auto bounds = getLocalBounds().toFloat();
-        float markerSize = 8.0f;
-        float markerThickness = 2.0f;
+        float markerSize = scale.getScaled(8.0f);
+        float markerThickness = scale.getScaled(2.0f);
         
         g.setColour(BlueprintColors::warning);
         
