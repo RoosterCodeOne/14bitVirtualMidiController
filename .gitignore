@@ -7,6 +7,3 @@ Builds
 # Claude Code conversation exports
 *.txt
 Claude\ Files\
-
-# Scaling implementation documentation
-Scaling.md
