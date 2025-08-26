@@ -30,11 +30,7 @@ public:
                           const juce::String& customName = "", SnapThreshold snapThreshold = SnapThreshold::Medium,
                           bool showAutomation = true);
     
-    // Access methods for main window
-    int getMidiChannel() const { return midiChannelCombo.getSelectedId(); }
-    double getBPM() const { return bpmSlider.getValue(); }
-    void setBPM(double bpm) { bpmSlider.setValue(bpm, juce::dontSendNotification); }
-    void setSyncStatus(bool isExternal, double externalBPM = 0.0);
+    // Access methods for main window (MIDI Channel and BPM moved to GlobalSettingsTab)
     
     // Getter methods for current slider settings (for parent coordination)
     int getCurrentCCNumber() const { return ccNumberInput.getText().getIntValue(); }
@@ -56,7 +52,6 @@ public:
     
     // Callback functions for communication with parent
     std::function<void()> onSettingsChanged;
-    std::function<void(double)> onBPMChanged;
     std::function<void(int)> onBankSelected;
     std::function<void(int)> onSliderSettingChanged;
     std::function<void(int)> onSliderSelectionChanged; // For cycling without saving settings
@@ -68,14 +63,7 @@ private:
     int currentColorId = 1; // Track current color selection
     bool isCustomStepFlag = false; // Track whether step is custom or auto
     
-    // MIDI Channel controls
-    juce::Label midiChannelLabel;
-    juce::ComboBox midiChannelCombo;
-    
-    // BPM controls
-    juce::Label bpmLabel;
-    juce::Slider bpmSlider;
-    juce::Label syncStatusLabel;
+    // MIDI Channel and BPM controls moved to GlobalSettingsTab
     
     // Bank selector
     juce::Label bankSelectorLabel;
@@ -163,7 +151,6 @@ private:
     juce::Rectangle<int> colorGridBounds;
     
     // Private methods
-    void setupControllerControls();
     void setupBankSelector();
     
     // Color grid management
@@ -202,7 +189,6 @@ private:
 inline ControllerSettingsTab::ControllerSettingsTab(SettingsWindow* parent)
     : parentWindow(parent)
 {
-    setupControllerControls();
     setupBankSelector();
     setupNameControls();
     setupPerSliderControls();
@@ -233,25 +219,13 @@ inline void ControllerSettingsTab::paint(juce::Graphics& g)
     const int labelHeight = 18;
     const int headerHeight = 22;
     
-    // Section 1 - Global Settings Box (starts at very top)
-    auto section1Height = headerHeight + (labelHeight + controlSpacing) * 2 + controlSpacing;
-    auto section1Bounds = bounds.removeFromTop(section1Height);
-    section1Bounds = section1Bounds.expanded(8, 4);
-    
-    g.setColour(BlueprintColors::sectionBackground);
-    g.fillRoundedRectangle(section1Bounds.toFloat(), 4.0f);
-    g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
-    g.drawRoundedRectangle(section1Bounds.toFloat(), 4.0f, 1.0f);
-    
-    bounds.removeFromTop(sectionSpacing);
-    
     // Skip Breadcrumb (no background box)
     bounds.removeFromTop(20 + 6);
     
     // Skip Bank selector (no background box)
     bounds.removeFromTop(22 + sectionSpacing);
     
-    // Section 2 - Slider Configuration Box
+    // Section 1 - Slider Configuration Box
     auto section2Height = headerHeight + (labelHeight + controlSpacing) * 4 + controlSpacing;
     auto section2Bounds = bounds.removeFromTop(section2Height);
     section2Bounds = section2Bounds.expanded(8, 4);
@@ -263,7 +237,7 @@ inline void ControllerSettingsTab::paint(juce::Graphics& g)
     
     bounds.removeFromTop(sectionSpacing);
     
-    // Section 3 - Display & Range Box (expanded)
+    // Section 2 - Display & Range Box (expanded)
     auto section3Height = headerHeight + (labelHeight + controlSpacing) * 6 + 60 + controlSpacing * 2;
     auto section3Bounds = bounds.removeFromTop(section3Height);
     section3Bounds = section3Bounds.expanded(8, 4);
@@ -281,36 +255,12 @@ inline void ControllerSettingsTab::resized()
 {
     auto bounds = getLocalBounds().reduced(15);
     
-    // Section 1 - Global Settings (starts at very top)
     const int sectionSpacing = 8;
     const int controlSpacing = 4;
     const int labelHeight = 18;
     const int headerHeight = 22;
     
-    auto globalBounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 2 + controlSpacing);
-    
-    section1Header.setBounds(globalBounds.removeFromTop(headerHeight));
-    globalBounds.removeFromTop(controlSpacing);
-    
-    // MIDI Channel row
-    auto channelRow = globalBounds.removeFromTop(labelHeight);
-    midiChannelLabel.setBounds(channelRow.removeFromLeft(100));
-    channelRow.removeFromLeft(8);
-    midiChannelCombo.setBounds(channelRow.removeFromLeft(120));
-    
-    globalBounds.removeFromTop(controlSpacing);
-    
-    // BPM row  
-    auto bpmRow = globalBounds.removeFromTop(labelHeight);
-    bpmLabel.setBounds(bpmRow.removeFromLeft(40));
-    bpmRow.removeFromLeft(8);
-    bpmSlider.setBounds(bpmRow.removeFromLeft(120));
-    bpmRow.removeFromLeft(8);
-    syncStatusLabel.setBounds(bpmRow);
-    
-    bounds.removeFromTop(sectionSpacing);
-    
-    // Breadcrumb (no section box) - after Global Settings
+    // Breadcrumb (no section box) - at the top
     auto breadcrumbArea = bounds.removeFromTop(20);
     breadcrumbLabel.setBounds(breadcrumbArea);
     
@@ -406,66 +356,16 @@ inline void ControllerSettingsTab::handleColorGridClick(const juce::MouseEvent& 
     }
 }
 
-inline void ControllerSettingsTab::setupControllerControls()
+
+inline void ControllerSettingsTab::setupBankSelector()
 {
-    // MIDI Channel controls
-    addAndMakeVisible(midiChannelLabel);
-    midiChannelLabel.setText("MIDI Channel:", juce::dontSendNotification);
-    midiChannelLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-    
-    addAndMakeVisible(midiChannelCombo);
-    for (int i = 1; i <= 16; ++i)
-        midiChannelCombo.addItem("Channel " + juce::String(i), i);
-    midiChannelCombo.setSelectedId(1);
-    midiChannelCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background);
-    midiChannelCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary);
-    midiChannelCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines);
-    midiChannelCombo.onChange = [this]() {
-        if (onSettingsChanged)
-            onSettingsChanged();
-        // Restore focus to parent after combo selection
-        if (onRequestFocus) onRequestFocus();
-    };
-    
-    // BPM controls
-    addAndMakeVisible(bpmLabel);
-    bpmLabel.setText("BPM:", juce::dontSendNotification);
-    bpmLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-    
-    addAndMakeVisible(bpmSlider);
-    bpmSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-    bpmSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
-    bpmSlider.setRange(60.0, 200.0, 1.0);
-    bpmSlider.setValue(120.0);
-    bpmSlider.setColour(juce::Slider::backgroundColourId, BlueprintColors::background);
-    bpmSlider.setColour(juce::Slider::trackColourId, BlueprintColors::blueprintLines);
-    bpmSlider.setColour(juce::Slider::thumbColourId, BlueprintColors::active);
-    bpmSlider.setColour(juce::Slider::textBoxTextColourId, BlueprintColors::textPrimary);
-    bpmSlider.setColour(juce::Slider::textBoxBackgroundColourId, BlueprintColors::background);
-    bpmSlider.setColour(juce::Slider::textBoxOutlineColourId, BlueprintColors::blueprintLines);
-    bpmSlider.onValueChange = [this]() {
-        if (onBPMChanged)
-            onBPMChanged(bpmSlider.getValue());
-        // Restore focus to parent after slider adjustment
-        if (onRequestFocus) onRequestFocus();
-    };
-    
-    addAndMakeVisible(syncStatusLabel);
-    syncStatusLabel.setText("Internal Sync", juce::dontSendNotification);
-    syncStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
-    syncStatusLabel.setFont(juce::FontOptions(10.0f));
-    syncStatusLabel.setJustificationType(juce::Justification::centredRight);
-    
     // Breadcrumb label
     addAndMakeVisible(breadcrumbLabel);
     breadcrumbLabel.setText("Bank A > Slider 1", juce::dontSendNotification);
     breadcrumbLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold));
     breadcrumbLabel.setColour(juce::Label::textColourId, BlueprintColors::active);
     breadcrumbLabel.setJustificationType(juce::Justification::centredLeft);
-}
-
-inline void ControllerSettingsTab::setupBankSelector()
-{
+    
     addAndMakeVisible(bankSelectorLabel);
     bankSelectorLabel.setText("Bank:", juce::dontSendNotification);
     bankSelectorLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold));
@@ -541,15 +441,9 @@ inline void ControllerSettingsTab::setupNameControls()
 
 inline void ControllerSettingsTab::setupPerSliderControls()
 {
-    // Section 1 - Global Settings (at top, above per-slider settings)
+    // Section 1 - Slider Configuration
     addAndMakeVisible(section1Header);
-    section1Header.setText("Global Settings", juce::dontSendNotification);
-    section1Header.setFont(juce::FontOptions(14.0f, juce::Font::bold));
-    section1Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-    
-    // Section 2 - Slider Configuration
-    addAndMakeVisible(section2Header);
-    section2Header.setText("Slider Configuration", juce::dontSendNotification);
+    section1Header.setText("Slider Configuration", juce::dontSendNotification);
     section2Header.setFont(juce::FontOptions(14.0f, juce::Font::bold));
     section2Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
@@ -591,9 +485,9 @@ inline void ControllerSettingsTab::setupPerSliderControls()
         if (onRequestFocus) onRequestFocus();
     };
     
-    // Section 3 - Display & Range
-    addAndMakeVisible(section3Header);
-    section3Header.setText("Display & Range", juce::dontSendNotification);
+    // Section 2 - Display & Range
+    addAndMakeVisible(section2Header);
+    section2Header.setText("Display & Range", juce::dontSendNotification);
     section3Header.setFont(juce::FontOptions(14.0f, juce::Font::bold));
     section3Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
@@ -990,20 +884,7 @@ inline juce::Colour ControllerSettingsTab::getColorById(int colorId)
 // Due to length constraints, I'll create this as a header-only implementation for now
 // In a production environment, you'd split the implementation into a .cpp file
 
-inline void ControllerSettingsTab::setSyncStatus(bool isExternal, double externalBPM)
-{
-    if (isExternal && externalBPM > 0.0)
-    {
-        syncStatusLabel.setText("DAW Sync: " + juce::String(externalBPM, 1) + " BPM", 
-                              juce::dontSendNotification);
-        syncStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::active);
-    }
-    else
-    {
-        syncStatusLabel.setText("Internal Sync", juce::dontSendNotification);
-        syncStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
-    }
-}
+// setSyncStatus method moved to GlobalSettingsTab
 
 // Complete implementations for validation methods with proper data handling
 inline void ControllerSettingsTab::validateAndApplyCCNumber()
@@ -1383,9 +1264,7 @@ inline void ControllerSettingsTab::updateColorButtonSelection()
 
 inline void ControllerSettingsTab::applyPreset(const ControllerPreset& preset)
 {
-    // Apply MIDI channel
-    midiChannelCombo.setSelectedId(preset.midiChannel, juce::dontSendNotification);
-    
+    // MIDI Channel handling moved to GlobalSettingsTab
     // Update controls for currently selected slider would be handled by parent coordination
 }
 inline void ControllerSettingsTab::applyAutomationVisibility()

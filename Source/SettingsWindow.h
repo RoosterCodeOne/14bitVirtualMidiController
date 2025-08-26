@@ -4,8 +4,10 @@
 #include "PresetManager.h"
 #include "CustomLookAndFeel.h"
 #include "Core/SliderDisplayManager.h"
+#include "UI/GlobalSettingsTab.h"
 #include "UI/ControllerSettingsTab.h"
 #include "UI/PresetManagementTab.h"
+#include "UI/AboutTab.h"
 
 //==============================================================================
 class SettingsWindow : public juce::Component
@@ -62,8 +64,10 @@ public:
 private:
     // Tab management using raw pointers for JUCE compatibility
     juce::TabbedComponent* tabbedComponent;
+    std::unique_ptr<GlobalSettingsTab> globalTab;
     std::unique_ptr<ControllerSettingsTab> controllerTab;
     std::unique_ptr<PresetManagementTab> presetTab;
+    std::unique_ptr<AboutTab> aboutTab;
     
     // Shared state
     PresetManager presetManager;
@@ -158,12 +162,16 @@ inline void SettingsWindow::setupTabs()
     tabbedComponent->setWantsKeyboardFocus(false);
     
     // Create tab instances
+    globalTab = std::make_unique<GlobalSettingsTab>(this);
     controllerTab = std::make_unique<ControllerSettingsTab>(this);
     presetTab = std::make_unique<PresetManagementTab>(this, presetManager);
+    aboutTab = std::make_unique<AboutTab>(this);
     
     // Add tabs to tabbed component
-    tabbedComponent->addTab("Controller", BlueprintColors::windowBackground, controllerTab.get(), false);
+    tabbedComponent->addTab("Global", BlueprintColors::windowBackground, globalTab.get(), false);
+    tabbedComponent->addTab("Slider", BlueprintColors::windowBackground, controllerTab.get(), false);
     tabbedComponent->addTab("Presets", BlueprintColors::windowBackground, presetTab.get(), false);
+    tabbedComponent->addTab("About", BlueprintColors::windowBackground, aboutTab.get(), false);
     
     // Set tab colors
     tabbedComponent->setColour(juce::TabbedComponent::backgroundColourId, BlueprintColors::windowBackground);
@@ -175,15 +183,28 @@ inline void SettingsWindow::setupTabs()
 
 inline void SettingsWindow::setupCommunication()
 {
-    // Controller tab callbacks
-    controllerTab->onSettingsChanged = [this]() {
+    // Global tab callbacks
+    globalTab->onSettingsChanged = [this]() {
         if (onSettingsChanged)
             onSettingsChanged();
     };
     
-    controllerTab->onBPMChanged = [this](double bpm) {
+    globalTab->onBPMChanged = [this](double bpm) {
         if (onBPMChanged)
             onBPMChanged(bpm);
+    };
+    
+    globalTab->onRequestFocus = [this]() {
+        if (isVisible() && isShowing() && !hasKeyboardFocus(true))
+        {
+            toFront(true);
+        }
+    };
+    
+    // Controller tab callbacks
+    controllerTab->onSettingsChanged = [this]() {
+        if (onSettingsChanged)
+            onSettingsChanged();
     };
     
     controllerTab->onBankSelected = [this](int bankIndex) {
@@ -273,6 +294,14 @@ inline void SettingsWindow::setupCommunication()
             onPresetLoaded(defaultPreset);
         }
     };
+    
+    // About tab callbacks
+    aboutTab->onRequestFocus = [this]() {
+        if (isVisible() && isShowing() && !hasKeyboardFocus(true))
+        {
+            toFront(true);
+        }
+    };
 }
 
 inline void SettingsWindow::initializeSliderData()
@@ -349,7 +378,7 @@ inline void SettingsWindow::resized()
 // Public API implementation - maintained for backward compatibility
 inline int SettingsWindow::getMidiChannel() const
 {
-    return controllerTab->getMidiChannel();
+    return globalTab->getMidiChannel();
 }
 
 inline int SettingsWindow::getCCNumber(int sliderIndex) const
@@ -425,6 +454,9 @@ inline ControllerPreset SettingsWindow::getCurrentPreset() const
 
 inline void SettingsWindow::applyPreset(const ControllerPreset& preset)
 {
+    // Apply to global tab
+    globalTab->applyPreset(preset);
+    
     // Apply to controller tab
     controllerTab->applyPreset(preset);
     
@@ -518,17 +550,17 @@ inline BipolarSettings SettingsWindow::getBipolarSettings(int sliderIndex) const
 
 inline void SettingsWindow::setBPM(double bpm)
 {
-    controllerTab->setBPM(bpm);
+    globalTab->setBPM(bpm);
 }
 
 inline double SettingsWindow::getBPM() const
 {
-    return controllerTab->getBPM();
+    return globalTab->getBPM();
 }
 
 inline void SettingsWindow::setSyncStatus(bool isExternal, double externalBPM)
 {
-    controllerTab->setSyncStatus(isExternal, externalBPM);
+    globalTab->setSyncStatus(isExternal, externalBPM);
 }
 
 inline juce::String SettingsWindow::getSliderDisplayName(int sliderIndex) const
