@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 #include <map>
 #include "Core/SliderDisplayManager.h"
+#include "UI/GlobalUIScale.h"
 
 // Blueprint color palette
 namespace BlueprintColors
@@ -74,13 +75,15 @@ public:
     // Public method for drawing blueprint-style technical panel
     void drawExtendedModulePlate(juce::Graphics& g, juce::Rectangle<float> bounds)
     {
+        auto& scale = GlobalUIScale::getInstance();
+        
         // Solid panel background matching settings sections
         g.setColour(BlueprintColors::sectionBackground);
-        g.fillRoundedRectangle(bounds, 2.0f);
+        g.fillRoundedRectangle(bounds, scale.getScaledCornerRadius());
         
         // Technical outline - dimmed cyan line
         g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
-        g.drawRoundedRectangle(bounds, 2.0f, 1.0f);
+        g.drawRoundedRectangle(bounds, scale.getScaledCornerRadius(), scale.getScaledLineThickness());
         
         // No mounting screws - clean technical appearance
     }
@@ -90,6 +93,8 @@ public:
                            bool isPressed, bool isHighlighted, bool isSelected = false, 
                            juce::Colour customColor = juce::Colour())
     {
+        auto& scale = GlobalUIScale::getInstance();
+        
         // Blueprint-style flat button background
         juce::Colour bgColor;
         juce::Colour activeColor = customColor.isTransparent() ? BlueprintColors::active : customColor;
@@ -102,10 +107,10 @@ public:
             bgColor = BlueprintColors::panel;
             
         g.setColour(bgColor);
-        g.fillRoundedRectangle(bounds, 2.0f);
+        g.fillRoundedRectangle(bounds, scale.getScaledCornerRadius());
         
         // Technical outline - thicker when pressed/highlighted
-        float lineWidth = (isPressed || isHighlighted) ? 2.0f : 1.0f;
+        float lineWidth = (isPressed || isHighlighted) ? scale.getScaled(2.0f) : scale.getScaledLineThickness();
         juce::Colour outlineColor;
         if (isHighlighted)
             outlineColor = activeColor;
@@ -115,12 +120,12 @@ public:
             outlineColor = BlueprintColors::blueprintLines.withAlpha(0.6f);
             
         g.setColour(outlineColor);
-        g.drawRoundedRectangle(bounds, 2.0f, lineWidth);
+        g.drawRoundedRectangle(bounds, scale.getScaledCornerRadius(), lineWidth);
         
         // Draw button text with blueprint styling
         if (text.isNotEmpty())
         {
-            g.setFont(juce::Font(11.0f, juce::Font::bold)); // Increased from 9.0f for better readability
+            g.setFont(scale.getScaledFont(11.0f).boldened()); // Scale font and make bold
             
             // Color based on state - ensure good contrast
             if (isHighlighted)
@@ -145,8 +150,10 @@ public:
     // Public drawing methods for external use
     void drawSliderTrack(juce::Graphics& g, juce::Rectangle<float> trackArea, juce::Colour trackColor, double sliderValue = 1.0, double minValue = 0.0, double maxValue = 16383.0, SliderOrientation orientation = SliderOrientation::Normal, double bipolarCenter = 8191.5, bool isInSnapZone = false)
     {
+        auto& scale = GlobalUIScale::getInstance();
+        
         // Blueprint-style rectangular track
-        auto track = trackArea.reduced(2, 4);
+        auto track = trackArea.reduced(scale.getScaled(2), scale.getScaled(4));
         
         // Track background - solid dark fill
         g.setColour(BlueprintColors::background);
@@ -212,17 +219,17 @@ public:
             {
                 // Enhanced center line when in snap zone - brighter and thicker
                 g.setColour(trackColor.brighter(0.3f));
-                g.fillRect(juce::Rectangle<float>(track.getX() - 2.0f, centerY - 2.0f, track.getWidth() + 4.0f, 4.0f));
+                g.fillRect(juce::Rectangle<float>(track.getX() - scale.getScaled(2.0f), centerY - scale.getScaled(2.0f), track.getWidth() + scale.getScaled(4.0f), scale.getScaled(4.0f)));
                 
                 // Add subtle glow effect
                 g.setColour(trackColor.withAlpha(0.4f));
-                g.fillRect(juce::Rectangle<float>(track.getX() - 4.0f, centerY - 3.0f, track.getWidth() + 8.0f, 6.0f));
+                g.fillRect(juce::Rectangle<float>(track.getX() - scale.getScaled(4.0f), centerY - scale.getScaled(3.0f), track.getWidth() + scale.getScaled(8.0f), scale.getScaled(6.0f)));
             }
             else
             {
                 // Normal center line
                 g.setColour(trackColor.withAlpha(0.8f));
-                g.fillRect(juce::Rectangle<float>(track.getX(), centerY - 1.0f, track.getWidth(), 2.0f));
+                g.fillRect(juce::Rectangle<float>(track.getX(), centerY - scale.getScaled(1.0f), track.getWidth(), scale.getScaled(2.0f)));
             }
             
             // Fill from center to current value (only if not exactly at center)
@@ -260,14 +267,16 @@ public:
         
         // Technical outline
         g.setColour(BlueprintColors::blueprintLines);
-        g.drawRect(track, 1.0f);
+        g.drawRect(track, scale.getScaledLineThickness());
     }
     
     void drawTickMarks(juce::Graphics& g, juce::Rectangle<float> trackArea)
     {
+        auto& scale = GlobalUIScale::getInstance();
+        
         g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
         
-        auto tickArea = trackArea.reduced(0, 4);
+        auto tickArea = trackArea.reduced(0, scale.getScaled(4));
         
         if (quantizationEnabled && quantizationIncrement > 0.0)
         {
@@ -291,11 +300,11 @@ public:
                         if (y >= tickArea.getY() && y <= tickArea.getBottom())
                         {
                             // All quantization ticks are major ticks
-                            float tickLength = 8.0f;
-                            float tickWidth = 1.5f; // Slightly thicker for quantization
+                            float tickLength = scale.getScaled(8.0f);
+                            float tickWidth = scale.getScaled(1.5f); // Slightly thicker for quantization
                             
                             // Quantization tick marks - left side with distinctive style
-                            g.fillRect(juce::Rectangle<float>(trackArea.getX() - tickLength - 2, y - tickWidth/2, tickLength, tickWidth));
+                            g.fillRect(juce::Rectangle<float>(trackArea.getX() - tickLength - scale.getScaled(2), y - tickWidth/2, tickLength, tickWidth));
                         }
                     }
                 }
@@ -312,20 +321,22 @@ public:
                 
                 // Major ticks every 5, minor ticks in between
                 bool isMajor = (i % 5 == 0);
-                float tickLength = isMajor ? 8.0f : 4.0f;
-                float tickWidth = 1.0f; // Consistent thin lines
+                float tickLength = isMajor ? scale.getScaled(8.0f) : scale.getScaled(4.0f);
+                float tickWidth = scale.getScaled(1.0f); // Consistent thin lines
                 
                 // Technical tick marks - left side only for cleaner look
-                g.fillRect(trackArea.getX() - tickLength - 2, y - tickWidth/2, tickLength, tickWidth);
+                g.fillRect(trackArea.getX() - tickLength - scale.getScaled(2), y - tickWidth/2, tickLength, tickWidth);
             }
         }
     }
     
     void drawSliderThumb(juce::Graphics& g, float centerX, float centerY, juce::Colour trackColor)
     {
+        auto& scale = GlobalUIScale::getInstance();
+        
         // Blueprint-style flat rectangular thumb
-        float thumbWidth = 28.0f;
-        float thumbHeight = 12.0f;
+        float thumbWidth = scale.getScaled(28.0f);
+        float thumbHeight = scale.getScaled(12.0f);
         
         auto thumbBounds = juce::Rectangle<float>(thumbWidth, thumbHeight)
             .withCentre(juce::Point<float>(centerX, centerY));
@@ -338,11 +349,11 @@ public:
         
         // Technical outline
         g.setColour(BlueprintColors::blueprintLines);
-        g.drawRect(thumbBounds, 1.0f);
+        g.drawRect(thumbBounds, scale.getScaledLineThickness());
         
         // Horizontal indicator line using track color
-        float lineHeight = 2.0f;
-        float lineWidth = thumbWidth - 6.0f;
+        float lineHeight = scale.getScaled(2.0f);
+        float lineWidth = thumbWidth - scale.getScaled(6.0f);
         
         auto centerLine = juce::Rectangle<float>(lineWidth, lineHeight)
             .withCentre(thumbBounds.getCentre());
@@ -354,9 +365,11 @@ public:
     // Add blueprint grid drawing method
     void drawBlueprintGrid(juce::Graphics& g, juce::Rectangle<int> bounds)
     {
+        auto& scale = GlobalUIScale::getInstance();
+        
         g.setColour(BlueprintColors::blueprintLines.withAlpha(0.1f));
         
-        int gridSpacing = 20;
+        int gridSpacing = scale.getScaled(20);
         
         // Vertical lines
         for (int x = bounds.getX(); x < bounds.getRight(); x += gridSpacing)
@@ -369,6 +382,14 @@ public:
         {
             g.drawHorizontalLine(y, bounds.getX(), bounds.getRight());
         }
+    }
+    
+    // Scale change notification method
+    void updateForNewScale()
+    {
+        // This method can be called by components when scale changes
+        // All drawing operations already use scaled values, so no specific updates needed
+        // But this provides a hook for any future scale-dependent calculations
     }
 
 private:
@@ -434,6 +455,14 @@ public:
     {
         // Use the same blueprint button styling for toggle buttons
         drawButtonBackground(g, button, juce::Colour(), shouldDrawButtonAsHighlighted, shouldDrawButtonAsDown);
+    }
+    
+    // Scale change notification method
+    void updateForNewScale()
+    {
+        // This method can be called by components when scale changes
+        // All drawing operations already use scaled values, so no specific updates needed
+        // But this provides a hook for any future scale-dependent calculations
     }
     
 private:
