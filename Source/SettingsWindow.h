@@ -8,9 +8,11 @@
 #include "UI/ControllerSettingsTab.h"
 #include "UI/PresetManagementTab.h"
 #include "UI/AboutTab.h"
+#include "UI/GlobalUIScale.h"
 
 //==============================================================================
-class SettingsWindow : public juce::Component
+class SettingsWindow : public juce::Component, 
+                       public GlobalUIScale::ScaleChangeListener
 {
 public:
     SettingsWindow();
@@ -60,6 +62,9 @@ public:
     
     // Keyboard handling
     bool keyPressed(const juce::KeyPress& key) override;
+    
+    // Scale change notification implementation
+    void scaleFactorChanged(float newScale) override;
     
 private:
     // Tab management using raw pointers for JUCE compatibility
@@ -141,10 +146,16 @@ inline SettingsWindow::SettingsWindow()
     
     // Enable keyboard focus for arrow key handling
     setWantsKeyboardFocus(true);
+    
+    // Register for scale change notifications
+    GlobalUIScale::getInstance().addScaleChangeListener(this);
 }
 
 inline SettingsWindow::~SettingsWindow()
 {
+    // Remove scale change listener
+    GlobalUIScale::getInstance().removeScaleChangeListener(this);
+    
     // Clean up tab component manually since it's a raw pointer
     delete tabbedComponent;
     tabbedComponent = nullptr;
@@ -356,6 +367,8 @@ inline void SettingsWindow::setVisible(bool shouldBeVisible)
 
 inline void SettingsWindow::paint(juce::Graphics& g)
 {
+    auto& scale = GlobalUIScale::getInstance();
+    
     // Blueprint aesthetic background
     auto bounds = getLocalBounds().toFloat();
     
@@ -365,12 +378,13 @@ inline void SettingsWindow::paint(juce::Graphics& g)
     
     // Draw complete window outline - blueprint style
     g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
-    g.drawRect(bounds, 1.0f);
+    g.drawRect(bounds, scale.getScaledLineThickness());
 }
 
 inline void SettingsWindow::resized()
 {
-    auto bounds = getLocalBounds().reduced(10);
+    auto& scale = GlobalUIScale::getInstance();
+    auto bounds = getLocalBounds().reduced(scale.getScaled(10));
     if (tabbedComponent)
         tabbedComponent->setBounds(bounds);
 }
@@ -694,4 +708,28 @@ inline void SettingsWindow::applyOrientationToSlider(int sliderIndex)
     // The actual application happens in DebugMidiController::updateSliderSettings()
     if (onSettingsChanged)
         onSettingsChanged();
+}
+
+inline void SettingsWindow::scaleFactorChanged(float newScale)
+{
+    // Trigger layout updates when scale changes
+    resized();
+    repaint();
+    
+    // Notify all tabs of scale change
+    if (globalTab)
+        globalTab->repaint();
+    
+    if (controllerTab)
+        controllerTab->repaint();
+    
+    if (presetTab)
+        presetTab->repaint();
+    
+    if (aboutTab)
+        aboutTab->repaint();
+    
+    // Update tabbed component layout
+    if (tabbedComponent)
+        tabbedComponent->resized();
 }

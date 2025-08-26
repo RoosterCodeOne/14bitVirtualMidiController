@@ -4,6 +4,7 @@
 #include "../CustomLookAndFeel.h"
 #include "../SimpleSliderControl.h"
 #include "../Core/SliderDisplayManager.h"
+#include "GlobalUIScale.h"
 
 // Forward declaration
 class SettingsWindow;
@@ -253,31 +254,32 @@ inline void ControllerSettingsTab::paint(juce::Graphics& g)
 
 inline void ControllerSettingsTab::resized()
 {
-    auto bounds = getLocalBounds().reduced(15);
+    auto& scale = GlobalUIScale::getInstance();
+    auto bounds = getLocalBounds().reduced(scale.getScaled(15));
     
-    const int sectionSpacing = 8;
-    const int controlSpacing = 4;
-    const int labelHeight = 18;
-    const int headerHeight = 22;
+    const int sectionSpacing = scale.getScaled(8);
+    const int controlSpacing = scale.getScaled(4);
+    const int labelHeight = scale.getScaled(18);
+    const int headerHeight = scale.getScaled(22);
     
     // Breadcrumb (no section box) - at the top
-    auto breadcrumbArea = bounds.removeFromTop(20);
+    auto breadcrumbArea = bounds.removeFromTop(scale.getScaled(20));
     breadcrumbLabel.setBounds(breadcrumbArea);
     
-    bounds.removeFromTop(6);
+    bounds.removeFromTop(scale.getScaled(6));
     
     // Bank selector (no section box)
-    auto bankSelectorArea = bounds.removeFromTop(22);
-    bankSelectorLabel.setBounds(bankSelectorArea.removeFromLeft(40));
-    bankSelectorArea.removeFromLeft(8);
+    auto bankSelectorArea = bounds.removeFromTop(scale.getScaled(22));
+    bankSelectorLabel.setBounds(bankSelectorArea.removeFromLeft(scale.getScaled(40)));
+    bankSelectorArea.removeFromLeft(scale.getScaled(8));
     
-    int bankButtonWidth = (bankSelectorArea.getWidth() - 21) / 4;
+    int bankButtonWidth = (bankSelectorArea.getWidth() - scale.getScaled(21)) / 4;
     bankASelector.setBounds(bankSelectorArea.removeFromLeft(bankButtonWidth));
-    bankSelectorArea.removeFromLeft(7);
+    bankSelectorArea.removeFromLeft(scale.getScaled(7));
     bankBSelector.setBounds(bankSelectorArea.removeFromLeft(bankButtonWidth));
-    bankSelectorArea.removeFromLeft(7);
+    bankSelectorArea.removeFromLeft(scale.getScaled(7));
     bankCSelector.setBounds(bankSelectorArea.removeFromLeft(bankButtonWidth));
-    bankSelectorArea.removeFromLeft(7);
+    bankSelectorArea.removeFromLeft(scale.getScaled(7));
     bankDSelector.setBounds(bankSelectorArea.removeFromLeft(bankButtonWidth));
     
     bounds.removeFromTop(sectionSpacing);
