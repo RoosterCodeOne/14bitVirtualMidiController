@@ -2,6 +2,7 @@
 #pragma once
 #include <JuceHeader.h>
 #include "../CustomLookAndFeel.h"
+#include "GlobalUIScale.h"
 
 //==============================================================================
 class MainControllerLayout
@@ -16,12 +17,12 @@ public:
     
     struct Constants
     {
-        static constexpr int SLIDER_PLATE_WIDTH = 110;
-        static constexpr int SLIDER_GAP = 10;
-        static constexpr int SETTINGS_PANEL_WIDTH = 350;
-        static constexpr int TOP_AREA_HEIGHT = 50;
-        static constexpr int TOOLTIP_HEIGHT = 25;
-        static constexpr int VERTICAL_GAP = 10;
+        static int getSliderPlateWidth() { return GlobalUIScale::getInstance().getScaled(110); }
+        static int getSliderGap() { return GlobalUIScale::getInstance().getScaled(10); }
+        static int getSettingsPanelWidth() { return GlobalUIScale::getInstance().getScaled(350); }
+        static int getTopAreaHeight() { return GlobalUIScale::getInstance().getScaled(50); }
+        static int getTooltipHeight() { return GlobalUIScale::getInstance().getScaled(25); }
+        static int getVerticalGap() { return GlobalUIScale::getInstance().getScaled(10); }
     };
     
     MainControllerLayout() = default;
@@ -34,30 +35,30 @@ public:
     {
         LayoutBounds bounds;
         
-        const int contentAreaWidth = isEightSliderMode ? 970 : 490;
+        const int contentAreaWidth = isEightSliderMode ? GlobalUIScale::getInstance().getScaled(970) : GlobalUIScale::getInstance().getScaled(490);
         
         // Calculate content area bounds
         int contentX = (isInSettingsMode || isInLearnMode) ? 
-            Constants::SETTINGS_PANEL_WIDTH : 
+            Constants::getSettingsPanelWidth() : 
             (totalBounds.getWidth() - contentAreaWidth) / 2;
-        int contentY = Constants::TOP_AREA_HEIGHT + Constants::VERTICAL_GAP;
-        int contentHeight = totalBounds.getHeight() - Constants::TOP_AREA_HEIGHT - 
-                           Constants::TOOLTIP_HEIGHT - (2 * Constants::VERTICAL_GAP) + 8;
+        int contentY = Constants::getTopAreaHeight() + Constants::getVerticalGap();
+        int contentHeight = totalBounds.getHeight() - Constants::getTopAreaHeight() - 
+                           Constants::getTooltipHeight() - (2 * Constants::getVerticalGap()) + GlobalUIScale::getInstance().getScaled(8);
         
         bounds.contentArea = juce::Rectangle<int>(contentX, contentY, contentAreaWidth, contentHeight);
         
         // Calculate top area bounds
         if ((isInSettingsMode) || (isInLearnMode))
         {
-            bounds.topArea = juce::Rectangle<int>(0, 0, totalBounds.getWidth(), Constants::TOP_AREA_HEIGHT);
+            bounds.topArea = juce::Rectangle<int>(0, 0, totalBounds.getWidth(), Constants::getTopAreaHeight());
         }
         else
         {
-            bounds.topArea = juce::Rectangle<int>(contentX, 0, contentAreaWidth, Constants::TOP_AREA_HEIGHT);
+            bounds.topArea = juce::Rectangle<int>(contentX, 0, contentAreaWidth, Constants::getTopAreaHeight());
         }
         
         // Calculate tooltip area
-        bounds.tooltipArea = totalBounds.withHeight(Constants::TOOLTIP_HEIGHT).withBottomY(totalBounds.getBottom());
+        bounds.tooltipArea = totalBounds.withHeight(Constants::getTooltipHeight()).withBottomY(totalBounds.getBottom());
         
         return bounds;
     }
@@ -70,8 +71,8 @@ public:
                       std::function<int(int)> getVisibleSliderIndex) const
     {
         // Calculate total width needed for the slider rack
-        int totalSliderWidth = (visibleSliderCount * Constants::SLIDER_PLATE_WIDTH) + 
-                              ((visibleSliderCount - 1) * Constants::SLIDER_GAP);
+        int totalSliderWidth = (visibleSliderCount * Constants::getSliderPlateWidth()) + 
+                              ((visibleSliderCount - 1) * Constants::getSliderGap());
         
         // Center sliders within the provided content area
         int startX = contentArea.getX() + (contentArea.getWidth() - totalSliderWidth) / 2;
@@ -82,9 +83,9 @@ public:
             int sliderIndex = getVisibleSliderIndex(i);
             if (sliderIndex < sliderControls.size())
             {
-                int xPos = startX + (i * (Constants::SLIDER_PLATE_WIDTH + Constants::SLIDER_GAP));
+                int xPos = startX + (i * (Constants::getSliderPlateWidth() + Constants::getSliderGap()));
                 auto sliderBounds = juce::Rectangle<int>(xPos, contentArea.getY(), 
-                                                        Constants::SLIDER_PLATE_WIDTH, contentArea.getHeight());
+                                                        Constants::getSliderPlateWidth(), contentArea.getHeight());
                 sliderControls[sliderIndex]->setBounds(sliderBounds);
                 sliderControls[sliderIndex]->repaint();
             }
@@ -103,28 +104,30 @@ public:
                                juce::Component& modeButton,
                                juce::Component& showingLabel) const
     {
+        auto& scale = GlobalUIScale::getInstance();
+        
         // Settings button - positioned on left within top area bounds
-        int settingsButtonX = topAreaBounds.getX() + 10;
-        int settingsButtonY = topAreaBounds.getY() + 23;
-        settingsButton.setBounds(settingsButtonX, settingsButtonY, 75, 20);
+        int settingsButtonX = topAreaBounds.getX() + scale.getScaled(10);
+        int settingsButtonY = topAreaBounds.getY() + scale.getScaled(23);
+        settingsButton.setBounds(settingsButtonX, settingsButtonY, scale.getScaled(75), scale.getScaled(20));
         
         // Learn button - positioned closer to settings button
-        int learnButtonX = settingsButtonX + 80;
-        learnButton.setBounds(learnButtonX, settingsButtonY, 45, 20);
+        int learnButtonX = settingsButtonX + scale.getScaled(80);
+        learnButton.setBounds(learnButtonX, settingsButtonY, scale.getScaled(45), scale.getScaled(20));
         
         // MIDI Monitor button - positioned next to Learn button
-        int monitorButtonX = learnButtonX + 50;
-        monitorButton.setBounds(monitorButtonX, settingsButtonY, 80, 20);
+        int monitorButtonX = learnButtonX + scale.getScaled(50);
+        monitorButton.setBounds(monitorButtonX, settingsButtonY, scale.getScaled(80), scale.getScaled(20));
         
         // Bank buttons - positioned as 2x2 grid in top right of top area
-        const int buttonWidth = 35;
-        const int buttonHeight = 20;
-        const int buttonSpacing = 5;
-        const int rightMargin = 10;
+        const int buttonWidth = scale.getScaled(35);
+        const int buttonHeight = scale.getScaled(20);
+        const int buttonSpacing = scale.getScaled(5);
+        const int rightMargin = scale.getScaled(10);
         
         int gridWidth = (2 * buttonWidth) + buttonSpacing;
         int gridStartX = topAreaBounds.getRight() - rightMargin - gridWidth;
-        int gridStartY = topAreaBounds.getY() + 3;
+        int gridStartY = topAreaBounds.getY() + scale.getScaled(3);
         
         // Top row: A and B buttons
         bankAButton.setBounds(gridStartX, gridStartY, buttonWidth, buttonHeight);
@@ -135,10 +138,10 @@ public:
         bankDButton.setBounds(gridStartX + buttonWidth + buttonSpacing, gridStartY + buttonHeight + buttonSpacing, buttonWidth, buttonHeight);
         
         // Mode button - positioned to the left of C bank button with "Showing:" label
-        int showingLabelX = gridStartX - 100;
-        int modeButtonX = gridStartX - 40;
-        showingLabel.setBounds(showingLabelX, gridStartY + buttonHeight + buttonSpacing, 55, 20);
-        modeButton.setBounds(modeButtonX, gridStartY + buttonHeight + buttonSpacing, 30, 20);
+        int showingLabelX = gridStartX - scale.getScaled(100);
+        int modeButtonX = gridStartX - scale.getScaled(40);
+        showingLabel.setBounds(showingLabelX, gridStartY + buttonHeight + buttonSpacing, scale.getScaled(55), scale.getScaled(20));
+        modeButton.setBounds(modeButtonX, gridStartY + buttonHeight + buttonSpacing, scale.getScaled(30), scale.getScaled(20));
     }
     
     // Layout tooltip components at bottom
@@ -149,13 +152,14 @@ public:
                        bool isInLearnMode,
                        bool isEightSliderMode) const
     {
-        const int contentAreaWidth = isEightSliderMode ? 970 : 490;
-        auto tooltipArea = totalArea.withHeight(Constants::TOOLTIP_HEIGHT).withBottomY(totalArea.getBottom());
+        auto& scale = GlobalUIScale::getInstance();
+        const int contentAreaWidth = isEightSliderMode ? scale.getScaled(970) : scale.getScaled(490);
+        auto tooltipArea = totalArea.withHeight(Constants::getTooltipHeight()).withBottomY(totalArea.getBottom());
         
         if ((isInSettingsMode) || (isInLearnMode))
         {
             // Settings or learn open: tooltips span remaining width after panel
-            auto adjustedTooltipArea = tooltipArea.withTrimmedLeft(Constants::SETTINGS_PANEL_WIDTH);
+            auto adjustedTooltipArea = tooltipArea.withTrimmedLeft(Constants::getSettingsPanelWidth());
             auto leftTooltip = adjustedTooltipArea.removeFromLeft(adjustedTooltipArea.getWidth() / 2);
             movementSpeedLabel.setBounds(leftTooltip);
             windowSizeLabel.setBounds(adjustedTooltipArea);
