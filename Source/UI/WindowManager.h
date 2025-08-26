@@ -1,6 +1,7 @@
 // WindowManager.h - Window and constraint management for settings and learn modes
 #pragma once
 #include <JuceHeader.h>
+#include "GlobalUIScale.h"
 
 // Forward declarations
 class SettingsWindow;
@@ -18,16 +19,18 @@ public:
                                 bool isInLearnMode,
                                 int settingsPanelWidth) const
     {
+        auto& scale = GlobalUIScale::getInstance();
+        
         if (auto* documentWindow = dynamic_cast<juce::DocumentWindow*>(topLevelComponent))
         {
             if (auto* constrainer = documentWindow->getConstrainer())
             {
-                // Fixed window widths based on mode
-                int fixedWidth = isEightSliderMode ? 970 : 490;
+                // Fixed window widths based on mode - now scale-aware
+                int fixedWidth = isEightSliderMode ? scale.getScaled(970) : scale.getScaled(490);
                 
                 if (isInSettingsMode || isInLearnMode)
                 {
-                    // Add panel width to fixed width
+                    // Add panel width to fixed width (panel width is already scaled from MainControllerLayout)
                     fixedWidth += settingsPanelWidth;
                 }
                 
@@ -62,8 +65,9 @@ public:
         
         if (topLevelComponent)
         {
+            auto& scale = GlobalUIScale::getInstance();
             // Calculate target window width
-            int contentAreaWidth = isEightSliderMode ? 970 : 490;
+            int contentAreaWidth = isEightSliderMode ? scale.getScaled(970) : scale.getScaled(490);
             int targetWidth = isInSettingsMode ? (contentAreaWidth + settingsPanelWidth) : contentAreaWidth;
             
             // Resize window instantly
@@ -124,7 +128,8 @@ public:
             
             if (topLevelComponent)
             {
-                int contentAreaWidth = isEightSliderMode ? 970 : 490;
+                auto& scale = GlobalUIScale::getInstance();
+                int contentAreaWidth = isEightSliderMode ? scale.getScaled(970) : scale.getScaled(490);
                 int targetWidth = contentAreaWidth + settingsPanelWidth;
                 topLevelComponent->setSize(targetWidth, topLevelComponent->getHeight());
                 
@@ -143,7 +148,8 @@ public:
             updateWindowConstraints(topLevelComponent, isEightSliderMode, false, false, settingsPanelWidth);
             if (topLevelComponent)
             {
-                int contentAreaWidth = isEightSliderMode ? 970 : 490;
+                auto& scale = GlobalUIScale::getInstance();
+                int contentAreaWidth = isEightSliderMode ? scale.getScaled(970) : scale.getScaled(490);
                 topLevelComponent->setSize(contentAreaWidth, topLevelComponent->getHeight());
             }
         }

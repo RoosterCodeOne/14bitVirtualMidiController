@@ -1435,6 +1435,9 @@ private:
     {
         auto preset = settingsWindow.getPresetManager().loadAutoSavedState();
         
+        // Apply UI scale factor first (before other UI operations)
+        GlobalUIScale::getInstance().setScaleFactor(preset.uiScale);
+        
         // Force settings window to initialize its controls if not already done
         if (!settingsWindow.isVisible())
         {
@@ -1454,6 +1457,9 @@ private:
     ControllerPreset getCurrentControllerState()
     {
         auto preset = settingsWindow.getCurrentPreset();
+        
+        // Save current UI scale factor
+        preset.uiScale = GlobalUIScale::getInstance().getScaleFactor();
         
         // Add current slider values, lock states, and delay/attack times
         for (int i = 0; i < juce::jmin(sliderControls.size(), preset.sliders.size()); ++i)

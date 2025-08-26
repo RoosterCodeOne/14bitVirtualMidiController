@@ -288,6 +288,9 @@ inline void GlobalSettingsTab::applyPreset(const ControllerPreset& preset)
 {
     // Apply MIDI channel
     midiChannelCombo.setSelectedId(preset.midiChannel, juce::dontSendNotification);
+    
+    // Apply UI scale factor
+    setUIScale(preset.uiScale);
 }
 
 inline float GlobalSettingsTab::getUIScale() const

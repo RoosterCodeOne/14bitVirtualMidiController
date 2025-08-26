@@ -445,6 +445,7 @@ inline ControllerPreset SettingsWindow::getCurrentPreset() const
     ControllerPreset preset;
     preset.name = "Current State";
     preset.midiChannel = getMidiChannel();
+    preset.uiScale = globalTab->getUIScale(); // Get current UI scale from GlobalSettingsTab
     
     // Read from internal slider settings data
     for (int i = 0; i < 16; ++i)

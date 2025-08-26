@@ -1,6 +1,7 @@
 // Main.cpp - Production Version
 #include <JuceHeader.h>
 #include "DebugMidiController.h"
+#include "UI/GlobalUIScale.h"
 
 //==============================================================================
 class MainWindow : public juce::DocumentWindow
@@ -16,9 +17,10 @@ public:
         auto* controller = new DebugMidiController();
         setContentOwned(controller, true);
         
-        // Calculate dimensions
-        int optimalHeight = 660; // Further reduced for compact layout (685 - 25px from topAreaHeight reduction)
-        int defaultWidth = 490; // 4-slider mode by default
+        // Calculate dimensions - scale-aware
+        auto& scale = GlobalUIScale::getInstance();
+        int optimalHeight = scale.getScaled(660); // Further reduced for compact layout (685 - 25px from topAreaHeight reduction)
+        int defaultWidth = scale.getScaled(490); // 4-slider mode by default
         
         // Set resizable before setting any constraints
         setResizable(true, true);

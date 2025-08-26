@@ -70,6 +70,7 @@ struct ControllerPreset
     juce::String name = "Untitled";
     int midiChannel = 1;
     double bpm = 120.0; // Default BPM
+    float uiScale = 1.0f; // Default UI scale factor
     juce::Array<SliderPreset> sliders;
     
     ControllerPreset()
@@ -101,6 +102,7 @@ struct ControllerPreset
         obj->setProperty("name", name);
         obj->setProperty("midiChannel", midiChannel);
         obj->setProperty("bpm", bpm);
+        obj->setProperty("uiScale", uiScale);
         
         juce::Array<juce::var> sliderArray;
         for (const auto& slider : sliders)
@@ -117,6 +119,7 @@ struct ControllerPreset
             name = obj->hasProperty("name") ? obj->getProperty("name").toString() : "Untitled";
             midiChannel = obj->hasProperty("midiChannel") ? (int)obj->getProperty("midiChannel") : 1;
             bpm = obj->hasProperty("bpm") ? (double)obj->getProperty("bpm") : 120.0;
+            uiScale = obj->hasProperty("uiScale") ? (float)obj->getProperty("uiScale") : 1.0f;
             
             sliders.clear();
             if (obj->hasProperty("sliders"))
