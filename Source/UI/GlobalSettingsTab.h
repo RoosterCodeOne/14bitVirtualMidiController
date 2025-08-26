@@ -2,6 +2,7 @@
 #pragma once
 #include <JuceHeader.h>
 #include "../CustomLookAndFeel.h"
+#include "GlobalUIScale.h"
 
 // Forward declaration
 class SettingsWindow;
@@ -27,6 +28,10 @@ public:
     void setBPM(double bpm) { bpmSlider.setValue(bpm, juce::dontSendNotification); }
     void setSyncStatus(bool isExternal, double externalBPM = 0.0);
     
+    // UI Scale methods
+    float getUIScale() const;
+    void setUIScale(float scale);
+    
     // Callback functions for communication with parent
     std::function<void()> onSettingsChanged;
     std::function<void(double)> onBPMChanged;
@@ -47,9 +52,9 @@ private:
     juce::Slider bpmSlider;
     juce::Label syncStatusLabel;
     
-    // Placeholder for future scaling controls
-    juce::Label scalingLabel;
-    juce::Label scalingPlaceholder;
+    // UI Scale controls
+    juce::Label uiScaleLabel;
+    juce::ComboBox uiScaleCombo;
     
     // Private methods
     void setupGlobalControls();
@@ -143,14 +148,14 @@ inline void GlobalSettingsTab::resized()
     
     bounds.removeFromTop(sectionSpacing);
     
-    // Window Scaling section (placeholder)
-    auto scalingBounds = bounds.removeFromTop(headerHeight + labelHeight + controlSpacing * 2);
+    // UI Scale section
+    auto scaleBounds = bounds.removeFromTop(labelHeight + controlSpacing);
     
-    scalingLabel.setBounds(scalingBounds.removeFromTop(headerHeight));
-    scalingBounds.removeFromTop(controlSpacing);
-    
-    auto placeholderRow = scalingBounds.removeFromTop(labelHeight);
-    scalingPlaceholder.setBounds(placeholderRow);
+    // UI Scale row
+    auto scaleRow = scaleBounds.removeFromTop(labelHeight);
+    uiScaleLabel.setBounds(scaleRow.removeFromLeft(80));
+    scaleRow.removeFromLeft(8);
+    uiScaleCombo.setBounds(scaleRow.removeFromLeft(100));
 }
 
 inline bool GlobalSettingsTab::keyPressed(const juce::KeyPress& key)
@@ -233,16 +238,35 @@ inline void GlobalSettingsTab::setupGlobalControls()
     syncStatusLabel.setFont(juce::FontOptions(10.0f));
     syncStatusLabel.setJustificationType(juce::Justification::centredRight);
     
-    // Window Scaling section (placeholder)
-    addAndMakeVisible(scalingLabel);
-    scalingLabel.setText("Window Scaling", juce::dontSendNotification);
-    scalingLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold));
-    scalingLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    // UI Scale controls
+    addAndMakeVisible(uiScaleLabel);
+    uiScaleLabel.setText("UI Scale:", juce::dontSendNotification);
+    uiScaleLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
-    addAndMakeVisible(scalingPlaceholder);
-    scalingPlaceholder.setText("Scaling controls will be implemented here", juce::dontSendNotification);
-    scalingPlaceholder.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
-    scalingPlaceholder.setFont(juce::FontOptions(12.0f));
+    addAndMakeVisible(uiScaleCombo);
+    uiScaleCombo.addItem("75%", 1);
+    uiScaleCombo.addItem("100%", 2);
+    uiScaleCombo.addItem("125%", 3);
+    uiScaleCombo.addItem("150%", 4);
+    uiScaleCombo.addItem("175%", 5);
+    uiScaleCombo.addItem("200%", 6);
+    // Load and set current scale factor
+    float currentScale = GlobalUIScale::getInstance().getScaleFactor();
+    setUIScale(currentScale);
+    uiScaleCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background);
+    uiScaleCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary);
+    uiScaleCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines);
+    uiScaleCombo.onChange = [this]() {
+        float newScale = GlobalUIScale::AVAILABLE_SCALES[uiScaleCombo.getSelectedItemIndex()];
+        GlobalUIScale::getInstance().setScaleFactor(newScale);
+        
+        // Save scale setting to PresetManager if available
+        if (onSettingsChanged)
+            onSettingsChanged();
+            
+        // Restore focus to parent after selection
+        if (onRequestFocus) onRequestFocus();
+    };
 }
 
 inline void GlobalSettingsTab::setSyncStatus(bool isExternal, double externalBPM)
@@ -264,4 +288,28 @@ inline void GlobalSettingsTab::applyPreset(const ControllerPreset& preset)
 {
     // Apply MIDI channel
     midiChannelCombo.setSelectedId(preset.midiChannel, juce::dontSendNotification);
+}
+
+inline float GlobalSettingsTab::getUIScale() const
+{
+    return GlobalUIScale::AVAILABLE_SCALES[uiScaleCombo.getSelectedItemIndex()];
+}
+
+inline void GlobalSettingsTab::setUIScale(float scale)
+{
+    // Find the closest matching scale factor and set the combo box
+    int bestIndex = 0;
+    float minDifference = std::abs(scale - GlobalUIScale::AVAILABLE_SCALES[0]);
+    
+    for (int i = 1; i < GlobalUIScale::NUM_SCALE_OPTIONS; ++i)
+    {
+        float difference = std::abs(scale - GlobalUIScale::AVAILABLE_SCALES[i]);
+        if (difference < minDifference)
+        {
+            minDifference = difference;
+            bestIndex = i;
+        }
+    }
+    
+    uiScaleCombo.setSelectedItemIndex(bestIndex, juce::dontSendNotification);
 }
