@@ -1152,9 +1152,9 @@ public:
             midiLearnWindow.repaint();
         }
         
-        if (midiMonitorWindow.isVisible())
+        if (midiMonitorWindow && midiMonitorWindow->isVisible())
         {
-            midiMonitorWindow.repaint();
+            midiMonitorWindow->repaint();
         }
     }
     
