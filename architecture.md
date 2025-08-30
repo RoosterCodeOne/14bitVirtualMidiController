@@ -1537,9 +1537,65 @@ The recent features represent significant advancements in user interaction and w
 
 ---
 
-## Recent Changes (August 25, 2025)
+## Recent Changes
 
-### System Cleanup and UI Polish
+### August 30, 2025 - Immediate Window Resize Fix for UI Scaling ✅
+
+**What Changed**: Fixed window scaling update issue where main window would only resize after clicking elsewhere instead of immediately when scale option is selected
+
+**Root Cause**: The `scaleFactorChanged()` method was updating window constraints but not actively resizing the main window to the new scaled dimensions. The resize would only occur when user interaction triggered a layout update.
+
+**Solution Implemented**: Enhanced the `scaleFactorChanged()` method in `DebugMidiController.h` to immediately calculate and apply new window dimensions:
+
+```cpp
+void scaleFactorChanged(float newScale) override
+{
+    // Update window constraints for new scale
+    updateWindowConstraints();
+    
+    // CRITICAL: Immediately resize the main window to new scaled dimensions
+    if (auto* topLevel = getTopLevelComponent())
+    {
+        auto& scale = GlobalUIScale::getInstance();
+        
+        // Calculate new window dimensions based on current mode
+        int contentWidth = bankManager.isEightSliderMode() ? scale.getScaled(970) : scale.getScaled(490);
+        int settingsWidth = (isInSettingsMode || isInLearnMode) ? MainControllerLayout::Constants::getSettingsPanelWidth() : 0;
+        int targetWidth = contentWidth + settingsWidth;
+        
+        // Calculate optimal height with scaling
+        int optimalHeight = scale.getScaled(660);
+        
+        // Immediately resize to new scaled dimensions
+        topLevel->setSize(targetWidth, optimalHeight);
+    }
+    
+    // Trigger full layout update and child window repaints...
+}
+```
+
+**Technical Improvements**:
+- **Immediate Response**: Window now resizes instantly when scale option is selected from dropdown
+- **Mode-Aware Sizing**: Correctly handles both 4-slider and 8-slider modes with proper width calculations  
+- **Settings/Learn Panel Support**: Accounts for additional panel width when settings or learn mode is active
+- **Optimal Height Scaling**: Uses scaled optimal height (660px) for proper vertical dimensions
+- **Child Window Integration**: Ensures child windows (settings, learn, monitor) are properly repainted after scale changes
+
+**Architecture Integration**: The fix leverages existing comprehensive UI scaling infrastructure:
+- GlobalUIScale singleton system (already implemented)
+- ScaleChangeListener interface (already implemented in DebugMidiController)
+- MainControllerLayout::Constants scale-aware methods
+- WindowManager constraint system working in conjunction with immediate resize
+
+**User Experience Benefits**:
+- ✅ **Immediate Visual Feedback**: No delay or need for additional user interaction
+- ✅ **Professional Behavior**: Matches commercial application scaling standards
+- ✅ **Mode Consistency**: Works correctly in all display modes and window configurations
+- ✅ **Universal Compatibility**: Maintains proper scaling across all supported scale factors (75%-200%)
+
+**Code Impact**: Single method enhancement in DebugMidiController.h (~20 lines) with zero impact on existing comprehensive UI scaling system.
+
+### August 25, 2025 - System Cleanup and UI Polish
 
 **Compiler Error Resolution**:
 - Fixed remaining 7-bit MIDI mode references after complete system removal

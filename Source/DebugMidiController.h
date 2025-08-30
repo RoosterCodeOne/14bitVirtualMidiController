@@ -1137,6 +1137,23 @@ public:
         // Update window constraints for new scale
         updateWindowConstraints();
         
+        // CRITICAL: Immediately resize the main window to new scaled dimensions
+        if (auto* topLevel = getTopLevelComponent())
+        {
+            auto& scale = GlobalUIScale::getInstance();
+            
+            // Calculate new window dimensions based on current mode
+            int contentWidth = bankManager.isEightSliderMode() ? scale.getScaled(970) : scale.getScaled(490);
+            int settingsWidth = (isInSettingsMode || isInLearnMode) ? MainControllerLayout::Constants::getSettingsPanelWidth() : 0;
+            int targetWidth = contentWidth + settingsWidth;
+            
+            // Calculate optimal height with scaling
+            int optimalHeight = scale.getScaled(660); // Use scaled optimal height
+            
+            // Immediately resize to new scaled dimensions
+            topLevel->setSize(targetWidth, optimalHeight);
+        }
+        
         // Trigger full layout update
         resized();
         repaint();
