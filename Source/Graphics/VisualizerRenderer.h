@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 #include "../CustomLookAndFeel.h"
 #include "CurveCalculator.h"
+#include "../UI/GlobalUIScale.h"
 
 //==============================================================================
 class VisualizerRenderer
@@ -38,18 +39,20 @@ public:
             drawMovingBall(g, ballPosition);
         }
         
-        // Draw border outline
+        // Draw border outline with scaled line width
+        auto& scale = GlobalUIScale::getInstance();
         g.setColour(BlueprintColors::blueprintLines);
-        g.drawRect(bounds, 1.0f);
+        g.drawRect(bounds, scale.getScaled(1.0f));
     }
     
     // Draw blueprint-style grid
     void drawBlueprintGrid(juce::Graphics& g, const juce::Rectangle<float>& bounds) const
     {
+        auto& scale = GlobalUIScale::getInstance();
         g.setColour(BlueprintColors::blueprintLines.withAlpha(0.3f));
         
-        // Vertical grid lines
-        int gridSpacing = 15;
+        // Scaled grid spacing for consistent appearance at all scales
+        int gridSpacing = scale.getScaled(15);
         for (int x = gridSpacing; x < bounds.getWidth(); x += gridSpacing)
         {
             g.drawVerticalLine(bounds.getX() + x, bounds.getY(), bounds.getBottom());
@@ -76,8 +79,9 @@ public:
             curvePath.lineTo(curvePoints.points[i]);
         }
         
+        auto& scale = GlobalUIScale::getInstance();
         g.setColour(BlueprintColors::active);
-        g.strokePath(curvePath, juce::PathStrokeType(2.0f));
+        g.strokePath(curvePath, juce::PathStrokeType(scale.getScaled(2.0f)));
     }
     
     // Draw phase breakpoints (dots at important curve points)
@@ -87,8 +91,9 @@ public:
                              double attackTime,
                              double returnTime) const
     {
+        auto& scale = GlobalUIScale::getInstance();
         g.setColour(BlueprintColors::blueprintLines);
-        float dotSize = 3.0f;
+        float dotSize = scale.getScaled(3.0f);
         
         // Origin point
         if (!curvePoints.points.empty())
@@ -122,7 +127,8 @@ public:
     // Draw the animated ball
     void drawMovingBall(juce::Graphics& g, const juce::Point<float>& ballPosition) const
     {
-        float ballRadius = 4.0f;
+        auto& scale = GlobalUIScale::getInstance();
+        float ballRadius = scale.getScaled(4.0f);
         
         // Bright cyan ball with glow effect
         g.setColour(BlueprintColors::active);

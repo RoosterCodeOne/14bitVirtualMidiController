@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 #include "PresetManager.h"
 #include "CustomLookAndFeel.h"
+#include "UI/GlobalUIScale.h"
 
 //==============================================================================
 class SettingsWindow : public juce::Component
@@ -53,13 +54,13 @@ public:
         addAndMakeVisible(syncStatusLabel);
         syncStatusLabel.setText("Internal Sync", juce::dontSendNotification);
         syncStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
-        syncStatusLabel.setFont(juce::FontOptions(10.0f));
+        syncStatusLabel.setFont(GlobalUIScale::getInstance().getScaledFont(10.0f));
         syncStatusLabel.setJustificationType(juce::Justification::centredRight);
         
         // Preset controls
         addAndMakeVisible(presetLabel);
         presetLabel.setText("Presets:", juce::dontSendNotification);
-        presetLabel.setFont(juce::FontOptions(16.0f, juce::Font::bold));
+        presetLabel.setFont(GlobalUIScale::getInstance().getScaledFont(16.0f).boldened());
         presetLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         
         addAndMakeVisible(presetCombo);
@@ -86,13 +87,13 @@ public:
         
         addAndMakeVisible(presetFolderLabel);
         presetFolderLabel.setText("Preset Folder:", juce::dontSendNotification);
-        presetFolderLabel.setFont(juce::FontOptions(14.0f));
+        presetFolderLabel.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f));
         presetFolderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
 
         addAndMakeVisible(presetPathLabel);
         presetPathLabel.setText("", juce::dontSendNotification);
         presetPathLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary); // Slightly dimmed
-        presetPathLabel.setFont(juce::FontOptions(12.0f));
+        presetPathLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
         presetPathLabel.setJustificationType(juce::Justification::centredLeft);
         
         addAndMakeVisible(openFolderButton);
@@ -116,13 +117,13 @@ public:
         // Bank selector
         addAndMakeVisible(bankSelectorLabel);
         bankSelectorLabel.setText("Bank:", juce::dontSendNotification);
-        bankSelectorLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        bankSelectorLabel.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
         bankSelectorLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         
         // Bank selector buttons - modern styling
         addAndMakeVisible(bankASelector);
         bankASelector.setText("A", juce::dontSendNotification);
-        bankASelector.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        bankASelector.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
         bankASelector.setJustificationType(juce::Justification::centred);
         bankASelector.setColour(juce::Label::backgroundColourId, BlueprintColors::active); // Blueprint active color
         bankASelector.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
@@ -130,7 +131,7 @@ public:
         
         addAndMakeVisible(bankBSelector);
         bankBSelector.setText("B", juce::dontSendNotification);
-        bankBSelector.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        bankBSelector.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
         bankBSelector.setJustificationType(juce::Justification::centred);
         bankBSelector.setColour(juce::Label::backgroundColourId, BlueprintColors::inactive);
         bankBSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
@@ -138,7 +139,7 @@ public:
         
         addAndMakeVisible(bankCSelector);
         bankCSelector.setText("C", juce::dontSendNotification);
-        bankCSelector.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        bankCSelector.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
         bankCSelector.setJustificationType(juce::Justification::centred);
         bankCSelector.setColour(juce::Label::backgroundColourId, BlueprintColors::inactive);
         bankCSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
@@ -146,7 +147,7 @@ public:
         
         addAndMakeVisible(bankDSelector);
         bankDSelector.setText("D", juce::dontSendNotification);
-        bankDSelector.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        bankDSelector.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
         bankDSelector.setJustificationType(juce::Justification::centred);
         bankDSelector.setColour(juce::Label::backgroundColourId, BlueprintColors::inactive);
         bankDSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
@@ -155,7 +156,7 @@ public:
         // Breadcrumb label
         addAndMakeVisible(breadcrumbLabel);
         breadcrumbLabel.setText("Bank A > Slider 1", juce::dontSendNotification);
-        breadcrumbLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        breadcrumbLabel.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
         breadcrumbLabel.setColour(juce::Label::textColourId, BlueprintColors::active);
         breadcrumbLabel.setJustificationType(juce::Justification::centredLeft);
         
@@ -231,7 +232,7 @@ public:
         if (!controlsInitialized)
         {
             g.setColour(BlueprintColors::textPrimary);
-            g.setFont(juce::FontOptions(14.0f));
+            g.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f));
             g.drawText("Loading controls...", bounds, juce::Justification::centred);
             return;
         }
@@ -239,24 +240,25 @@ public:
     
     void resized() override
     {
-        auto bounds = getLocalBounds().reduced(15); // Modern consistent padding
+        auto& scale = GlobalUIScale::getInstance();
+        auto bounds = getLocalBounds().reduced(scale.getScaled(15)); // Scale-aware consistent padding
         
         // Calculate available height for dynamic spacing (no title space needed)
         int availableHeight = bounds.getHeight();
-        int fixedHeight = 10 + 16 + 6 + 22 + 6 + 20 + 10 + 16 + 5 + 16 + 7 + 20 + 10 + 20 + 6 + 22 + 8; // Updated padding values + breadcrumb + bank
+        int fixedHeight = scale.getScaled(10 + 16 + 6 + 22 + 6 + 20 + 10 + 16 + 5 + 16 + 7 + 20 + 10 + 20 + 6 + 22 + 8); // Scale-aware padding values + breadcrumb + bank
         if (controlsInitialized)
         {
-            // Calculate height for 4 sections with proper spacing
-            int section1Height = 20 + 16 + 22 + 16 + 22 + 8; // Header + CC label + input + mode label + buttons + minimal spacing
-            int section2Height = 20 + (16 + 2) * 3 + 8; // Header + 3 rows of controls (range combined) + minimal spacing
-            int section3Height = 20 + 16 + 22 + 8; // Header + mode label + buttons + minimal spacing
-            int section4Height = 20 + 16 + 60 + 22 + 8; // Header + color label + grid + reset button + minimal spacing
-            int sectionSpacing = 3 * 3; // 3 gaps between sections (further reduced)
+            // Calculate height for 4 sections with proper spacing - all scaled
+            int section1Height = scale.getScaled(20 + 16 + 22 + 16 + 22 + 8); // Header + CC label + input + mode label + buttons + minimal spacing
+            int section2Height = scale.getScaled(20 + (16 + 2) * 3 + 8); // Header + 3 rows of controls (range combined) + minimal spacing
+            int section3Height = scale.getScaled(20 + 16 + 22 + 8); // Header + mode label + buttons + minimal spacing
+            int section4Height = scale.getScaled(20 + 16 + 60 + 22 + 8); // Header + color label + grid + reset button + minimal spacing
+            int sectionSpacing = scale.getScaled(3 * 3); // 3 gaps between sections (further reduced) - scaled
             
             fixedHeight += section1Height + section2Height + section3Height + section4Height + sectionSpacing;
         }
         
-        int flexibleSpacing = juce::jmax(3, (availableHeight - fixedHeight) / 8); // Distribute remaining space
+        int flexibleSpacing = juce::jmax(scale.getScaled(3), (availableHeight - fixedHeight) / 8); // Distribute remaining space
         
         // Preset controls section with better padding alignment
         bounds.removeFromTop(10); // Increased top padding for preset section
@@ -895,7 +897,7 @@ private:
         // Section 1 - Core MIDI
         addAndMakeVisible(section1Header);
         section1Header.setText("Core MIDI", juce::dontSendNotification);
-        section1Header.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        section1Header.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
         section1Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         
         addAndMakeVisible(ccNumberLabel);
@@ -929,7 +931,7 @@ private:
         // Section 2 - Display & Range
         addAndMakeVisible(section2Header);
         section2Header.setText("Display & Range", juce::dontSendNotification);
-        section2Header.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        section2Header.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
         section2Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         
         addAndMakeVisible(rangeLabel);
@@ -985,7 +987,7 @@ private:
         // Section 3 - Input Behavior
         addAndMakeVisible(section3Header);
         section3Header.setText("Input Behavior", juce::dontSendNotification);
-        section3Header.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        section3Header.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
         section3Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         
         addAndMakeVisible(inputModeLabel);
@@ -1006,7 +1008,7 @@ private:
         // Section 4 - Visual
         addAndMakeVisible(section4Header);
         section4Header.setText("Visual", juce::dontSendNotification);
-        section4Header.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        section4Header.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
         section4Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         
         addAndMakeVisible(colorPickerLabel);
@@ -1353,62 +1355,63 @@ private:
     
     void drawSectionBackgrounds(juce::Graphics& g)
     {
-        auto bounds = getLocalBounds().reduced(15); // Same padding as resized()
+        auto& scale = GlobalUIScale::getInstance();
+        auto bounds = getLocalBounds().reduced(scale.getScaled(15)); // Same scaled padding as resized()
         
-        // Calculate section bounds using same logic as resized()
+        // Calculate section bounds using same logic as resized() - all scaled
         int availableHeight = bounds.getHeight();
-        int fixedHeight = 10 + 16 + 6 + 22 + 6 + 20 + 10 + 16 + 5 + 16 + 7 + 20 + 10 + 20 + 6 + 22 + 8; // Updated padding values
+        int fixedHeight = scale.getScaled(10 + 16 + 6 + 22 + 6 + 20 + 10 + 16 + 5 + 16 + 7 + 20 + 10 + 20 + 6 + 22 + 8); // Scaled padding values
         if (controlsInitialized)
-            fixedHeight += 18 + 4 + 26 + 8;
+            fixedHeight += scale.getScaled(18 + 4 + 26 + 8);
         
-        int flexibleSpacing = juce::jmax(3, (availableHeight - fixedHeight) / 8);
+        int flexibleSpacing = juce::jmax(scale.getScaled(3), (availableHeight - fixedHeight) / 8);
         
         // Top section (Preset controls) - blueprint background and outline style
-        auto topSectionBounds = bounds.removeFromTop(10 + 16 + 6 + 22 + 6 + 20); // Updated padding values
-        topSectionBounds = topSectionBounds.expanded(5, 0).withTrimmedBottom(1).withBottom(topSectionBounds.getBottom() + 4); // 5px left/right margin, 1px bottom gap, extend bottom by 4px
+        auto topSectionBounds = bounds.removeFromTop(scale.getScaled(10 + 16 + 6 + 22 + 6 + 20)); // Scaled padding values
+        topSectionBounds = topSectionBounds.expanded(scale.getScaled(5), 0).withTrimmedBottom(scale.getScaled(1)).withBottom(topSectionBounds.getBottom() + scale.getScaled(4)); // Scaled margins and gaps
         
         g.setColour(BlueprintColors::sectionBackground);
         g.fillRect(topSectionBounds.toFloat());
         g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
-        g.drawRect(topSectionBounds.toFloat(), 1.0f);
+        g.drawRect(topSectionBounds.toFloat(), scale.getScaled(1.0f));
         
         // Skip flexible spacing
         bounds.removeFromTop(flexibleSpacing);
         
         // Middle section (Preset folder controls) - blueprint background and outline style
-        auto middleSectionBounds = bounds.removeFromTop(10 + 16 + 5 + 16 + 7 + 20); // Updated folder section height
-        middleSectionBounds = middleSectionBounds.expanded(5, 0).withTrimmedTop(1).withTrimmedBottom(1); // 5px left/right margin, 1px top/bottom gaps
-        middleSectionBounds = middleSectionBounds.withTop(middleSectionBounds.getY() - 2).withBottom(middleSectionBounds.getBottom() + 6); // Raise top by 2px, extend bottom by 6px
+        auto middleSectionBounds = bounds.removeFromTop(scale.getScaled(10 + 16 + 5 + 16 + 7 + 20)); // Scaled folder section height
+        middleSectionBounds = middleSectionBounds.expanded(scale.getScaled(5), 0).withTrimmedTop(scale.getScaled(1)).withTrimmedBottom(scale.getScaled(1)); // Scaled margins and gaps
+        middleSectionBounds = middleSectionBounds.withTop(middleSectionBounds.getY() - scale.getScaled(2)).withBottom(middleSectionBounds.getBottom() + scale.getScaled(6)); // Scaled positioning
         
         g.setColour(BlueprintColors::sectionBackground);
         g.fillRect(middleSectionBounds.toFloat());
         g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
-        g.drawRect(middleSectionBounds.toFloat(), 1.0f);
+        g.drawRect(middleSectionBounds.toFloat(), scale.getScaled(1.0f));
         
         // Skip flexible spacing
         bounds.removeFromTop(flexibleSpacing);
         
         // Bottom section (MIDI Channel + Breadcrumb + Bank + Slider controls) - blueprint background and outline style
-        auto bottomSectionHeight = 10 + 22 + 8 + 20 + 6 + 22 + 8; // Updated MIDI + spacing + breadcrumb + bank
+        auto bottomSectionHeight = scale.getScaled(10 + 22 + 8 + 20 + 6 + 22 + 8); // Scaled MIDI + spacing + breadcrumb + bank
         if (controlsInitialized)
         {
-            // Calculate height for 4 sections with proper spacing
-            int section1Height = 20 + 16 + 22 + 16 + 22 + 8; // Header + CC label + input + mode label + buttons + minimal spacing
-            int section2Height = 20 + (16 + 2) * 3 + 8; // Header + 3 rows of controls (range combined) + minimal spacing
-            int section3Height = 20 + 16 + 22 + 8; // Header + mode label + buttons + minimal spacing
-            int section4Height = 20 + 16 + 60 + 22 + 8; // Header + color label + grid + reset button + minimal spacing
-            int sectionSpacing = 3 * 3; // 3 gaps between sections (further reduced)
+            // Calculate height for 4 sections with proper spacing - all scaled
+            int section1Height = scale.getScaled(20 + 16 + 22 + 16 + 22 + 8); // Header + CC label + input + mode label + buttons + minimal spacing
+            int section2Height = scale.getScaled(20 + (16 + 2) * 3 + 8); // Header + 3 rows of controls (range combined) + minimal spacing
+            int section3Height = scale.getScaled(20 + 16 + 22 + 8); // Header + mode label + buttons + minimal spacing
+            int section4Height = scale.getScaled(20 + 16 + 60 + 22 + 8); // Header + color label + grid + reset button + minimal spacing
+            int sectionSpacing = scale.getScaled(3 * 3); // 3 gaps between sections (further reduced) - scaled
             
             bottomSectionHeight += section1Height + section2Height + section3Height + section4Height + sectionSpacing;
         }
         
         auto bottomSectionBounds = bounds.removeFromTop(bottomSectionHeight);
-        bottomSectionBounds = bottomSectionBounds.expanded(5, 0).withTrimmedTop(1).withBottom(bottomSectionBounds.getBottom() + 5); // 5px left/right margin, 1px top gap, extend bottom by 5px
+        bottomSectionBounds = bottomSectionBounds.expanded(scale.getScaled(5), 0).withTrimmedTop(scale.getScaled(1)).withBottom(bottomSectionBounds.getBottom() + scale.getScaled(5)); // Scaled margins and positioning
         
         g.setColour(BlueprintColors::sectionBackground);
         g.fillRect(bottomSectionBounds.toFloat());
         g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
-        g.drawRect(bottomSectionBounds.toFloat(), 1.0f);
+        g.drawRect(bottomSectionBounds.toFloat(), scale.getScaled(1.0f));
     }
     
     

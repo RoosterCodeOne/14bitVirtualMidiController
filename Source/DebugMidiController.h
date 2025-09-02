@@ -131,7 +131,7 @@ public:
         showingLabel.setText("Showing:", juce::dontSendNotification);
         showingLabel.setJustificationType(juce::Justification::centredRight);
         showingLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-        showingLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+        showingLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f).boldened());
         
         // Learn button for MIDI mapping - blueprint style
         addAndMakeVisible(&learnButton);
@@ -197,14 +197,14 @@ public:
         movementSpeedLabel.setJustificationType(juce::Justification::centredLeft);
         movementSpeedLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
         movementSpeedLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background);
-        movementSpeedLabel.setFont(juce::FontOptions(10.0f));
+        movementSpeedLabel.setFont(GlobalUIScale::getInstance().getScaledFont(10.0f));
         
         // MIDI tracking tooltip - blueprint style
         addAndMakeVisible(&windowSizeLabel);
         windowSizeLabel.setJustificationType(juce::Justification::centredRight);
         windowSizeLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
         windowSizeLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background);
-        windowSizeLabel.setFont(juce::FontOptions(10.0f));
+        windowSizeLabel.setFont(GlobalUIScale::getInstance().getScaledFont(10.0f));
         updateMidiTrackingDisplay();
         
         // Initialize MIDI Manager and set up callbacks

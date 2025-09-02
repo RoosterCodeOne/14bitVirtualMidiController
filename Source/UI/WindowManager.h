@@ -34,9 +34,18 @@ public:
                     fixedWidth += settingsPanelWidth;
                 }
                 
+                // FIXED: Scale-aware height constraints
+                int optimalHeight = scale.getScaled(660);
+                int minHeight = scale.getScaled(580);  // Minimum functional height
+                int maxHeight = scale.getScaled(800);  // Maximum reasonable height
+                
                 // Set both min and max to the same value to prevent resizing
                 constrainer->setMinimumWidth(fixedWidth);
                 constrainer->setMaximumWidth(fixedWidth);
+                
+                // Set height constraints with scaling support
+                constrainer->setMinimumHeight(minHeight);
+                constrainer->setMaximumHeight(maxHeight);
             }
         }
     }
@@ -66,12 +75,13 @@ public:
         if (topLevelComponent)
         {
             auto& scale = GlobalUIScale::getInstance();
-            // Calculate target window width
+            // Calculate target window dimensions with proper height scaling
             int contentAreaWidth = isEightSliderMode ? scale.getScaled(970) : scale.getScaled(490);
             int targetWidth = isInSettingsMode ? (contentAreaWidth + settingsPanelWidth) : contentAreaWidth;
+            int targetHeight = scale.getScaled(660);  // Optimal scaled height
             
-            // Resize window instantly
-            topLevelComponent->setSize(targetWidth, topLevelComponent->getHeight());
+            // Resize window instantly with both width and height
+            topLevelComponent->setSize(targetWidth, targetHeight);
             
             if (isInSettingsMode)
             {

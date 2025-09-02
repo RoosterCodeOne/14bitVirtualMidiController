@@ -282,9 +282,10 @@ private:
     
     void drawLabel(juce::Graphics& g, juce::Rectangle<int> labelArea)
     {
-        // Blueprint-style text
+        // Blueprint-style text with scaled font
+        auto& scale = GlobalUIScale::getInstance();
         g.setColour(BlueprintColors::textPrimary);
-        g.setFont(juce::FontOptions(9.0f));
+        g.setFont(scale.getScaledFont(9.0f));
         auto adjustedLabelArea = labelArea.translated(0, 1);
         
         if (isHovered)

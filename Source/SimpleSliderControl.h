@@ -13,6 +13,7 @@
 #include "Components/SliderInteractionHandler.h"
 #include "Components/AutomationControlPanel.h"
 #include "Components/SliderLearnZones.h"
+#include "UI/GlobalUIScale.h"
 #include "UI/SliderLayoutManager.h"
 #include "UI/AutomationContextMenu.h"
 #include "UI/AutomationSaveDialog.h"
@@ -125,14 +126,14 @@ public:
         sliderNumberLabel.setText(juce::String(sliderIndex + 1), juce::dontSendNotification);
         sliderNumberLabel.setJustificationType(juce::Justification::centred);
         sliderNumberLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-        sliderNumberLabel.setFont(juce::FontOptions(11.0f, juce::Font::bold));
+        sliderNumberLabel.setFont(GlobalUIScale::getInstance().getScaledFont(11.0f).boldened());
         
         // Lock label (acting as button)
         addAndMakeVisible(lockLabel);
         lockLabel.setText("U", juce::dontSendNotification); // U for Unlocked by default
         lockLabel.setJustificationType(juce::Justification::centred);
         lockLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
-        lockLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold)); // Large font to fill space
+        lockLabel.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened()); // Large font to fill space
         lockLabel.onClick = [this]() { toggleLock(); };
         
         // Current value label

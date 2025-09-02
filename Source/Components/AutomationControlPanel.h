@@ -7,10 +7,11 @@
 #include "../Custom3DButton.h"
 #include "../AutomationVisualizer.h"
 #include "../CustomLookAndFeel.h"
+#include "../UI/GlobalUIScale.h"
 #include "LearnModeOverlay.h"
 
 //==============================================================================
-class AutomationControlPanel : public juce::Component
+class AutomationControlPanel : public juce::Component, public GlobalUIScale::ScaleChangeListener
 {
 public:
     // Time mode enumeration
@@ -35,54 +36,63 @@ public:
         
         // Enable mouse event interception to ensure right-clicks reach this component
         setInterceptsMouseClicks(true, true);
+        
+        // Register for scale change notifications
+        GlobalUIScale::getInstance().addScaleChangeListener(this);
     }
     
     ~AutomationControlPanel()
     {
         secButton.setLookAndFeel(nullptr);
         beatButton.setLookAndFeel(nullptr);
+        
+        // Unregister from scale change notifications
+        GlobalUIScale::getInstance().removeScaleChangeListener(this);
     }
     
     void resized() override
     {
+        auto& scale = GlobalUIScale::getInstance();
         auto area = getLocalBounds();
         
-        // GO button - centered horizontally, at top
-        auto buttonArea = area.removeFromTop(33);
-        int buttonX = (buttonArea.getWidth() - 35) / 2;
-        goButton3D.setBounds(buttonX, buttonArea.getY() + 5, 35, 25);
+        // GO button - centered horizontally, at top - scaled dimensions
+        auto buttonArea = area.removeFromTop(scale.getScaled(33));
+        int scaledButtonWidth = scale.getScaled(35);
+        int scaledButtonHeight = scale.getScaled(25);
+        int buttonX = (buttonArea.getWidth() - scaledButtonWidth) / 2;
+        goButton3D.setBounds(buttonX, buttonArea.getY() + scale.getScaled(5), scaledButtonWidth, scaledButtonHeight);
         
-        area.removeFromTop(7); // spacing after button
+        area.removeFromTop(scale.getScaled(7)); // scaled spacing after button
         
-        // Target LED input - centered horizontally below button
-        auto targetArea = area.removeFromTop(28);
-        int displayWidth = getWidth() - 8; // Match parent's reduced width
+        // Target LED input - centered horizontally below button - scaled dimensions
+        auto targetArea = area.removeFromTop(scale.getScaled(28));
+        int displayWidth = getWidth() - scale.getScaled(8); // Match parent's scaled reduced width
         int targetX = (targetArea.getWidth() - displayWidth) / 2;
-        targetLEDInput.setBounds(targetX, targetArea.getY() + 2, displayWidth, 20);
+        targetLEDInput.setBounds(targetX, targetArea.getY() + scale.getScaled(2), displayWidth, scale.getScaled(20));
         
-        area.removeFromTop(7); // spacing after target
+        area.removeFromTop(scale.getScaled(7)); // scaled spacing after target
         
-        // Calculate dimensions for automation visualizer and knob grid
-        int knobWidth = 42;
-        int knobHeight = 57;
-        int horizontalSpacing = 9;
-        int verticalSpacing = 2;
+        // Calculate scaled dimensions for automation visualizer and knob grid
+        int knobWidth = scale.getScaled(42);
+        int knobHeight = scale.getScaled(57);
+        int horizontalSpacing = scale.getScaled(9);
+        int verticalSpacing = scale.getScaled(2);
         int totalGridWidth = (2 * knobWidth) + horizontalSpacing;
         int centerX = area.getCentreX();
         int gridStartX = centerX - (totalGridWidth / 2);
         
-        // Automation visualizer - positioned above knob grid
+        // Automation visualizer - positioned above knob grid - scaled dimensions
         int visualizerWidth = totalGridWidth;
-        int visualizerHeight = 60;
+        int visualizerHeight = scale.getScaled(60);
         int visualizerX = gridStartX;
-        int visualizerY = area.getY() - 2;
+        int visualizerY = area.getY() - scale.getScaled(2);
         
         automationVisualizer.setBounds(visualizerX, visualizerY, visualizerWidth, visualizerHeight);
         
         // Knob group arrangement in 2x2 grid positioned below visualizer:
         // [DELAY]   [ATTACK]
         // [RETURN]  [CURVE]
-        int knobStartY = visualizerY + visualizerHeight + 8;
+        int knobStartY = visualizerY + visualizerHeight + scale.getScaled(8);
         
         // Top row: [DELAY] [ATTACK]
         int delayX = gridStartX;
@@ -95,24 +105,24 @@ public:
         // Bottom row: [RETURN] [CURVE]
         int returnX = gridStartX;
         int curveX = gridStartX + knobWidth + horizontalSpacing;
-        int bottomRowY = knobStartY + knobHeight + verticalSpacing - 6;
+        int bottomRowY = knobStartY + knobHeight + verticalSpacing - scale.getScaled(6);
         
         returnKnob.setBounds(returnX, bottomRowY, knobWidth, knobHeight);
         curveKnob.setBounds(curveX, bottomRowY, knobWidth, knobHeight);
         
-        // Time mode toggle buttons below knob grid
-        int toggleStartY = bottomRowY + knobHeight + 1;
-        int buttonWidth = 16;
-        int buttonHeight = 12;
-        int buttonSpacing = 1;
-        int labelSpacing = 2;
+        // Time mode toggle buttons below knob grid - scaled dimensions
+        int toggleStartY = bottomRowY + knobHeight + scale.getScaled(1);
+        int buttonWidth = scale.getScaled(16);
+        int buttonHeight = scale.getScaled(12);
+        int buttonSpacing = scale.getScaled(1);
+        int labelSpacing = scale.getScaled(2);
         
         // Calculate total width: label + gap + button + spacing + button + gap + label
-        int labelWidth = 24;
+        int labelWidth = scale.getScaled(24);
         int totalToggleWidth = labelWidth + labelSpacing + buttonWidth + buttonSpacing + buttonWidth + labelSpacing + labelWidth;
         
         // Ensure buttons fit within the knob grid width
-        int maxToggleWidth = totalGridWidth - 4;
+        int maxToggleWidth = totalGridWidth - scale.getScaled(4);
         if (totalToggleWidth > maxToggleWidth) {
             float scaleFactor = (float)maxToggleWidth / totalToggleWidth;
             labelWidth = (int)(labelWidth * scaleFactor);
@@ -367,6 +377,19 @@ public:
     juce::Rectangle<int> getReturnKnobBounds() const { return returnKnob.getBounds(); }
     juce::Rectangle<int> getCurveKnobBounds() const { return curveKnob.getBounds(); }
     
+    // Scale change notification implementation
+    void scaleFactorChanged(float newScale) override
+    {
+        // Update label fonts with new scale
+        auto& scale = GlobalUIScale::getInstance();
+        secLabel.setFont(scale.getScaledFont(9.0f));
+        beatLabel.setFont(scale.getScaledFont(9.0f));
+        
+        // Trigger layout recalculation and repaint
+        resized();
+        repaint();
+    }
+    
     // Callbacks
     std::function<void()> onGoButtonClicked;
     std::function<void(double)> onKnobValueChanged;
@@ -451,15 +474,17 @@ private:
         addAndMakeVisible(secLabel);
         addAndMakeVisible(beatLabel);
         
+        auto& scale = GlobalUIScale::getInstance();
+        
         secLabel.setText("SEC", juce::dontSendNotification);
         secLabel.setJustificationType(juce::Justification::centred);
         secLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-        secLabel.setFont(juce::FontOptions(9.0f));
+        secLabel.setFont(scale.getScaledFont(9.0f));
         
         beatLabel.setText("BEAT", juce::dontSendNotification);
         beatLabel.setJustificationType(juce::Justification::centred);
         beatLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-        beatLabel.setFont(juce::FontOptions(9.0f));
+        beatLabel.setFont(scale.getScaledFont(9.0f));
     }
     
     void setupVisualizer()

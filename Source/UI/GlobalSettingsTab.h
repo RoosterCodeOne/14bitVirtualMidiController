@@ -187,7 +187,7 @@ inline void GlobalSettingsTab::setupGlobalControls()
     // Section header
     addAndMakeVisible(globalHeader);
     globalHeader.setText("Global Settings", juce::dontSendNotification);
-    globalHeader.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+    globalHeader.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
     globalHeader.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
     // MIDI Channel controls
@@ -235,7 +235,7 @@ inline void GlobalSettingsTab::setupGlobalControls()
     addAndMakeVisible(syncStatusLabel);
     syncStatusLabel.setText("Internal Sync", juce::dontSendNotification);
     syncStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
-    syncStatusLabel.setFont(juce::FontOptions(10.0f));
+    syncStatusLabel.setFont(GlobalUIScale::getInstance().getScaledFont(10.0f));
     syncStatusLabel.setJustificationType(juce::Justification::centredRight);
     
     // UI Scale controls

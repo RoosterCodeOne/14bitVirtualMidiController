@@ -4,9 +4,10 @@
 #include "CustomLookAndFeel.h"
 #include "Graphics/CurveCalculator.h"
 #include "Graphics/VisualizerRenderer.h"
+#include "UI/GlobalUIScale.h"
 
 //==============================================================================
-class AutomationVisualizer : public juce::Component, public juce::Timer
+class AutomationVisualizer : public juce::Component, public juce::Timer, public GlobalUIScale::ScaleChangeListener
 {
 public:
     enum class VisualizerState
@@ -23,7 +24,10 @@ public:
           animationStartTime(0.0), totalAnimationDuration(0.0),
           animationDelayTime(0.0), animationAttackTime(1.0), animationReturnTime(0.0)
     {
-        setSize(140, 80); // Default size for SimpleSliderControl integration
+        // Note: Size will be set by parent component (AutomationControlPanel)
+        // Register for scale change notifications for internal drawing scaling
+        GlobalUIScale::getInstance().addScaleChangeListener(this);
+        
         updateCurvePoints();
         // Force initial repaint to show default curve immediately on startup
         repaint();
@@ -32,6 +36,9 @@ public:
     ~AutomationVisualizer()
     {
         stopTimer();
+        
+        // Unregister from scale change notifications
+        GlobalUIScale::getInstance().removeScaleChangeListener(this);
     }
     
     // Core interface methods
@@ -147,6 +154,15 @@ public:
             updateBallPositionFromTime();
             repaint();
         }
+    }
+    
+    // Scale change notification implementation
+    void scaleFactorChanged(float newScale) override
+    {
+        // Note: Size is managed by parent component
+        // We only need to update internal drawing elements and recalculate curve points
+        updateCurvePoints(); // Recalculate curve points for new size
+        repaint(); // Redraw with new scaling
     }
     
 private:

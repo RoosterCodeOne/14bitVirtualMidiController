@@ -2,6 +2,7 @@
 #pragma once
 #include <JuceHeader.h>
 #include "../Core/SliderDisplayManager.h"
+#include "GlobalUIScale.h"
 
 //==============================================================================
 class SliderLayoutManager
@@ -24,18 +25,19 @@ public:
     // Calculate all layout bounds for a slider control
     SliderBounds calculateSliderBounds(const juce::Rectangle<int>& totalBounds, bool showAutomation = true) const
     {
+        auto& scale = GlobalUIScale::getInstance();
         SliderBounds bounds;
         auto area = totalBounds;
         
-        // Utility bar at top (16px height)
-        bounds.utilityBar = area.removeFromTop(16);
-        area.removeFromTop(4); // spacing after utility bar
+        // Utility bar at top - scaled height
+        bounds.utilityBar = area.removeFromTop(scale.getScaled(16));
+        area.removeFromTop(scale.getScaled(4)); // scaled spacing after utility bar
         
         // Main slider area calculation depends on automation visibility
         if (showAutomation)
         {
-            // Normal layout with automation controls
-            int automationControlsHeight = 200;
+            // Normal layout with automation controls - FIXED: Scale-aware automation height
+            int automationControlsHeight = scale.getScaled(200);
             int availableSliderHeight = area.getHeight() - automationControlsHeight;
             int reducedSliderHeight = (int)(availableSliderHeight * 0.70);
             bounds.sliderArea = area.removeFromTop(reducedSliderHeight);
@@ -43,22 +45,22 @@ public:
         else
         {
             // Expanded layout - slider takes most of the remaining space
-            // Leave space for value label and controls at bottom
-            int bottomControlsHeight = 30; // Space for value display + MIDI indicator + controls
+            // Leave space for value label and controls at bottom - scaled
+            int bottomControlsHeight = scale.getScaled(30); // Scaled space for value display + MIDI indicator + controls
             int expandedSliderHeight = area.getHeight() - bottomControlsHeight;
             bounds.sliderArea = area.removeFromTop(expandedSliderHeight);
         }
         
-        bounds.trackBounds = bounds.sliderArea.withWidth(20).withCentre(bounds.sliderArea.getCentre());
+        bounds.trackBounds = bounds.sliderArea.withWidth(scale.getScaled(20)).withCentre(bounds.sliderArea.getCentre());
         
-        // Calculate precise slider interaction bounds for proper thumb alignment
-        float thumbHeight = 24.0f;
+        // Calculate precise slider interaction bounds for proper thumb alignment - scaled
+        float thumbHeight = scale.getScaled(24.0f);
         int trackY = bounds.trackBounds.getY();
         int trackHeight = bounds.trackBounds.getHeight();
         int thumbHalfHeight = (int)(thumbHeight / 2.0f);
         
         int sliderY = trackY + thumbHalfHeight;
-        int sliderHeight = trackHeight - (int)thumbHeight + 3;
+        int sliderHeight = trackHeight - (int)thumbHeight + scale.getScaled(3);
         
         bounds.sliderInteractionBounds = juce::Rectangle<int>(
             bounds.trackBounds.getX(), 
@@ -67,39 +69,39 @@ public:
             sliderHeight
         );
         
-        area.removeFromTop(4); // spacing before value label
+        area.removeFromTop(scale.getScaled(4)); // scaled spacing before value label
         
         if (showAutomation)
         {
             // Normal layout with automation controls below
-            // Current value label
-            auto labelArea = area.removeFromTop(20);
-            bounds.valueLabel = labelArea.reduced(4, 0);
+            // Current value label - scaled dimensions
+            auto labelArea = area.removeFromTop(scale.getScaled(20));
+            bounds.valueLabel = labelArea.reduced(scale.getScaled(4), 0);
             
-            // MIDI activity indicator - positioned above value label on left side
-            bounds.midiIndicator = juce::Rectangle<float>(5, labelArea.getY() - 15, 10, 10);
+            // MIDI activity indicator - positioned above value label on left side - scaled
+            bounds.midiIndicator = juce::Rectangle<float>(scale.getScaled(5), labelArea.getY() - scale.getScaled(15), scale.getScaled(10), scale.getScaled(10));
             
-            // Lock label - positioned above value label on right side
-            int lockLabelX = totalBounds.getWidth() - 25;
-            bounds.lockLabel = juce::Rectangle<int>(lockLabelX, labelArea.getY() - 15, 20, 10);
+            // Lock label - positioned above value label on right side - scaled
+            int lockLabelX = totalBounds.getWidth() - scale.getScaled(25);
+            bounds.lockLabel = juce::Rectangle<int>(lockLabelX, labelArea.getY() - scale.getScaled(15), scale.getScaled(20), scale.getScaled(10));
             
-            area.removeFromTop(4); // spacing before automation controls
+            area.removeFromTop(scale.getScaled(4)); // scaled spacing before automation controls
             
             // Remaining area for automation controls
             bounds.automationArea = area;
         }
         else
         {
-            // Expanded layout - value label at bottom with padding
+            // Expanded layout - value label at bottom with padding - scaled dimensions
             // Current value label at bottom
-            auto labelArea = area.removeFromBottom(20);
-            bounds.valueLabel = labelArea.reduced(4, 0);
+            auto labelArea = area.removeFromBottom(scale.getScaled(20));
+            bounds.valueLabel = labelArea.reduced(scale.getScaled(4), 0);
             
-            // MIDI activity indicator and lock label positioned above value label
-            bounds.midiIndicator = juce::Rectangle<float>(5, labelArea.getY() - 15, 10, 10);
+            // MIDI activity indicator and lock label positioned above value label - scaled
+            bounds.midiIndicator = juce::Rectangle<float>(scale.getScaled(5), labelArea.getY() - scale.getScaled(15), scale.getScaled(10), scale.getScaled(10));
             
-            int lockLabelX = totalBounds.getWidth() - 25;
-            bounds.lockLabel = juce::Rectangle<int>(lockLabelX, labelArea.getY() - 15, 20, 10);
+            int lockLabelX = totalBounds.getWidth() - scale.getScaled(25);
+            bounds.lockLabel = juce::Rectangle<int>(lockLabelX, labelArea.getY() - scale.getScaled(15), scale.getScaled(20), scale.getScaled(10));
             
             // No automation area in expanded mode
             bounds.automationArea = juce::Rectangle<int>();

@@ -1,6 +1,7 @@
 // CustomLEDInput.h - Retro LED Display Style Input Component
 #pragma once
 #include <JuceHeader.h>
+#include "UI/GlobalUIScale.h"
 
 //==============================================================================
 class CustomLEDInput : public juce::TextEditor
@@ -86,12 +87,13 @@ private:
         // Numeric input only
         setInputRestrictions(0, "-0123456789.");
         
-        // LED-style font and colors
-        juce::Font ledFont("Monaco", 12.0f, juce::Font::plain);
+        // LED-style font and colors with scaling support
+        auto& scale = GlobalUIScale::getInstance();
+        juce::Font ledFont = scale.getScaledFont("Monaco", 12.0f, juce::Font::plain);
         if (!ledFont.getTypefaceName().contains("Monaco"))
         {
             // Fallback to Courier New if Monaco isn't available
-            ledFont = juce::Font("Courier New", 12.0f, juce::Font::plain);
+            ledFont = scale.getScaledFont("Courier New", 12.0f, juce::Font::plain);
         }
         setFont(ledFont);
         

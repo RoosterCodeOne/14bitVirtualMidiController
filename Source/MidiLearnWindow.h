@@ -44,7 +44,7 @@ public:
         
         addAndMakeVisible(connectionStatusLabel);
         connectionStatusLabel.setText("No device selected", juce::dontSendNotification);
-        connectionStatusLabel.setFont(juce::FontOptions(11.0f));
+        connectionStatusLabel.setFont(GlobalUIScale::getInstance().getScaledFont(11.0f));
         connectionStatusLabel.setJustificationType(juce::Justification::centredLeft);
         connectionStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
         connectionStatusLabel.setColour(juce::Label::backgroundColourId, juce::Colours::transparentBlack);
@@ -56,28 +56,28 @@ public:
         // Table headers
         addAndMakeVisible(sliderHeaderLabel);
         sliderHeaderLabel.setText("Target", juce::dontSendNotification);
-        sliderHeaderLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+        sliderHeaderLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f).boldened());
         sliderHeaderLabel.setJustificationType(juce::Justification::centred);
         sliderHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         sliderHeaderLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background);
         
         addAndMakeVisible(channelHeaderLabel);
         channelHeaderLabel.setText("Input Channel", juce::dontSendNotification);
-        channelHeaderLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+        channelHeaderLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f).boldened());
         channelHeaderLabel.setJustificationType(juce::Justification::centred);
         channelHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         channelHeaderLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background);
         
         addAndMakeVisible(ccHeaderLabel);
         ccHeaderLabel.setText("Input CC", juce::dontSendNotification);
-        ccHeaderLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+        ccHeaderLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f).boldened());
         ccHeaderLabel.setJustificationType(juce::Justification::centred);
         ccHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         ccHeaderLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background);
         
         addAndMakeVisible(actionHeaderLabel);
         actionHeaderLabel.setText("Action", juce::dontSendNotification);
-        actionHeaderLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+        actionHeaderLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f).boldened());
         actionHeaderLabel.setJustificationType(juce::Justification::centred);
         actionHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
         actionHeaderLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background);
@@ -92,7 +92,7 @@ public:
         
         // Status label
         addAndMakeVisible(statusLabel);
-        statusLabel.setFont(juce::FontOptions(11.0f));
+        statusLabel.setFont(GlobalUIScale::getInstance().getScaledFont(11.0f));
         statusLabel.setJustificationType(juce::Justification::centred);
         statusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
         updateStatusLabel();
@@ -434,21 +434,21 @@ private:
         {
             // Target/Config label
             addAndMakeVisible(sliderLabel);
-            sliderLabel.setFont(juce::FontOptions(11.0f));
+            sliderLabel.setFont(GlobalUIScale::getInstance().getScaledFont(11.0f));
             sliderLabel.setJustificationType(juce::Justification::centred);
             sliderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
             
             // Channel label
             addAndMakeVisible(channelLabel);
             channelLabel.setText(juce::String(midiChannel), juce::dontSendNotification);
-            channelLabel.setFont(juce::FontOptions(11.0f));
+            channelLabel.setFont(GlobalUIScale::getInstance().getScaledFont(11.0f));
             channelLabel.setJustificationType(juce::Justification::centred);
             channelLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
             
             // CC label
             addAndMakeVisible(ccLabel);
             ccLabel.setText(juce::String(ccNumber), juce::dontSendNotification);
-            ccLabel.setFont(juce::FontOptions(11.0f));
+            ccLabel.setFont(GlobalUIScale::getInstance().getScaledFont(11.0f));
             ccLabel.setJustificationType(juce::Justification::centred);
             ccLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
             

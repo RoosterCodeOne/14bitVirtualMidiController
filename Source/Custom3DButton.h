@@ -2,18 +2,27 @@
 #pragma once
 #include <JuceHeader.h>
 #include "CustomLookAndFeel.h"
+#include "UI/GlobalUIScale.h"
 
 //==============================================================================
-class Custom3DButton : public juce::Button
+class Custom3DButton : public juce::Button, public GlobalUIScale::ScaleChangeListener
 {
 public:
     Custom3DButton(const juce::String& buttonText = "GO") : juce::Button(buttonText)
     {
-        setSize(35, 25);
+        auto& scale = GlobalUIScale::getInstance();
+        setSize(scale.getScaled(35), scale.getScaled(25));
         setButtonText(buttonText);
+        
+        // Register for scale change notifications
+        scale.addScaleChangeListener(this);
     }
     
-    ~Custom3DButton() = default;
+    ~Custom3DButton()
+    {
+        // Unregister from scale change notifications
+        GlobalUIScale::getInstance().removeScaleChangeListener(this);
+    }
     
     void mouseDown(const juce::MouseEvent& event) override
     {
@@ -35,19 +44,29 @@ public:
     
     void paintButton(juce::Graphics& g, bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override
     {
+        auto& scale = GlobalUIScale::getInstance();
         auto bounds = getLocalBounds().toFloat();
         
-        // Blueprint-style flat button
+        // Blueprint-style flat button with scaled corner radius
         g.setColour(shouldDrawButtonAsDown ? BlueprintColors::active.darker(0.3f) : BlueprintColors::panel);
-        g.fillRoundedRectangle(bounds, 2.0f);
+        g.fillRoundedRectangle(bounds, scale.getScaled(2.0f));
         
-        // Technical outline - thicker when pressed/highlighted
-        float lineWidth = (shouldDrawButtonAsDown || shouldDrawButtonAsHighlighted) ? 2.0f : 1.0f;
+        // Technical outline - thicker when pressed/highlighted - scaled line widths
+        float lineWidth = (shouldDrawButtonAsDown || shouldDrawButtonAsHighlighted) ? scale.getScaled(2.0f) : scale.getScaled(1.0f);
         g.setColour(shouldDrawButtonAsHighlighted ? BlueprintColors::active : BlueprintColors::blueprintLines);
-        g.drawRoundedRectangle(bounds, 2.0f, lineWidth);
+        g.drawRoundedRectangle(bounds, scale.getScaled(2.0f), lineWidth);
         
         // Draw button text
         drawButtonText(g, bounds, shouldDrawButtonAsDown, shouldDrawButtonAsHighlighted);
+    }
+    
+    // Scale change notification implementation
+    void scaleFactorChanged(float newScale) override
+    {
+        // Update button size for new scale - maintain default 35x25 ratio
+        auto& scale = GlobalUIScale::getInstance();
+        setSize(scale.getScaled(35), scale.getScaled(25));
+        repaint();
     }
     
 private:
@@ -57,8 +76,11 @@ private:
         if (text.isEmpty())
             return;
             
-        // Blueprint-style text
-        g.setFont(juce::Font(9.0f, juce::Font::bold));
+        // Blueprint-style text with scaled font
+        auto& scale = GlobalUIScale::getInstance();
+        auto scaledFont = scale.getScaledFont(9.0f);
+        scaledFont = scaledFont.boldened(); // Apply bold styling
+        g.setFont(scaledFont);
         
         // Color based on state
         if (isHighlighted)

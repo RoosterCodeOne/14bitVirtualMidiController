@@ -5,6 +5,7 @@
 #include "../CustomLookAndFeel.h"
 #include "../Core/AutomationConfigManager.h"
 #include "../Core/AutomationConfig.h"
+#include "GlobalUIScale.h"
 
 //==============================================================================
 /**
@@ -112,7 +113,10 @@ public:
         }
         
         g.setColour(textColor);
-        g.setFont(juce::Font(12.0f, isRowSelected(rowNumber) ? juce::Font::bold : juce::Font::plain));
+        auto& scale = GlobalUIScale::getInstance();
+        auto scaledFont = scale.getScaledFont(12.0f);
+        if (isRowSelected(rowNumber)) scaledFont = scaledFont.boldened();
+        g.setFont(scaledFont);
         
         juce::String text;
         switch (columnId)
@@ -622,15 +626,15 @@ private:
         
         // Status labels
         statusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
-        statusLabel.setFont(10.0f);
+        statusLabel.setFont(GlobalUIScale::getInstance().getScaledFont(10.0f));
         
         modeLabel.setColour(juce::Label::textColourId, BlueprintColors::active);
-        modeLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+        modeLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f).boldened());
         
         // Learn mode indicator
         learnModeIndicator.setText("Learn Mode Active", juce::dontSendNotification);
         learnModeIndicator.setColour(juce::Label::textColourId, BlueprintColors::warning);
-        learnModeIndicator.setFont(juce::FontOptions(10.0f, juce::Font::bold));
+        learnModeIndicator.setFont(GlobalUIScale::getInstance().getScaledFont(10.0f).boldened());
         learnModeIndicator.setJustificationType(juce::Justification::centredRight);
         learnModeIndicator.setVisible(false); // Hidden by default
     }
