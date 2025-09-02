@@ -142,10 +142,11 @@ public:
         currentValueLabel.setJustificationType(juce::Justification::centred);
         currentValueLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background);
         currentValueLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-        // Match LED input font style
-        juce::Font ledFont(juce::FontOptions("Monaco", 12.0f, juce::Font::plain));
+        // Match LED input font style with proper scaling
+        auto& scale = GlobalUIScale::getInstance();
+        juce::Font ledFont(juce::FontOptions("Monaco", scale.getScaled(12.0f), juce::Font::plain));
         if (!ledFont.getTypefaceName().contains("Monaco")) {
-            ledFont = juce::Font(juce::FontOptions("Courier New", 12.0f, juce::Font::plain));
+            ledFont = juce::Font(juce::FontOptions("Courier New", scale.getScaled(12.0f), juce::Font::plain));
         }
         currentValueLabel.setFont(ledFont);
         
@@ -1089,6 +1090,18 @@ public:
     // Scale change notification implementation
     void scaleFactorChanged(float newScale) override
     {
+        // Update fonts to new scale
+        auto& scale = GlobalUIScale::getInstance();
+        sliderNumberLabel.setFont(scale.getScaledFont(11.0f).boldened());
+        lockLabel.setFont(scale.getScaledFont(14.0f).boldened());
+        
+        // Update current value label font to new scale
+        juce::Font ledFont(juce::FontOptions("Monaco", scale.getScaled(12.0f), juce::Font::plain));
+        if (!ledFont.getTypefaceName().contains("Monaco")) {
+            ledFont = juce::Font(juce::FontOptions("Courier New", scale.getScaled(12.0f), juce::Font::plain));
+        }
+        currentValueLabel.setFont(ledFont);
+        
         // Trigger layout updates when scale changes
         resized();
         repaint();

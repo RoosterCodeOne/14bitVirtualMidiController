@@ -113,25 +113,26 @@ public:
     // Calculate visual track bounds for parent component drawing
     juce::Rectangle<int> calculateVisualTrackBounds(const juce::Rectangle<int>& totalBounds, bool showAutomation = true) const
     {
+        auto& scale = GlobalUIScale::getInstance();
         auto area = totalBounds;
-        area.removeFromTop(20); // utility bar + spacing
+        area.removeFromTop(scale.getScaled(20)); // scaled utility bar + spacing
         
         if (showAutomation)
         {
-            // Normal layout with automation controls
-            int automationControlsHeight = 200;
+            // Normal layout with automation controls - use scaled dimensions
+            int automationControlsHeight = scale.getScaled(200);
             int availableSliderHeight = area.getHeight() - automationControlsHeight;
             int reducedSliderHeight = (int)(availableSliderHeight * 0.70);
             auto sliderArea = area.removeFromTop(reducedSliderHeight);
-            return sliderArea.withWidth(20).withCentre(sliderArea.getCentre());
+            return sliderArea.withWidth(scale.getScaled(20)).withCentre(sliderArea.getCentre());
         }
         else
         {
-            // Expanded layout - slider takes most space
-            int bottomControlsHeight = 30;
+            // Expanded layout - slider takes most space with scaled constraints
+            int bottomControlsHeight = scale.getScaled(30);
             int expandedSliderHeight = area.getHeight() - bottomControlsHeight;
             auto sliderArea = area.removeFromTop(expandedSliderHeight);
-            return sliderArea.withWidth(20).withCentre(sliderArea.getCentre());
+            return sliderArea.withWidth(scale.getScaled(20)).withCentre(sliderArea.getCentre());
         }
     }
     
