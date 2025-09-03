@@ -4,15 +4,22 @@
 #include "UI/GlobalUIScale.h"
 
 //==============================================================================
-class CustomLEDInput : public juce::TextEditor
+class CustomLEDInput : public juce::TextEditor, public GlobalUIScale::ScaleChangeListener
 {
 public:
     CustomLEDInput() : juce::TextEditor()
     {
         setupLEDStyle();
+        
+        // Register for scale change notifications
+        GlobalUIScale::getInstance().addScaleChangeListener(this);
     }
     
-    ~CustomLEDInput() = default;
+    ~CustomLEDInput()
+    {
+        // Unregister from scale change notifications
+        GlobalUIScale::getInstance().removeScaleChangeListener(this);
+    }
     
     void paint(juce::Graphics& g) override
     {
@@ -75,6 +82,12 @@ public:
         return juce::TextEditor::keyPressed(key);
     }
     
+    // Scale change notification implementation
+    void scaleFactorChanged(float newScale) override
+    {
+        updateFontScale();
+    }
+    
 private:
     double minVal = 0.0;
     double maxVal = 16383.0;
@@ -87,15 +100,8 @@ private:
         // Numeric input only
         setInputRestrictions(0, "-0123456789.");
         
-        // LED-style font and colors with scaling support
-        auto& scale = GlobalUIScale::getInstance();
-        juce::Font ledFont = scale.getScaledFont("Monaco", 12.0f, juce::Font::plain);
-        if (!ledFont.getTypefaceName().contains("Monaco"))
-        {
-            // Fallback to Courier New if Monaco isn't available
-            ledFont = scale.getScaledFont("Courier New", 12.0f, juce::Font::plain);
-        }
-        setFont(ledFont);
+        // Set up LED-style font with scaling
+        updateFontScale();
         
         // LED colors - white text on dark green/black background
         setColour(juce::TextEditor::textColourId, juce::Colours::white); // White LED text
@@ -114,6 +120,26 @@ private:
         
         // Border settings
         setBorder(juce::BorderSize<int>(2));
+    }
+    
+    void updateFontScale()
+    {
+        // Update LED-style font with current scale
+        auto& scale = GlobalUIScale::getInstance();
+        juce::Font ledFont = scale.getScaledFont("Monaco", 12.0f, juce::Font::plain);
+        if (!ledFont.getTypefaceName().contains("Monaco"))
+        {
+            // Fallback to Courier New if Monaco isn't available
+            ledFont = scale.getScaledFont("Courier New", 12.0f, juce::Font::plain);
+        }
+        setFont(ledFont);
+        
+        // Apply font to all existing text and force text editor to recalculate layout
+        applyFontToAllText(ledFont);
+        
+        // Force immediate visual update and text layout recalculation
+        repaint();
+        resized();
     }
     
     void drawLEDBackground(juce::Graphics& g, juce::Rectangle<float> bounds)

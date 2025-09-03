@@ -1154,6 +1154,11 @@ public:
             topLevel->setSize(targetWidth, optimalHeight);
         }
         
+        // Update tooltip label fonts with new scale
+        auto& scale = GlobalUIScale::getInstance();
+        movementSpeedLabel.setFont(scale.getScaledFont(10.0f));
+        windowSizeLabel.setFont(scale.getScaledFont(10.0f));
+        
         // Trigger full layout update
         resized();
         repaint();
