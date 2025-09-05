@@ -207,46 +207,48 @@ inline ControllerSettingsTab::~ControllerSettingsTab()
 
 inline void ControllerSettingsTab::paint(juce::Graphics& g)
 {
+    auto& scale = GlobalUIScale::getInstance();
+    
     // Blueprint aesthetic background
     g.setColour(BlueprintColors::windowBackground);
     g.fillAll();
     
     // Draw section backgrounds for the 3-section structure
-    auto bounds = getLocalBounds().reduced(15);
+    auto bounds = getLocalBounds().reduced(scale.getScaled(15));
     
     // Calculate section positions based on new layout
-    const int sectionSpacing = 8;
-    const int controlSpacing = 4;
-    const int labelHeight = 18;
-    const int headerHeight = 22;
+    const int sectionSpacing = scale.getScaled(8);
+    const int controlSpacing = scale.getScaled(4);
+    const int labelHeight = scale.getScaled(18);
+    const int headerHeight = scale.getScaled(22);
     
     // Skip Breadcrumb (no background box)
-    bounds.removeFromTop(20 + 6);
+    bounds.removeFromTop(scale.getScaled(20 + 6));
     
     // Skip Bank selector (no background box)
-    bounds.removeFromTop(22 + sectionSpacing);
+    bounds.removeFromTop(scale.getScaled(22) + sectionSpacing);
     
     // Section 1 - Slider Configuration Box
     auto section2Height = headerHeight + (labelHeight + controlSpacing) * 4 + controlSpacing;
     auto section2Bounds = bounds.removeFromTop(section2Height);
-    section2Bounds = section2Bounds.expanded(8, 4);
+    section2Bounds = section2Bounds.expanded(scale.getScaled(8), scale.getScaled(4));
     
     g.setColour(BlueprintColors::sectionBackground);
-    g.fillRoundedRectangle(section2Bounds.toFloat(), 4.0f);
+    g.fillRoundedRectangle(section2Bounds.toFloat(), scale.getScaled(4.0f));
     g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
-    g.drawRoundedRectangle(section2Bounds.toFloat(), 4.0f, 1.0f);
+    g.drawRoundedRectangle(section2Bounds.toFloat(), scale.getScaled(4.0f), scale.getScaledLineThickness());
     
     bounds.removeFromTop(sectionSpacing);
     
     // Section 2 - Display & Range Box (expanded)
-    auto section3Height = headerHeight + (labelHeight + controlSpacing) * 6 + 60 + controlSpacing * 2;
+    auto section3Height = headerHeight + (labelHeight + controlSpacing) * 6 + scale.getScaled(60) + controlSpacing * 2;
     auto section3Bounds = bounds.removeFromTop(section3Height);
-    section3Bounds = section3Bounds.expanded(8, 4);
+    section3Bounds = section3Bounds.expanded(scale.getScaled(8), scale.getScaled(4));
     
     g.setColour(BlueprintColors::sectionBackground);
-    g.fillRoundedRectangle(section3Bounds.toFloat(), 4.0f);
+    g.fillRoundedRectangle(section3Bounds.toFloat(), scale.getScaled(4.0f));
     g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
-    g.drawRoundedRectangle(section3Bounds.toFloat(), 4.0f, 1.0f);
+    g.drawRoundedRectangle(section3Bounds.toFloat(), scale.getScaled(4.0f), scale.getScaledLineThickness());
     
     // Paint color grid if visible (appears on top of everything)
     paintColorGrid(g);
@@ -364,19 +366,19 @@ inline void ControllerSettingsTab::setupBankSelector()
     // Breadcrumb label
     addAndMakeVisible(breadcrumbLabel);
     breadcrumbLabel.setText("Bank A > Slider 1", juce::dontSendNotification);
-    breadcrumbLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+    breadcrumbLabel.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
     breadcrumbLabel.setColour(juce::Label::textColourId, BlueprintColors::active);
     breadcrumbLabel.setJustificationType(juce::Justification::centredLeft);
     
     addAndMakeVisible(bankSelectorLabel);
     bankSelectorLabel.setText("Bank:", juce::dontSendNotification);
-    bankSelectorLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+    bankSelectorLabel.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
     bankSelectorLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
     // Bank selector buttons with proper colors
     addAndMakeVisible(bankASelector);
     bankASelector.setText("A", juce::dontSendNotification);
-    bankASelector.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+    bankASelector.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
     bankASelector.setJustificationType(juce::Justification::centred);
     bankASelector.setColour(juce::Label::backgroundColourId, juce::Colours::red); // Start with A selected
     bankASelector.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
@@ -388,7 +390,7 @@ inline void ControllerSettingsTab::setupBankSelector()
     
     addAndMakeVisible(bankBSelector);
     bankBSelector.setText("B", juce::dontSendNotification);
-    bankBSelector.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+    bankBSelector.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
     bankBSelector.setJustificationType(juce::Justification::centred);
     bankBSelector.setColour(juce::Label::backgroundColourId, juce::Colours::blue.withAlpha(0.3f)); // Inactive blue
     bankBSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
@@ -400,7 +402,7 @@ inline void ControllerSettingsTab::setupBankSelector()
     
     addAndMakeVisible(bankCSelector);
     bankCSelector.setText("C", juce::dontSendNotification);
-    bankCSelector.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+    bankCSelector.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
     bankCSelector.setJustificationType(juce::Justification::centred);
     bankCSelector.setColour(juce::Label::backgroundColourId, juce::Colours::green.withAlpha(0.3f)); // Inactive green
     bankCSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
@@ -412,7 +414,7 @@ inline void ControllerSettingsTab::setupBankSelector()
     
     addAndMakeVisible(bankDSelector);
     bankDSelector.setText("D", juce::dontSendNotification);
-    bankDSelector.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+    bankDSelector.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
     bankDSelector.setJustificationType(juce::Justification::centred);
     bankDSelector.setColour(juce::Label::backgroundColourId, juce::Colours::yellow.withAlpha(0.3f)); // Inactive yellow
     bankDSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
@@ -428,6 +430,7 @@ inline void ControllerSettingsTab::setupNameControls()
     // Name label
     addAndMakeVisible(nameLabel);
     nameLabel.setText("Name:", juce::dontSendNotification);
+    nameLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     nameLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
     // Name input
@@ -446,11 +449,12 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     // Section 1 - Slider Configuration
     addAndMakeVisible(section1Header);
     section1Header.setText("Slider Configuration", juce::dontSendNotification);
-    section2Header.setFont(juce::FontOptions(14.0f, juce::Font::bold));
-    section2Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    section1Header.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
+    section1Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
     addAndMakeVisible(ccNumberLabel);
     ccNumberLabel.setText("MIDI CC Number:", juce::dontSendNotification);
+    ccNumberLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     ccNumberLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
     addAndMakeVisible(ccNumberInput);
@@ -468,6 +472,7 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     // Input Behavior controls (moved to Slider Configuration section)
     addAndMakeVisible(inputModeLabel);
     inputModeLabel.setText("Input Behavior:", juce::dontSendNotification);
+    inputModeLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     inputModeLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
     addAndMakeVisible(deadzoneButton);
@@ -490,11 +495,12 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     // Section 2 - Display & Range
     addAndMakeVisible(section2Header);
     section2Header.setText("Display & Range", juce::dontSendNotification);
-    section3Header.setFont(juce::FontOptions(14.0f, juce::Font::bold));
-    section3Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    section2Header.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
+    section2Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
     addAndMakeVisible(rangeLabel);
     rangeLabel.setText("Range:", juce::dontSendNotification);
+    rangeLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     rangeLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
     addAndMakeVisible(rangeMinInput);
@@ -507,6 +513,7 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     
     addAndMakeVisible(rangeDashLabel);
     rangeDashLabel.setText("-", juce::dontSendNotification);
+    rangeDashLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     rangeDashLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     rangeDashLabel.setJustificationType(juce::Justification::centred);
     
@@ -521,6 +528,7 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     
     addAndMakeVisible(incrementsLabel);
     incrementsLabel.setText("Custom Steps:", juce::dontSendNotification);
+    incrementsLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     incrementsLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
     addAndMakeVisible(incrementsInput);
@@ -546,6 +554,7 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     // Orientation controls
     addAndMakeVisible(orientationLabel);
     orientationLabel.setText("Orientation:", juce::dontSendNotification);
+    orientationLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     orientationLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
     addAndMakeVisible(orientationCombo);
@@ -566,6 +575,7 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     // Snap threshold controls (small radio buttons)
     addAndMakeVisible(snapLabel);
     snapLabel.setText("Snap:", juce::dontSendNotification);
+    snapLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     snapLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     snapLabel.setVisible(false); // Initially hidden
     
@@ -594,6 +604,7 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     // Automation Visibility controls (moved to Display & Range section)
     addAndMakeVisible(automationVisibilityLabel);
     automationVisibilityLabel.setText("Show Automation:", juce::dontSendNotification);
+    automationVisibilityLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     automationVisibilityLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
     addAndMakeVisible(showAutomationButton);
@@ -607,6 +618,7 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     // Color controls (moved to Display & Range section)
     addAndMakeVisible(colorPickerLabel);
     colorPickerLabel.setText("Color:", juce::dontSendNotification);
+    colorPickerLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     colorPickerLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
     // Add current color box
@@ -650,11 +662,12 @@ inline void ControllerSettingsTab::setupPerSliderControls()
 
 inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>& bounds)
 {
-    const int sectionSpacing = 8;
-    const int controlSpacing = 4;
-    const int labelHeight = 18;
-    const int inputHeight = 22;
-    const int headerHeight = 22;
+    auto& scale = GlobalUIScale::getInstance();
+    const int sectionSpacing = scale.getScaled(8);
+    const int controlSpacing = scale.getScaled(4);
+    const int labelHeight = scale.getScaled(18);
+    const int inputHeight = scale.getScaled(22);
+    const int headerHeight = scale.getScaled(22);
     
     // Section 2 - Slider Configuration (Name, CC Number, Input Behavior)
     auto section2Bounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 4 + controlSpacing);
@@ -664,17 +677,17 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     
     // Name row
     auto nameRow = section2Bounds.removeFromTop(labelHeight);
-    nameLabel.setBounds(nameRow.removeFromLeft(60));
-    nameRow.removeFromLeft(8);
-    nameInput.setBounds(nameRow.removeFromLeft(200));
+    nameLabel.setBounds(nameRow.removeFromLeft(scale.getScaled(60)));
+    nameRow.removeFromLeft(scale.getScaled(8));
+    nameInput.setBounds(nameRow.removeFromLeft(scale.getScaled(200)));
     
     section2Bounds.removeFromTop(controlSpacing);
     
     // CC Number row
     auto ccRow = section2Bounds.removeFromTop(labelHeight);
-    ccNumberLabel.setBounds(ccRow.removeFromLeft(120));
-    ccRow.removeFromLeft(8);
-    ccNumberInput.setBounds(ccRow.removeFromLeft(80));
+    ccNumberLabel.setBounds(ccRow.removeFromLeft(scale.getScaled(120)));
+    ccRow.removeFromLeft(scale.getScaled(8));
+    ccNumberInput.setBounds(ccRow.removeFromLeft(scale.getScaled(80)));
     
     section2Bounds.removeFromTop(controlSpacing);
     
@@ -687,17 +700,17 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     
     // Input Behavior row (moved from separate section)
     auto inputModeRow = section2Bounds.removeFromTop(labelHeight);
-    inputModeLabel.setBounds(inputModeRow.removeFromLeft(120));
-    inputModeRow.removeFromLeft(8);
-    deadzoneButton.setBounds(inputModeRow.removeFromLeft(80));
-    inputModeRow.removeFromLeft(8);
-    directButton.setBounds(inputModeRow.removeFromLeft(60));
+    inputModeLabel.setBounds(inputModeRow.removeFromLeft(scale.getScaled(120)));
+    inputModeRow.removeFromLeft(scale.getScaled(8));
+    deadzoneButton.setBounds(inputModeRow.removeFromLeft(scale.getScaled(80)));
+    inputModeRow.removeFromLeft(scale.getScaled(8));
+    directButton.setBounds(inputModeRow.removeFromLeft(scale.getScaled(60)));
     
     bounds.removeFromTop(sectionSpacing);
     
     // Reserve space for reset button at bottom with spacing above it
     auto resetButtonArea = bounds.removeFromBottom(inputHeight); // Button height
-    bounds.removeFromBottom(20); // Blank space above reset button
+    bounds.removeFromBottom(scale.getScaled(20)); // Blank space above reset button
     
     // Section 3 - Display & Range (expanded to include color, automation visibility)
     auto section3Bounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 6 + controlSpacing * 2);
@@ -707,75 +720,76 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     
     // Range row
     auto rangeRow = section3Bounds.removeFromTop(labelHeight);
-    rangeLabel.setBounds(rangeRow.removeFromLeft(50));
-    rangeRow.removeFromLeft(4);
-    rangeMinInput.setBounds(rangeRow.removeFromLeft(80));
-    rangeRow.removeFromLeft(2);
-    rangeDashLabel.setBounds(rangeRow.removeFromLeft(10));
-    rangeRow.removeFromLeft(2);
-    rangeMaxInput.setBounds(rangeRow.removeFromLeft(80));
+    rangeLabel.setBounds(rangeRow.removeFromLeft(scale.getScaled(50)));
+    rangeRow.removeFromLeft(scale.getScaled(4));
+    rangeMinInput.setBounds(rangeRow.removeFromLeft(scale.getScaled(80)));
+    rangeRow.removeFromLeft(scale.getScaled(2));
+    rangeDashLabel.setBounds(rangeRow.removeFromLeft(scale.getScaled(10)));
+    rangeRow.removeFromLeft(scale.getScaled(2));
+    rangeMaxInput.setBounds(rangeRow.removeFromLeft(scale.getScaled(80)));
     
     section3Bounds.removeFromTop(controlSpacing);
     
     // Increments row
     auto incrementRow = section3Bounds.removeFromTop(labelHeight);
-    incrementsLabel.setBounds(incrementRow.removeFromLeft(120));
-    incrementRow.removeFromLeft(8);
-    incrementsInput.setBounds(incrementRow.removeFromLeft(70));
-    incrementRow.removeFromLeft(4);
-    autoStepButton.setBounds(incrementRow.removeFromLeft(40));
+    incrementsLabel.setBounds(incrementRow.removeFromLeft(scale.getScaled(120)));
+    incrementRow.removeFromLeft(scale.getScaled(8));
+    incrementsInput.setBounds(incrementRow.removeFromLeft(scale.getScaled(70)));
+    incrementRow.removeFromLeft(scale.getScaled(4));
+    autoStepButton.setBounds(incrementRow.removeFromLeft(scale.getScaled(40)));
     
     section3Bounds.removeFromTop(controlSpacing);
     
     // Orientation row
     auto orientationRow = section3Bounds.removeFromTop(labelHeight);
-    orientationLabel.setBounds(orientationRow.removeFromLeft(120));
-    orientationRow.removeFromLeft(8);
-    orientationCombo.setBounds(orientationRow.removeFromLeft(80));
+    orientationLabel.setBounds(orientationRow.removeFromLeft(scale.getScaled(120)));
+    orientationRow.removeFromLeft(scale.getScaled(8));
+    orientationCombo.setBounds(orientationRow.removeFromLeft(scale.getScaled(80)));
     
     section3Bounds.removeFromTop(controlSpacing);
     
     // Snap controls row (only visible for bipolar mode)
     auto snapRow = section3Bounds.removeFromTop(labelHeight);
-    snapLabel.setBounds(snapRow.removeFromLeft(40));
-    snapRow.removeFromLeft(4);
-    snapSmallButton.setBounds(snapRow.removeFromLeft(20));
-    snapRow.removeFromLeft(2);
-    snapMediumButton.setBounds(snapRow.removeFromLeft(20));
-    snapRow.removeFromLeft(2);
-    snapLargeButton.setBounds(snapRow.removeFromLeft(20));
+    snapLabel.setBounds(snapRow.removeFromLeft(scale.getScaled(40)));
+    snapRow.removeFromLeft(scale.getScaled(4));
+    snapSmallButton.setBounds(snapRow.removeFromLeft(scale.getScaled(20)));
+    snapRow.removeFromLeft(scale.getScaled(2));
+    snapMediumButton.setBounds(snapRow.removeFromLeft(scale.getScaled(20)));
+    snapRow.removeFromLeft(scale.getScaled(2));
+    snapLargeButton.setBounds(snapRow.removeFromLeft(scale.getScaled(20)));
     
     section3Bounds.removeFromTop(controlSpacing);
     
     // Automation Visibility row (moved above color picker)
     auto automationRow = section3Bounds.removeFromTop(labelHeight);
-    automationVisibilityLabel.setBounds(automationRow.removeFromLeft(120));
-    automationRow.removeFromLeft(8);
-    showAutomationButton.setBounds(automationRow.removeFromLeft(100));
+    automationVisibilityLabel.setBounds(automationRow.removeFromLeft(scale.getScaled(120)));
+    automationRow.removeFromLeft(scale.getScaled(8));
+    showAutomationButton.setBounds(automationRow.removeFromLeft(scale.getScaled(100)));
     
     section3Bounds.removeFromTop(controlSpacing);
     
     // Color section
     auto colorRow = section3Bounds.removeFromTop(labelHeight);
-    colorPickerLabel.setBounds(colorRow.removeFromLeft(50));
-    colorRow.removeFromLeft(8);
-    currentColorBox.setBounds(colorRow.removeFromLeft(24)); // Small square box
+    colorPickerLabel.setBounds(colorRow.removeFromLeft(scale.getScaled(50)));
+    colorRow.removeFromLeft(scale.getScaled(8));
+    currentColorBox.setBounds(colorRow.removeFromLeft(scale.getScaled(24))); // Small square box
     
     // Reset button at bottom with distinguishing space above it
-    resetSliderButton.setBounds(resetButtonArea.reduced(20, 2)); // Center with padding
+    resetSliderButton.setBounds(resetButtonArea.reduced(scale.getScaled(20), scale.getScaled(2))); // Center with padding
 }
 
 // Color grid management methods
 inline void ControllerSettingsTab::showColorGrid()
 {
+    auto& scale = GlobalUIScale::getInstance();
     colorGridVisible = true;
     
     // Position grid relative to the current color box
-    const int buttonSize = 18; // 75% of 24 = 18
-    const int buttonGap = 4;   // 75% of 6 = 4.5, rounded to 4
+    const int buttonSize = scale.getScaled(18); // Base size 18 scaled
+    const int buttonGap = scale.getScaled(4);   // Base gap 4 scaled
     const int colorsPerRow = 4;
     const int colorRows = 2;
-    const int spacing = 8;     // Space between color box and grid
+    const int spacing = scale.getScaled(8);     // Space between color box and grid
     
     int gridWidth = buttonSize * colorsPerRow + (colorsPerRow - 1) * buttonGap;
     int gridHeight = buttonSize * colorRows + (colorRows - 1) * buttonGap;
@@ -784,8 +798,8 @@ inline void ControllerSettingsTab::showColorGrid()
     auto colorBoxBounds = currentColorBox.getBounds();
     
     colorGridBounds = juce::Rectangle<int>(
-        colorBoxBounds.getRight() + spacing + 15,  // Right of color box with spacing + 15px
-        colorBoxBounds.getY() + 15,                // Align with top of color box + 15px down
+        colorBoxBounds.getRight() + spacing + scale.getScaled(15),  // Right of color box with spacing + 15px
+        colorBoxBounds.getY() + scale.getScaled(15),                // Align with top of color box + 15px down
         gridWidth,
         gridHeight
     );
@@ -803,11 +817,13 @@ inline void ControllerSettingsTab::paintColorGrid(juce::Graphics& g)
 {
     if (!colorGridVisible) return;
     
+    auto& scale = GlobalUIScale::getInstance();
+    
     // Draw background
     g.setColour(BlueprintColors::sectionBackground);
-    g.fillRoundedRectangle(colorGridBounds.expanded(8).toFloat(), 4.0f);
+    g.fillRoundedRectangle(colorGridBounds.expanded(scale.getScaled(8)).toFloat(), scale.getScaled(4.0f));
     g.setColour(BlueprintColors::blueprintLines.withAlpha(0.8f));
-    g.drawRoundedRectangle(colorGridBounds.expanded(8).toFloat(), 4.0f, 2.0f);
+    g.drawRoundedRectangle(colorGridBounds.expanded(scale.getScaled(8)).toFloat(), scale.getScaled(4.0f), scale.getScaledLineThickness(2.0f));
     
     // Draw color grid - use same color array as getColorById for consistency
     const juce::Colour colors[] = {
@@ -815,8 +831,8 @@ inline void ControllerSettingsTab::paintColorGrid(juce::Graphics& g)
         juce::Colours::purple, juce::Colours::orange, juce::Colours::cyan, juce::Colours::white
     };
     
-    const int buttonSize = 18; // Match showColorGrid (75% size)
-    const int buttonGap = 4;   // Match showColorGrid (75% size)
+    const int buttonSize = scale.getScaled(18); // Match showColorGrid scaled size
+    const int buttonGap = scale.getScaled(4);   // Match showColorGrid scaled gap
     
     for (int row = 0; row < 2; ++row)
     {
@@ -836,13 +852,13 @@ inline void ControllerSettingsTab::paintColorGrid(juce::Graphics& g)
                 
                 // Draw border
                 g.setColour(BlueprintColors::blueprintLines);
-                g.drawRect(colorRect, 1);
+                g.drawRect(colorRect, scale.getScaledLineThickness());
                 
                 // Highlight current color - match the grid index to currentColorId
                 if (index == currentColorId)
                 {
                     g.setColour(juce::Colours::white.withAlpha(0.8f));
-                    g.drawRect(colorRect, 2);
+                    g.drawRect(colorRect, scale.getScaledLineThickness(2.0f));
                 }
             }
         }
@@ -851,8 +867,9 @@ inline void ControllerSettingsTab::paintColorGrid(juce::Graphics& g)
 
 inline int ControllerSettingsTab::calculateColorIndexFromPosition(const juce::Point<int>& position)
 {
-    const int buttonSize = 18; // Match showColorGrid (75% size)  
-    const int buttonGap = 4;   // Match showColorGrid (75% size)
+    auto& scale = GlobalUIScale::getInstance();
+    const int buttonSize = scale.getScaled(18); // Match showColorGrid scaled size  
+    const int buttonGap = scale.getScaled(4);   // Match showColorGrid scaled gap
     
     int col = position.x / (buttonSize + buttonGap);
     int row = position.y / (buttonSize + buttonGap);

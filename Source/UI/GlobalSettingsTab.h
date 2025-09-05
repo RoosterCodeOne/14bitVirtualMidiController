@@ -80,49 +80,52 @@ inline GlobalSettingsTab::~GlobalSettingsTab()
 
 inline void GlobalSettingsTab::paint(juce::Graphics& g)
 {
+    auto& scale = GlobalUIScale::getInstance();
+    
     // Blueprint aesthetic background
     g.setColour(BlueprintColors::windowBackground);
     g.fillAll();
     
     // Draw section backgrounds
-    auto bounds = getLocalBounds().reduced(15);
+    auto bounds = getLocalBounds().reduced(scale.getScaled(15));
     
-    const int sectionSpacing = 8;
-    const int controlSpacing = 4;
-    const int labelHeight = 18;
-    const int headerHeight = 22;
+    const int sectionSpacing = scale.getScaled(8);
+    const int controlSpacing = scale.getScaled(4);
+    const int labelHeight = scale.getScaled(18);
+    const int headerHeight = scale.getScaled(22);
     
     // Global Settings section box
     auto section1Height = headerHeight + (labelHeight + controlSpacing) * 2 + controlSpacing;
     auto section1Bounds = bounds.removeFromTop(section1Height);
-    section1Bounds = section1Bounds.expanded(8, 4);
+    section1Bounds = section1Bounds.expanded(scale.getScaled(8), scale.getScaled(4));
     
     g.setColour(BlueprintColors::sectionBackground);
-    g.fillRoundedRectangle(section1Bounds.toFloat(), 4.0f);
+    g.fillRoundedRectangle(section1Bounds.toFloat(), scale.getScaled(4.0f));
     g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
-    g.drawRoundedRectangle(section1Bounds.toFloat(), 4.0f, 1.0f);
+    g.drawRoundedRectangle(section1Bounds.toFloat(), scale.getScaled(4.0f), scale.getScaledLineThickness());
     
     bounds.removeFromTop(sectionSpacing);
     
     // Window Scaling section box (placeholder for future implementation)
     auto section2Height = headerHeight + labelHeight + controlSpacing * 2;
     auto section2Bounds = bounds.removeFromTop(section2Height);
-    section2Bounds = section2Bounds.expanded(8, 4);
+    section2Bounds = section2Bounds.expanded(scale.getScaled(8), scale.getScaled(4));
     
     g.setColour(BlueprintColors::sectionBackground);
-    g.fillRoundedRectangle(section2Bounds.toFloat(), 4.0f);
+    g.fillRoundedRectangle(section2Bounds.toFloat(), scale.getScaled(4.0f));
     g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
-    g.drawRoundedRectangle(section2Bounds.toFloat(), 4.0f, 1.0f);
+    g.drawRoundedRectangle(section2Bounds.toFloat(), scale.getScaled(4.0f), scale.getScaledLineThickness());
 }
 
 inline void GlobalSettingsTab::resized()
 {
-    auto bounds = getLocalBounds().reduced(15);
+    auto& scale = GlobalUIScale::getInstance();
+    auto bounds = getLocalBounds().reduced(scale.getScaled(15));
     
-    const int sectionSpacing = 8;
-    const int controlSpacing = 4;
-    const int labelHeight = 18;
-    const int headerHeight = 22;
+    const int sectionSpacing = scale.getScaled(8);
+    const int controlSpacing = scale.getScaled(4);
+    const int labelHeight = scale.getScaled(18);
+    const int headerHeight = scale.getScaled(22);
     
     // Global Settings section
     auto globalBounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 2 + controlSpacing);
@@ -132,18 +135,18 @@ inline void GlobalSettingsTab::resized()
     
     // MIDI Channel row
     auto channelRow = globalBounds.removeFromTop(labelHeight);
-    midiChannelLabel.setBounds(channelRow.removeFromLeft(100));
-    channelRow.removeFromLeft(8);
-    midiChannelCombo.setBounds(channelRow.removeFromLeft(120));
+    midiChannelLabel.setBounds(channelRow.removeFromLeft(scale.getScaled(100)));
+    channelRow.removeFromLeft(scale.getScaled(8));
+    midiChannelCombo.setBounds(channelRow.removeFromLeft(scale.getScaled(120)));
     
     globalBounds.removeFromTop(controlSpacing);
     
     // BPM row  
     auto bpmRow = globalBounds.removeFromTop(labelHeight);
-    bpmLabel.setBounds(bpmRow.removeFromLeft(40));
-    bpmRow.removeFromLeft(8);
-    bpmSlider.setBounds(bpmRow.removeFromLeft(120));
-    bpmRow.removeFromLeft(8);
+    bpmLabel.setBounds(bpmRow.removeFromLeft(scale.getScaled(40)));
+    bpmRow.removeFromLeft(scale.getScaled(8));
+    bpmSlider.setBounds(bpmRow.removeFromLeft(scale.getScaled(120)));
+    bpmRow.removeFromLeft(scale.getScaled(8));
     syncStatusLabel.setBounds(bpmRow);
     
     bounds.removeFromTop(sectionSpacing);
@@ -153,9 +156,9 @@ inline void GlobalSettingsTab::resized()
     
     // UI Scale row
     auto scaleRow = scaleBounds.removeFromTop(labelHeight);
-    uiScaleLabel.setBounds(scaleRow.removeFromLeft(80));
-    scaleRow.removeFromLeft(8);
-    uiScaleCombo.setBounds(scaleRow.removeFromLeft(100));
+    uiScaleLabel.setBounds(scaleRow.removeFromLeft(scale.getScaled(80)));
+    scaleRow.removeFromLeft(scale.getScaled(8));
+    uiScaleCombo.setBounds(scaleRow.removeFromLeft(scale.getScaled(100)));
 }
 
 inline bool GlobalSettingsTab::keyPressed(const juce::KeyPress& key)
@@ -193,6 +196,7 @@ inline void GlobalSettingsTab::setupGlobalControls()
     // MIDI Channel controls
     addAndMakeVisible(midiChannelLabel);
     midiChannelLabel.setText("MIDI Channel:", juce::dontSendNotification);
+    midiChannelLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     midiChannelLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
     addAndMakeVisible(midiChannelCombo);
@@ -212,6 +216,7 @@ inline void GlobalSettingsTab::setupGlobalControls()
     // BPM controls
     addAndMakeVisible(bpmLabel);
     bpmLabel.setText("BPM:", juce::dontSendNotification);
+    bpmLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     bpmLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
     addAndMakeVisible(bpmSlider);
@@ -241,6 +246,7 @@ inline void GlobalSettingsTab::setupGlobalControls()
     // UI Scale controls
     addAndMakeVisible(uiScaleLabel);
     uiScaleLabel.setText("UI Scale:", juce::dontSendNotification);
+    uiScaleLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     uiScaleLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
     addAndMakeVisible(uiScaleCombo);

@@ -450,7 +450,7 @@ public:
             status += "IN Connected";
         else
             status += "Disconnected";
-        g.drawText(status, topAreaBounds.getX() + 10, topAreaBounds.getY() + 3, 200, 20, juce::Justification::left);
+        g.drawText(status, topAreaBounds.getX() + scale.getScaled(10), topAreaBounds.getY() + scale.getScaled(3), scale.getScaled(200), scale.getScaled(20), juce::Justification::left);
     }
     
     void resized() override
@@ -1134,14 +1134,18 @@ public:
     // Scale change notification implementation
     void scaleFactorChanged(float newScale) override
     {
+        // Update font scaling for labels
+        auto& scale = GlobalUIScale::getInstance();
+        showingLabel.setFont(scale.getScaledFont(12.0f).boldened());
+        movementSpeedLabel.setFont(scale.getScaledFont(10.0f));
+        windowSizeLabel.setFont(scale.getScaledFont(10.0f));
+        
         // Update window constraints for new scale
         updateWindowConstraints();
         
         // CRITICAL: Immediately resize the main window to new scaled dimensions
         if (auto* topLevel = getTopLevelComponent())
         {
-            auto& scale = GlobalUIScale::getInstance();
-            
             // Calculate new window dimensions based on current mode
             int contentWidth = bankManager.isEightSliderMode() ? scale.getScaled(970) : scale.getScaled(490);
             int settingsWidth = (isInSettingsMode || isInLearnMode) ? MainControllerLayout::Constants::getSettingsPanelWidth() : 0;
@@ -1153,10 +1157,6 @@ public:
             // Immediately resize to new scaled dimensions
             topLevel->setSize(targetWidth, optimalHeight);
         }
-        
-        // Update tooltip label fonts with new scale
-        auto& scale = GlobalUIScale::getInstance();
-        movementSpeedLabel.setFont(scale.getScaledFont(10.0f));
         windowSizeLabel.setFont(scale.getScaledFont(10.0f));
         
         // Trigger full layout update

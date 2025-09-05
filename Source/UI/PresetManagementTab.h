@@ -80,83 +80,86 @@ inline PresetManagementTab::~PresetManagementTab()
 
 inline void PresetManagementTab::paint(juce::Graphics& g)
 {
+    auto& scale = GlobalUIScale::getInstance();
+    
     // Blueprint aesthetic background
     g.setColour(BlueprintColors::windowBackground);
     g.fillAll();
     
     // Draw section backgrounds
-    auto bounds = getLocalBounds().reduced(15);
+    auto bounds = getLocalBounds().reduced(scale.getScaled(15));
     
     // Preset controls section background
-    auto presetSectionBounds = bounds.removeFromTop(10 + 16 + 6 + 22 + 6 + 20);
-    presetSectionBounds = presetSectionBounds.expanded(5, 0).withTrimmedBottom(1);
+    auto presetSectionBounds = bounds.removeFromTop(scale.getScaled(10 + 16 + 6 + 22 + 6 + 20));
+    presetSectionBounds = presetSectionBounds.expanded(scale.getScaled(5), 0).withTrimmedBottom(scale.getScaled(1));
     
     g.setColour(BlueprintColors::sectionBackground);
     g.fillRect(presetSectionBounds.toFloat());
     g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
-    g.drawRect(presetSectionBounds.toFloat(), 1.0f);
+    g.drawRect(presetSectionBounds.toFloat(), scale.getScaledLineThickness());
     
     // Skip spacing
-    bounds.removeFromTop(20);
+    bounds.removeFromTop(scale.getScaled(20));
     
     // Folder controls section background
-    auto folderSectionBounds = bounds.removeFromTop(10 + 16 + 5 + 16 + 7 + 20);
-    folderSectionBounds = folderSectionBounds.expanded(5, 0);
+    auto folderSectionBounds = bounds.removeFromTop(scale.getScaled(10 + 16 + 5 + 16 + 7 + 20));
+    folderSectionBounds = folderSectionBounds.expanded(scale.getScaled(5), 0);
     
     g.setColour(BlueprintColors::sectionBackground);
     g.fillRect(folderSectionBounds.toFloat());
     g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
-    g.drawRect(folderSectionBounds.toFloat(), 1.0f);
+    g.drawRect(folderSectionBounds.toFloat(), scale.getScaledLineThickness());
 }
 
 inline void PresetManagementTab::resized()
 {
-    auto bounds = getLocalBounds().reduced(15);
+    auto& scale = GlobalUIScale::getInstance();
+    auto bounds = getLocalBounds().reduced(scale.getScaled(15));
     
     // Preset controls section
-    bounds.removeFromTop(10);
-    presetLabel.setBounds(bounds.removeFromTop(16));
-    bounds.removeFromTop(6);
+    bounds.removeFromTop(scale.getScaled(10));
+    presetLabel.setBounds(bounds.removeFromTop(scale.getScaled(16)));
+    bounds.removeFromTop(scale.getScaled(6));
     
     // Preset combo box and buttons on same row
-    auto presetRowArea = bounds.removeFromTop(22);
-    presetCombo.setBounds(presetRowArea.removeFromLeft(160));
-    presetRowArea.removeFromLeft(8);
+    auto presetRowArea = bounds.removeFromTop(scale.getScaled(22));
+    presetCombo.setBounds(presetRowArea.removeFromLeft(scale.getScaled(160)));
+    presetRowArea.removeFromLeft(scale.getScaled(8));
     
     // 2x2 grid for preset buttons
-    const int buttonWidth = 40;
-    const int buttonHeight = 20;
-    const int buttonSpacing = 6;
+    const int buttonWidth = scale.getScaled(40);
+    const int buttonHeight = scale.getScaled(20);
+    const int buttonSpacing = scale.getScaled(6);
     
     // Top row: Save, Load
     savePresetButton.setBounds(presetRowArea.removeFromLeft(buttonWidth));
     presetRowArea.removeFromLeft(buttonSpacing);
     loadPresetButton.setBounds(presetRowArea.removeFromLeft(buttonWidth));
     
-    bounds.removeFromTop(6);
+    bounds.removeFromTop(scale.getScaled(6));
     
     // Bottom row: Delete, Reset
     auto bottomRowArea = bounds.removeFromTop(buttonHeight);
-    bottomRowArea.removeFromLeft(160 + 8);
+    bottomRowArea.removeFromLeft(scale.getScaled(160 + 8));
     deletePresetButton.setBounds(bottomRowArea.removeFromLeft(buttonWidth));
     bottomRowArea.removeFromLeft(buttonSpacing);
     resetToDefaultButton.setBounds(bottomRowArea.removeFromLeft(buttonWidth));
     
-    bounds.removeFromTop(20); // Flexible spacing
+    bounds.removeFromTop(scale.getScaled(20)); // Flexible spacing
     
     // Folder controls section
-    bounds.removeFromTop(10);
-    presetFolderLabel.setBounds(bounds.removeFromTop(16));
-    bounds.removeFromTop(5);
+    bounds.removeFromTop(scale.getScaled(10));
+    presetFolderLabel.setBounds(bounds.removeFromTop(scale.getScaled(16)));
+    bounds.removeFromTop(scale.getScaled(5));
     
-    auto folderPathArea = bounds.removeFromTop(16);
+    auto folderPathArea = bounds.removeFromTop(scale.getScaled(16));
     presetPathLabel.setBounds(folderPathArea);
     
-    bounds.removeFromTop(7);
-    auto folderButtonArea = bounds.removeFromTop(20);
-    int folderButtonWidth = (folderButtonArea.getWidth() - 8) / 2;
+    bounds.removeFromTop(scale.getScaled(7));
+    auto folderButtonArea = bounds.removeFromTop(scale.getScaled(20));
+    int folderButtonWidth = (folderButtonArea.getWidth() - scale.getScaled(8)) / 2;
     openFolderButton.setBounds(folderButtonArea.removeFromLeft(folderButtonWidth));
-    folderButtonArea.removeFromLeft(8);
+    folderButtonArea.removeFromLeft(scale.getScaled(8));
     changeFolderButton.setBounds(folderButtonArea);
 }
 
@@ -165,7 +168,7 @@ inline void PresetManagementTab::setupPresetControls()
     // Preset controls
     addAndMakeVisible(presetLabel);
     presetLabel.setText("Presets:", juce::dontSendNotification);
-    presetLabel.setFont(juce::FontOptions(16.0f, juce::Font::bold));
+    presetLabel.setFont(GlobalUIScale::getInstance().getScaledFont(16.0f).boldened());
     presetLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
     addAndMakeVisible(presetCombo);
@@ -199,13 +202,13 @@ inline void PresetManagementTab::setupFolderControls()
 {
     addAndMakeVisible(presetFolderLabel);
     presetFolderLabel.setText("Preset Folder:", juce::dontSendNotification);
-    presetFolderLabel.setFont(juce::FontOptions(14.0f));
+    presetFolderLabel.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f));
     presetFolderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
 
     addAndMakeVisible(presetPathLabel);
     presetPathLabel.setText("", juce::dontSendNotification);
     presetPathLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
-    presetPathLabel.setFont(juce::FontOptions(12.0f));
+    presetPathLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     presetPathLabel.setJustificationType(juce::Justification::centredLeft);
     
     addAndMakeVisible(openFolderButton);

@@ -109,23 +109,25 @@ public:
     
     void paint(juce::Graphics& g) override
     {
+        auto& scale = GlobalUIScale::getInstance();
+        
         // Window background (slightly lighter than main background)
         g.fillAll(BlueprintColors::windowBackground);
         
         // Draw complete window outline - blueprint style
         g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
-        g.drawRect(getLocalBounds().toFloat(), 1.0f);
+        g.drawRect(getLocalBounds().toFloat(), scale.getScaledLineThickness());
         
         // Header section background
         auto headerBounds = getHeaderBounds();
         g.setColour(BlueprintColors::sectionBackground);
         g.fillRect(headerBounds);
         g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
-        g.drawRect(headerBounds.toFloat(), 1.0f);
+        g.drawRect(headerBounds.toFloat(), scale.getScaledLineThickness());
         
         // Table section background
         auto tableBounds = getTableBounds();
-        int rowHeight = 25;
+        int rowHeight = scale.getScaled(25);
         int startY = headerBounds.getBottom();
         int tableHeight = mappingRows.size() * rowHeight;
         juce::Rectangle<int> tableAreaBounds(tableBounds.getX(), startY, tableBounds.getWidth(), tableHeight);
@@ -133,7 +135,7 @@ public:
         g.setColour(BlueprintColors::sectionBackground);
         g.fillRect(tableAreaBounds);
         g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
-        g.drawRect(tableAreaBounds.toFloat(), 1.0f);
+        g.drawRect(tableAreaBounds.toFloat(), scale.getScaledLineThickness());
         
         // Table grid lines
         g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
@@ -142,7 +144,7 @@ public:
         for (int i = 0; i <= mappingRows.size(); ++i)
         {
             int y = startY + (i * rowHeight);
-            g.drawHorizontalLine(y, 10, getWidth() - 10);
+            g.drawHorizontalLine(y, scale.getScaled(10), getWidth() - scale.getScaled(10));
         }
         
         // Draw vertical column separators
@@ -154,30 +156,31 @@ public:
         }
         
         // Draw table border
-        g.drawRect(tableBounds.expanded(0, headerBounds.getHeight()), 1);
+        g.drawRect(tableBounds.expanded(0, headerBounds.getHeight()), scale.getScaledLineThickness());
     }
     
     void resized() override
     {
+        auto& scale = GlobalUIScale::getInstance();
         auto area = getLocalBounds();
-        area.reduce(10, 10);
+        area.reduce(scale.getScaled(10), scale.getScaled(10));
         
         // Title
-        titleLabel.setBounds(area.removeFromTop(30));
-        area.removeFromTop(10);
+        titleLabel.setBounds(area.removeFromTop(scale.getScaled(30)));
+        area.removeFromTop(scale.getScaled(10));
         
         // MIDI Input Device Selection Section
-        inputDeviceLabel.setBounds(area.removeFromTop(20));
-        area.removeFromTop(5);
+        inputDeviceLabel.setBounds(area.removeFromTop(scale.getScaled(20)));
+        area.removeFromTop(scale.getScaled(5));
         
-        auto deviceRow = area.removeFromTop(25);
-        inputDeviceCombo.setBounds(deviceRow.removeFromLeft(200));
-        deviceRow.removeFromLeft(10);
-        refreshDevicesButton.setBounds(deviceRow.removeFromLeft(70));
+        auto deviceRow = area.removeFromTop(scale.getScaled(25));
+        inputDeviceCombo.setBounds(deviceRow.removeFromLeft(scale.getScaled(200)));
+        deviceRow.removeFromLeft(scale.getScaled(10));
+        refreshDevicesButton.setBounds(deviceRow.removeFromLeft(scale.getScaled(70)));
         
-        area.removeFromTop(5);
-        connectionStatusLabel.setBounds(area.removeFromTop(20));
-        area.removeFromTop(15);
+        area.removeFromTop(scale.getScaled(5));
+        connectionStatusLabel.setBounds(area.removeFromTop(scale.getScaled(20)));
+        area.removeFromTop(scale.getScaled(15));
         
         // Table headers
         auto headerBounds = getHeaderBounds();
@@ -192,10 +195,10 @@ public:
         layoutTableRows();
         
         // Bottom area
-        auto bottomArea = area.removeFromBottom(60);
-        bottomArea.removeFromTop(10);
+        auto bottomArea = area.removeFromBottom(scale.getScaled(60));
+        bottomArea.removeFromTop(scale.getScaled(10));
         
-        clearAllButton.setBounds(bottomArea.removeFromTop(25).reduced(100, 0));
+        clearAllButton.setBounds(bottomArea.removeFromTop(scale.getScaled(25)).reduced(scale.getScaled(100), 0));
         statusLabel.setBounds(bottomArea);
     }
     
@@ -399,13 +402,14 @@ private:
         
         void resized() override
         {
+            auto& scale = GlobalUIScale::getInstance();
             auto area = getLocalBounds();
             int colWidth = area.getWidth() / 4;
             
             sliderLabel.setBounds(area.removeFromLeft(colWidth));
             channelLabel.setBounds(area.removeFromLeft(colWidth));
             ccLabel.setBounds(area.removeFromLeft(colWidth));
-            removeButton.setBounds(area.reduced(5, 2));
+            removeButton.setBounds(area.reduced(scale.getScaled(5), scale.getScaled(2)));
         }
         
         int getSliderIndex() const { return sliderIndex; }
@@ -466,28 +470,31 @@ private:
     
     juce::Rectangle<int> getHeaderBounds() const
     {
+        auto& scale = GlobalUIScale::getInstance();
         auto area = getLocalBounds();
-        area.reduce(10, 10);
-        area.removeFromTop(40); // Title + gap
-        area.removeFromTop(85); // MIDI device selection area (20+5+25+5+20+10)
-        return area.removeFromTop(25);
+        area.reduce(scale.getScaled(10), scale.getScaled(10));
+        area.removeFromTop(scale.getScaled(40)); // Title + gap
+        area.removeFromTop(scale.getScaled(85)); // MIDI device selection area (20+5+25+5+20+10)
+        return area.removeFromTop(scale.getScaled(25));
     }
     
     juce::Rectangle<int> getTableBounds() const
     {
+        auto& scale = GlobalUIScale::getInstance();
         auto area = getLocalBounds();
-        area.reduce(10, 10);
-        area.removeFromTop(40); // Title + gap
-        area.removeFromTop(85); // MIDI device selection area
-        area.removeFromBottom(60); // Bottom area
+        area.reduce(scale.getScaled(10), scale.getScaled(10));
+        area.removeFromTop(scale.getScaled(40)); // Title + gap
+        area.removeFromTop(scale.getScaled(85)); // MIDI device selection area
+        area.removeFromBottom(scale.getScaled(60)); // Bottom area
         return area;
     }
     
     void layoutTableRows()
     {
+        auto& scale = GlobalUIScale::getInstance();
         auto tableBounds = getTableBounds();
-        int rowHeight = 25;
-        int startY = tableBounds.getY() + 25; // Below headers
+        int rowHeight = scale.getScaled(25);
+        int startY = tableBounds.getY() + scale.getScaled(25); // Below headers
         
         for (int i = 0; i < mappingRows.size(); ++i)
         {
