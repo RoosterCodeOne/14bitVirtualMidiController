@@ -2,12 +2,14 @@
 #pragma once
 #include <JuceHeader.h>
 #include "../CustomLookAndFeel.h"
+#include "GlobalUIScale.h"
 
 // Forward declaration
 class SettingsWindow;
 
 //==============================================================================
-class AboutTab : public juce::Component
+class AboutTab : public juce::Component, 
+                  public GlobalUIScale::ScaleChangeListener
 {
 public:
     AboutTab(SettingsWindow* parentWindow);
@@ -17,6 +19,9 @@ public:
     void resized() override;
     bool keyPressed(const juce::KeyPress& key) override;
     void mouseDown(const juce::MouseEvent& event) override;
+    
+    // Scale change notification implementation
+    void scaleFactorChanged(float newScale) override;
     
     // Callback functions for communication with parent
     std::function<void()> onRequestFocus; // Callback to request focus restoration
@@ -45,46 +50,53 @@ inline AboutTab::AboutTab(SettingsWindow* parent)
     
     // Enable keyboard focus for tab
     setWantsKeyboardFocus(true);
+    
+    // Register for scale change notifications
+    GlobalUIScale::getInstance().addScaleChangeListener(this);
 }
 
 inline AboutTab::~AboutTab()
 {
-    // Clean up if needed
+    // Remove scale change listener
+    GlobalUIScale::getInstance().removeScaleChangeListener(this);
 }
 
 inline void AboutTab::paint(juce::Graphics& g)
 {
+    auto& scale = GlobalUIScale::getInstance();
+    
     // Blueprint aesthetic background
     g.setColour(BlueprintColors::windowBackground);
     g.fillAll();
     
     // Draw section background
-    auto bounds = getLocalBounds().reduced(15);
+    auto bounds = getLocalBounds().reduced(scale.getScaled(15));
     
-    const int sectionSpacing = 8;
-    const int controlSpacing = 4;
-    const int labelHeight = 18;
-    const int headerHeight = 22;
+    const int sectionSpacing = scale.getScaled(8);
+    const int controlSpacing = scale.getScaled(4);
+    const int labelHeight = scale.getScaled(18);
+    const int headerHeight = scale.getScaled(22);
     
     // About section box
     auto section1Height = headerHeight + labelHeight + controlSpacing * 2;
     auto section1Bounds = bounds.removeFromTop(section1Height);
-    section1Bounds = section1Bounds.expanded(8, 4);
+    section1Bounds = section1Bounds.expanded(scale.getScaled(8), scale.getScaled(4));
     
     g.setColour(BlueprintColors::sectionBackground);
-    g.fillRoundedRectangle(section1Bounds.toFloat(), 4.0f);
+    g.fillRoundedRectangle(section1Bounds.toFloat(), scale.getScaled(4.0f));
     g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
-    g.drawRoundedRectangle(section1Bounds.toFloat(), 4.0f, 1.0f);
+    g.drawRoundedRectangle(section1Bounds.toFloat(), scale.getScaled(4.0f), scale.getScaledLineThickness());
 }
 
 inline void AboutTab::resized()
 {
-    auto bounds = getLocalBounds().reduced(15);
+    auto& scale = GlobalUIScale::getInstance();
+    auto bounds = getLocalBounds().reduced(scale.getScaled(15));
     
-    const int sectionSpacing = 8;
-    const int controlSpacing = 4;
-    const int labelHeight = 18;
-    const int headerHeight = 22;
+    const int sectionSpacing = scale.getScaled(8);
+    const int controlSpacing = scale.getScaled(4);
+    const int labelHeight = scale.getScaled(18);
+    const int headerHeight = scale.getScaled(22);
     
     // About section
     auto aboutBounds = bounds.removeFromTop(headerHeight + labelHeight + controlSpacing * 2);
@@ -126,12 +138,23 @@ inline void AboutTab::setupAboutControls()
     // Section header
     addAndMakeVisible(aboutHeader);
     aboutHeader.setText("About", juce::dontSendNotification);
-    aboutHeader.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+    aboutHeader.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
     aboutHeader.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
     // Placeholder content
     addAndMakeVisible(placeholderLabel);
     placeholderLabel.setText("About content will be added here", juce::dontSendNotification);
     placeholderLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
-    placeholderLabel.setFont(juce::FontOptions(12.0f));
+    placeholderLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+}
+
+inline void AboutTab::scaleFactorChanged(float newScale)
+{
+    // Update fonts for all labels
+    aboutHeader.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
+    placeholderLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    
+    // Trigger layout and repaint
+    resized();
+    repaint();
 }

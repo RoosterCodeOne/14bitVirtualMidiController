@@ -10,7 +10,8 @@
 class SettingsWindow;
 
 //==============================================================================
-class ControllerSettingsTab : public juce::Component
+class ControllerSettingsTab : public juce::Component, 
+                               public GlobalUIScale::ScaleChangeListener
 {
 public:
     ControllerSettingsTab(SettingsWindow* parentWindow);
@@ -20,6 +21,9 @@ public:
     void resized() override;
     bool keyPressed(const juce::KeyPress& key) override;
     void mouseDown(const juce::MouseEvent& event) override;
+    
+    // Scale change notification implementation
+    void scaleFactorChanged(float newScale) override;
     
     // Public interface for main window coordination
     void updateControlsForSelectedSlider(int sliderIndex);
@@ -196,10 +200,16 @@ inline ControllerSettingsTab::ControllerSettingsTab(SettingsWindow* parent)
     
     // Enable keyboard focus for tab
     setWantsKeyboardFocus(true);
+    
+    // Register for scale change notifications
+    GlobalUIScale::getInstance().addScaleChangeListener(this);
 }
 
 inline ControllerSettingsTab::~ControllerSettingsTab()
 {
+    // Remove scale change listener
+    GlobalUIScale::getInstance().removeScaleChangeListener(this);
+    
     // Clean up custom look and feel
     resetSliderButton.setLookAndFeel(nullptr);
     autoStepButton.setLookAndFeel(nullptr);
@@ -1291,4 +1301,31 @@ inline void ControllerSettingsTab::applyAutomationVisibility()
     // Notify parent window of the automation visibility change
     if (onSliderSettingChanged)
         onSliderSettingChanged(selectedSlider);
+}
+
+inline void ControllerSettingsTab::scaleFactorChanged(float newScale)
+{
+    // Update fonts for all labels and buttons
+    breadcrumbLabel.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
+    bankSelectorLabel.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
+    bankASelector.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
+    bankBSelector.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
+    bankCSelector.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
+    bankDSelector.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
+    nameLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    section1Header.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
+    ccNumberLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    inputModeLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    section2Header.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
+    rangeLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    rangeDashLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    incrementsLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    orientationLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    snapLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    automationVisibilityLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    colorPickerLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    
+    // Trigger layout and repaint
+    resized();
+    repaint();
 }

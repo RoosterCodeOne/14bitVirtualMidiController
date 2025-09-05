@@ -166,7 +166,9 @@ inline void SettingsWindow::setupTabs()
     // Create tabbed component using raw pointer approach
     tabbedComponent = new juce::TabbedComponent(juce::TabbedButtonBar::TabsAtTop);
     addAndMakeVisible(tabbedComponent);
-    tabbedComponent->setTabBarDepth(30);
+    
+    auto& scale = GlobalUIScale::getInstance();
+    tabbedComponent->setTabBarDepth(scale.getScaled(30));
     tabbedComponent->setOutline(0);
     
     // Disable keyboard focus for tabbed component to prevent it from intercepting arrow keys
@@ -713,6 +715,13 @@ inline void SettingsWindow::applyOrientationToSlider(int sliderIndex)
 
 inline void SettingsWindow::scaleFactorChanged(float newScale)
 {
+    // Update tab bar depth for new scale
+    if (tabbedComponent)
+    {
+        auto& scale = GlobalUIScale::getInstance();
+        tabbedComponent->setTabBarDepth(scale.getScaled(30));
+    }
+    
     // Trigger layout updates when scale changes
     resized();
     repaint();

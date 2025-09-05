@@ -8,7 +8,8 @@
 class SettingsWindow;
 
 //==============================================================================
-class GlobalSettingsTab : public juce::Component
+class GlobalSettingsTab : public juce::Component, 
+                           public GlobalUIScale::ScaleChangeListener
 {
 public:
     GlobalSettingsTab(SettingsWindow* parentWindow);
@@ -18,6 +19,9 @@ public:
     void resized() override;
     bool keyPressed(const juce::KeyPress& key) override;
     void mouseDown(const juce::MouseEvent& event) override;
+    
+    // Scale change notification implementation
+    void scaleFactorChanged(float newScale) override;
     
     // Public interface for main window coordination
     void applyPreset(const ControllerPreset& preset);
@@ -71,11 +75,15 @@ inline GlobalSettingsTab::GlobalSettingsTab(SettingsWindow* parent)
     
     // Enable keyboard focus for tab
     setWantsKeyboardFocus(true);
+    
+    // Register for scale change notifications
+    GlobalUIScale::getInstance().addScaleChangeListener(this);
 }
 
 inline GlobalSettingsTab::~GlobalSettingsTab()
 {
-    // Clean up if needed
+    // Remove scale change listener
+    GlobalUIScale::getInstance().removeScaleChangeListener(this);
 }
 
 inline void GlobalSettingsTab::paint(juce::Graphics& g)
@@ -221,7 +229,8 @@ inline void GlobalSettingsTab::setupGlobalControls()
     
     addAndMakeVisible(bpmSlider);
     bpmSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-    bpmSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
+    auto& scale = GlobalUIScale::getInstance();
+    bpmSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, scale.getScaled(50), scale.getScaled(20));
     bpmSlider.setRange(60.0, 200.0, 1.0);
     bpmSlider.setValue(120.0);
     bpmSlider.setColour(juce::Slider::backgroundColourId, BlueprintColors::background);
@@ -321,4 +330,22 @@ inline void GlobalSettingsTab::setUIScale(float scale)
     }
     
     uiScaleCombo.setSelectedItemIndex(bestIndex, juce::dontSendNotification);
+}
+
+inline void GlobalSettingsTab::scaleFactorChanged(float newScale)
+{
+    // Update BPM slider text box size for new scale
+    auto& scale = GlobalUIScale::getInstance();
+    bpmSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, scale.getScaled(50), scale.getScaled(20));
+    
+    // Update fonts for all labels
+    globalHeader.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
+    midiChannelLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    bpmLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    syncStatusLabel.setFont(GlobalUIScale::getInstance().getScaledFont(10.0f));
+    uiScaleLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    
+    // Trigger layout and repaint
+    resized();
+    repaint();
 }
