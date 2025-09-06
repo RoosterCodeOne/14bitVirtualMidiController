@@ -1406,7 +1406,7 @@ private:
         
         windowManager.toggleSettingsWindow(getTopLevelComponent(), settingsWindow, &midiLearnWindow,
                                           isInSettingsMode, isInLearnMode, bankManager.isEightSliderMode(),
-                                          350, onLearnModeExit, 
+                                          MainControllerLayout::Constants::getSettingsPanelWidth(), onLearnModeExit, 
                                           [this]() { return bankManager.getActiveBank(); });
         
         if (isInSettingsMode)

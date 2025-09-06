@@ -70,14 +70,15 @@ public:
         isInSettingsMode = !isInSettingsMode;
         
         // Update constraints BEFORE resizing
-        updateWindowConstraints(topLevelComponent, isEightSliderMode, isInSettingsMode, false, settingsPanelWidth);
+        updateWindowConstraints(topLevelComponent, isEightSliderMode, isInSettingsMode, isInLearnMode, settingsPanelWidth);
         
         if (topLevelComponent)
         {
             auto& scale = GlobalUIScale::getInstance();
-            // Calculate target window dimensions with proper height scaling
-            int contentAreaWidth = isEightSliderMode ? scale.getScaled(970) : scale.getScaled(490);
-            int targetWidth = isInSettingsMode ? (contentAreaWidth + settingsPanelWidth) : contentAreaWidth;
+            // Use same pattern as working scaleFactorChanged() implementation
+            int contentWidth = isEightSliderMode ? scale.getScaled(970) : scale.getScaled(490);
+            int settingsWidth = isInSettingsMode ? settingsPanelWidth : 0;
+            int targetWidth = contentWidth + settingsWidth;
             int targetHeight = scale.getScaled(660);  // Optimal scaled height
             
             // Resize window instantly with both width and height
@@ -139,9 +140,12 @@ public:
             if (topLevelComponent)
             {
                 auto& scale = GlobalUIScale::getInstance();
-                int contentAreaWidth = isEightSliderMode ? scale.getScaled(970) : scale.getScaled(490);
-                int targetWidth = contentAreaWidth + settingsPanelWidth;
-                topLevelComponent->setSize(targetWidth, topLevelComponent->getHeight());
+                // Use same pattern as working scaleFactorChanged() implementation
+                int contentWidth = isEightSliderMode ? scale.getScaled(970) : scale.getScaled(490);
+                int settingsWidth = settingsPanelWidth;  // Learn mode always adds panel width
+                int targetWidth = contentWidth + settingsWidth;
+                int targetHeight = scale.getScaled(660);  // Use optimal scaled height
+                topLevelComponent->setSize(targetWidth, targetHeight);
                 
                 learnWindow.setVisible(true);
                 learnWindow.toFront(true);
@@ -159,8 +163,12 @@ public:
             if (topLevelComponent)
             {
                 auto& scale = GlobalUIScale::getInstance();
-                int contentAreaWidth = isEightSliderMode ? scale.getScaled(970) : scale.getScaled(490);
-                topLevelComponent->setSize(contentAreaWidth, topLevelComponent->getHeight());
+                // Use same pattern as working scaleFactorChanged() implementation
+                int contentWidth = isEightSliderMode ? scale.getScaled(970) : scale.getScaled(490);
+                int settingsWidth = 0;  // No panel when exiting learn mode
+                int targetWidth = contentWidth + settingsWidth;
+                int targetHeight = scale.getScaled(660);  // Use optimal scaled height
+                topLevelComponent->setSize(targetWidth, targetHeight);
             }
         }
     }
