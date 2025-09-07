@@ -8,7 +8,7 @@
 class Custom3DButton : public juce::Button, public GlobalUIScale::ScaleChangeListener
 {
 public:
-    Custom3DButton(const juce::String& buttonText = "GO") : juce::Button(buttonText)
+    Custom3DButton(const juce::String& buttonText = "GO") : juce::Button(buttonText), isSelected(false)
     {
         auto& scale = GlobalUIScale::getInstance();
         setSize(scale.getScaled(35), scale.getScaled(25));
@@ -48,12 +48,28 @@ public:
         auto bounds = getLocalBounds().toFloat();
         
         // Blueprint-style flat button with scaled corner radius
-        g.setColour(shouldDrawButtonAsDown ? BlueprintColors::active.darker(0.3f) : BlueprintColors::panel);
+        juce::Colour bgColor;
+        if (shouldDrawButtonAsDown)
+            bgColor = BlueprintColors::active.darker(0.3f);
+        else if (isSelected)
+            bgColor = BlueprintColors::active.withAlpha(0.7f);  // Same alpha as other active buttons
+        else
+            bgColor = BlueprintColors::panel;
+            
+        g.setColour(bgColor);
         g.fillRoundedRectangle(bounds, scale.getScaled(2.0f));
         
-        // Technical outline - thicker when pressed/highlighted - scaled line widths
-        float lineWidth = (shouldDrawButtonAsDown || shouldDrawButtonAsHighlighted) ? scale.getScaled(2.0f) : scale.getScaled(1.0f);
-        g.setColour(shouldDrawButtonAsHighlighted ? BlueprintColors::active : BlueprintColors::blueprintLines);
+        // Technical outline - thicker when pressed/highlighted/selected - scaled line widths
+        float lineWidth = (shouldDrawButtonAsDown || shouldDrawButtonAsHighlighted || isSelected) ? scale.getScaled(2.0f) : scale.getScaled(1.0f);
+        juce::Colour outlineColor;
+        if (shouldDrawButtonAsHighlighted)
+            outlineColor = BlueprintColors::active;
+        else if (isSelected)
+            outlineColor = BlueprintColors::active.brighter(0.2f);
+        else
+            outlineColor = BlueprintColors::blueprintLines;
+            
+        g.setColour(outlineColor);
         g.drawRoundedRectangle(bounds, scale.getScaled(2.0f), lineWidth);
         
         // Draw button text
@@ -68,6 +84,18 @@ public:
         setSize(scale.getScaled(35), scale.getScaled(25));
         repaint();
     }
+    
+    // Selected state for highlighting when automation is active
+    void setSelected(bool selected)
+    {
+        if (isSelected != selected)
+        {
+            isSelected = selected;
+            repaint();
+        }
+    }
+    
+    bool getSelected() const { return isSelected; }
     
 private:
     void drawButtonText(juce::Graphics& g, juce::Rectangle<float> bounds, bool isPressed, bool isHighlighted)
@@ -111,6 +139,8 @@ private:
             DBG("Custom3DButton: No parent found to forward right-click to!");
         }
     }
+    
+    bool isSelected;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Custom3DButton)
 };

@@ -66,7 +66,6 @@ public:
                     sliderControls[i]->setShowLearnMarkers(true);
                     DBG("Set learn target to SliderValue for slider " << i << ", showing markers");
                     
-                    learnButton.setButtonText("Move Controller");
                 }
                 else if (isInSettingsMode)
                 {
@@ -115,6 +114,7 @@ public:
         settingsButton.setButtonText("Settings");
         settingsButton.setLookAndFeel(&customButtonLookAndFeel);
         settingsButton.onClick = [this]() {
+            bool previousSettingsMode = isInSettingsMode;
             toggleSettingsMode();
         };
         
@@ -593,7 +593,6 @@ public:
                     setBankButtonLearnMode(false);
                     setAllSlidersLearnMode(false);
                     clearAllActiveLearnZones();
-                    learnButton.setButtonText("Learn");
                     
                     if (configManagementWindow)
                     {
@@ -787,7 +786,6 @@ public:
             DBG("Called midiLearnWindow.addMapping for " + tempTarget.getDisplayName());
             
             // Reset learn button state
-            learnButton.setButtonText("Select Target");
             DBG("Reset learn state");
             
             // Show success feedback with target type
@@ -959,7 +957,6 @@ public:
         midi7BitController.setLearnTarget(zone.midiTargetType, zone.sliderIndex);
         
         // Update learn button text
-        learnButton.setButtonText("Move Controller");
         
         // Show visual feedback for the clicked zone
         showOrangeBracketsForZone(zone);
@@ -1073,7 +1070,6 @@ public:
                     midi7BitController.startLearnMode();
                     setBankButtonLearnMode(true);
                     setAllSlidersLearnMode(true);
-                    learnButton.setButtonText("Pairing...");
                     
                     // Show learn window if not visible
                     if (!midiLearnWindow.isVisible())
@@ -1389,7 +1385,6 @@ private:
             setBankButtonLearnMode(false);
             setAllSlidersLearnMode(false); // NEW: Deactivate all slider learn zones
             clearAllActiveLearnZones(); // NEW: Clear any active zone selections
-            learnButton.setButtonText("Learn");
             midiLearnWindow.setVisible(false);
             
             // Clear MIDI learn config pairing state
@@ -1426,6 +1421,10 @@ private:
             // Clear selection highlighting when settings window is closed
             setSelectedSliderForEditing(-1);
         }
+        
+        // Update button toggle states to reflect current modes
+        settingsButton.setToggleState(isInSettingsMode, juce::dontSendNotification);
+        learnButton.setToggleState(isInLearnMode, juce::dontSendNotification);
         
         resized(); // Re-layout components
     }
@@ -1597,7 +1596,6 @@ private:
             setBankButtonLearnMode(true);
             setAllSlidersLearnMode(true); // NEW: Activate all slider learn zones
             DBG("Entered learn mode: isLearningMode=" << (int)midi7BitController.isInLearnMode());
-            learnButton.setButtonText("Select Target");
             
             // Notify config manager that learn mode is active
             if (configManagementWindow)
@@ -1613,7 +1611,6 @@ private:
             setAllSlidersLearnMode(false); // NEW: Deactivate all slider learn zones
             clearAllActiveLearnZones(); // NEW: Clear any active zone selections
             DBG("Exited learn mode: isLearningMode=" << (int)midi7BitController.isInLearnMode());
-            learnButton.setButtonText("Learn");
             
             // Clear MIDI learn config pairing state
             midiLearnConfigId = {};
@@ -1636,6 +1633,10 @@ private:
         {
             addAndMakeVisible(midiLearnWindow);
         }
+        
+        // Update button toggle states to reflect current modes
+        learnButton.setToggleState(isInLearnMode, juce::dontSendNotification);
+        settingsButton.setToggleState(isInSettingsMode, juce::dontSendNotification);
         
         resized();
     }
@@ -1678,9 +1679,9 @@ private:
     
     // UI Components
     juce::OwnedArray<SimpleSliderControl> sliderControls;
-    juce::TextButton settingsButton;
+    juce::ToggleButton settingsButton;
     juce::TextButton modeButton;
-    juce::TextButton learnButton;
+    juce::ToggleButton learnButton;
     juce::TextButton monitorButton;
     juce::ToggleButton bankAButton, bankBButton, bankCButton, bankDButton;
     CustomButtonLookAndFeel customButtonLookAndFeel;

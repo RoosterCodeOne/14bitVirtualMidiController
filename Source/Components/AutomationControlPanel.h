@@ -372,6 +372,13 @@ public:
     
     // Get bounds for specific automation components
     juce::Rectangle<int> getGoButtonBounds() const { return goButton3D.getBounds(); }
+    
+    // Update GO button state based on automation status
+    void updateGoButtonState(bool isAutomationRunning)
+    {
+        goButton3D.setSelected(isAutomationRunning);
+        goButton3D.setButtonText(isAutomationRunning ? "STOP" : "GO");
+    }
     juce::Rectangle<int> getDelayKnobBounds() const { return delayKnob.getBounds(); }
     juce::Rectangle<int> getAttackKnobBounds() const { return attackKnob.getBounds(); }
     juce::Rectangle<int> getReturnKnobBounds() const { return returnKnob.getBounds(); }

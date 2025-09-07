@@ -6,7 +6,7 @@
 #include "UI/GlobalUIScale.h"
 
 //==============================================================================
-class MidiLearnWindow : public juce::Component
+class MidiLearnWindow : public juce::Component, public GlobalUIScale::ScaleChangeListener
 {
 public:
     MidiLearnWindow()
@@ -96,10 +96,16 @@ public:
         statusLabel.setJustificationType(juce::Justification::centred);
         statusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
         updateStatusLabel();
+        
+        // Register for scale change notifications
+        GlobalUIScale::getInstance().addScaleChangeListener(this);
     }
     
     ~MidiLearnWindow()
     {
+        // Unregister from scale change notifications
+        GlobalUIScale::getInstance().removeScaleChangeListener(this);
+        
         // Clean up custom look and feel
         refreshDevicesButton.setLookAndFeel(nullptr);
         clearAllButton.setLookAndFeel(nullptr);
@@ -367,6 +373,14 @@ public:
     std::function<void(const juce::String& deviceName)> onMidiDeviceSelected;
     std::function<void()> onMidiDevicesRefreshed;
     
+    // GlobalUIScale::ScaleChangeListener implementation
+    void scaleFactorChanged(float newScale) override
+    {
+        updateFonts();
+        resized();
+        repaint();
+    }
+    
 private:
     // Mapping row component
     class MappingRow : public juce::Component
@@ -418,6 +432,14 @@ private:
         int getMidiChannel() const { return midiChannel; }
         juce::String getConfigId() const { return configId; }
         bool isConfig() const { return isConfigMapping; }
+        
+        void updateFonts()
+        {
+            auto& scale = GlobalUIScale::getInstance();
+            sliderLabel.setFont(scale.getScaledFont(11.0f));
+            channelLabel.setFont(scale.getScaledFont(11.0f));
+            ccLabel.setFont(scale.getScaledFont(11.0f));
+        }
         
         std::function<void()> onRemoveClicked;
         
@@ -509,6 +531,27 @@ private:
         int count = mappingRows.size();
         juce::String text = juce::String(count) + " mapping" + (count == 1 ? "" : "s");
         statusLabel.setText(text, juce::dontSendNotification);
+    }
+    
+    void updateFonts()
+    {
+        auto& scale = GlobalUIScale::getInstance();
+        
+        // Update all label fonts
+        titleLabel.setFont(scale.getScaledFont(18.0f).boldened());
+        inputDeviceLabel.setFont(scale.getScaledFont(14.0f).boldened());
+        connectionStatusLabel.setFont(scale.getScaledFont(11.0f));
+        sliderHeaderLabel.setFont(scale.getScaledFont(12.0f).boldened());
+        channelHeaderLabel.setFont(scale.getScaledFont(12.0f).boldened());
+        ccHeaderLabel.setFont(scale.getScaledFont(12.0f).boldened());
+        actionHeaderLabel.setFont(scale.getScaledFont(12.0f).boldened());
+        statusLabel.setFont(scale.getScaledFont(11.0f));
+        
+        // Update fonts in all mapping rows
+        for (auto* row : mappingRows)
+        {
+            row->updateFonts();
+        }
     }
     
     void refreshMidiDevices()

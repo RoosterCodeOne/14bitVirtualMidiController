@@ -102,7 +102,7 @@ public:
         if (isPressed)
             bgColor = activeColor.darker(0.3f);
         else if (isSelected)
-            bgColor = activeColor;
+            bgColor = activeColor.withAlpha(0.7f);
         else
             bgColor = BlueprintColors::panel;
             

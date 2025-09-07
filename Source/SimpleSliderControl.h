@@ -154,9 +154,15 @@ public:
         addAndMakeVisible(automationControlPanel);
         automationControlPanel.onGoButtonClicked = [this]() {
             if (automationEngine.isSliderAutomating(index))
+            {
                 automationEngine.stopAutomation(index);
+                automationControlPanel.updateGoButtonState(false);
+            }
             else
+            {
                 startAutomation();
+                automationControlPanel.updateGoButtonState(automationEngine.isSliderAutomating(index));
+            }
         };
         automationControlPanel.onKnobValueChanged = [this](double newValue) {
             // Knob values changed - no specific action needed here
@@ -186,6 +192,9 @@ public:
         
         // Initialize learn zones
         setupLearnZones();
+        
+        // Initialize GO button state based on current automation status
+        automationControlPanel.updateGoButtonState(automationEngine.isSliderAutomating(index));
         
         // Register for scale change notifications
         GlobalUIScale::getInstance().addScaleChangeListener(this);
@@ -1165,8 +1174,8 @@ private:
         automationEngine.onAutomationStateChanged = [this](int sliderIndex, bool isAutomating) {
             if (sliderIndex == index)
             {
-                // Update GO button text through automation control panel if needed
-                // (Currently handled by the panel itself)
+                // Update GO button state based on automation status
+                automationControlPanel.updateGoButtonState(isAutomating);
                 
                 // Update visualizer state based on automation status
                 auto& visualizer = automationControlPanel.getAutomationVisualizer();
@@ -1268,6 +1277,9 @@ private:
         
         // Start automation through engine
         automationEngine.startAutomation(index, params);
+        
+        // Update GO button state to show "STOP" and highlighting
+        automationControlPanel.updateGoButtonState(true);
     }
     
 private:
