@@ -59,9 +59,11 @@ private:
     // UI Scale controls
     juce::Label uiScaleLabel;
     juce::ComboBox uiScaleCombo;
+    std::vector<float> validScaleOptions;
     
     // Private methods
     void setupGlobalControls();
+    void updateScaleComboOptions();
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GlobalSettingsTab)
 };
@@ -259,12 +261,10 @@ inline void GlobalSettingsTab::setupGlobalControls()
     uiScaleLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
     addAndMakeVisible(uiScaleCombo);
-    uiScaleCombo.addItem("75%", 1);
-    uiScaleCombo.addItem("100%", 2);
-    uiScaleCombo.addItem("125%", 3);
-    uiScaleCombo.addItem("150%", 4);
-    uiScaleCombo.addItem("175%", 5);
-    uiScaleCombo.addItem("200%", 6);
+    
+    // Initialize screen constraints and populate combo with valid options
+    updateScaleComboOptions();
+    
     // Load and set current scale factor
     float currentScale = GlobalUIScale::getInstance().getScaleFactor();
     setUIScale(currentScale);
@@ -272,15 +272,22 @@ inline void GlobalSettingsTab::setupGlobalControls()
     uiScaleCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary);
     uiScaleCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines);
     uiScaleCombo.onChange = [this]() {
-        float newScale = GlobalUIScale::AVAILABLE_SCALES[uiScaleCombo.getSelectedItemIndex()];
-        GlobalUIScale::getInstance().setScaleFactor(newScale);
+        if (validScaleOptions.empty()) return;
         
-        // Save scale setting to PresetManager if available
-        if (onSettingsChanged)
-            onSettingsChanged();
+        int selectedIndex = uiScaleCombo.getSelectedItemIndex();
+        if (selectedIndex >= 0 && selectedIndex < static_cast<int>(validScaleOptions.size()))
+        {
+            float newScale = validScaleOptions[selectedIndex];
+            // Use constraint-aware scaling with user feedback
+            GlobalUIScale::getInstance().setScaleFactorWithConstraints(newScale, this, true);
             
-        // Restore focus to parent after selection
-        if (onRequestFocus) onRequestFocus();
+            // Save scale setting to PresetManager if available
+            if (onSettingsChanged)
+                onSettingsChanged();
+                
+            // Restore focus to parent after selection
+            if (onRequestFocus) onRequestFocus();
+        }
     };
 }
 
@@ -308,24 +315,65 @@ inline void GlobalSettingsTab::applyPreset(const ControllerPreset& preset)
     setUIScale(preset.uiScale);
 }
 
+inline void GlobalSettingsTab::updateScaleComboOptions()
+{
+    // Update screen constraints for current component
+    GlobalUIScale::getInstance().updateScreenConstraints(this);
+    
+    // Get valid scale options based on screen constraints
+    validScaleOptions = GlobalUIScale::getInstance().getValidScaleOptions(this);
+    
+    // Clear existing combo box items
+    uiScaleCombo.clear();
+    
+    // Populate combo box with valid scale options
+    for (size_t i = 0; i < validScaleOptions.size(); ++i)
+    {
+        float scale = validScaleOptions[i];
+        juce::String scaleText = juce::String(static_cast<int>(scale * 100)) + "%";
+        
+        // Add disabled indicator for scales that would be clamped
+        auto constraints = GlobalUIScale::getInstance().getCurrentScreenConstraints();
+        if (constraints.isValid)
+        {
+            if (scale < constraints.minScale + 0.01f)
+                scaleText += " (min)";
+            else if (scale > constraints.maxScale - 0.01f)
+                scaleText += " (max)";
+        }
+        
+        uiScaleCombo.addItem(scaleText, static_cast<int>(i + 1));
+    }
+}
+
 inline float GlobalSettingsTab::getUIScale() const
 {
-    return GlobalUIScale::AVAILABLE_SCALES[uiScaleCombo.getSelectedItemIndex()];
+    if (validScaleOptions.empty()) return 1.0f;
+    
+    int selectedIndex = uiScaleCombo.getSelectedItemIndex();
+    if (selectedIndex >= 0 && selectedIndex < static_cast<int>(validScaleOptions.size()))
+        return validScaleOptions[selectedIndex];
+    
+    return 1.0f;
 }
 
 inline void GlobalSettingsTab::setUIScale(float scale)
 {
-    // Find the closest matching scale factor and set the combo box
-    int bestIndex = 0;
-    float minDifference = std::abs(scale - GlobalUIScale::AVAILABLE_SCALES[0]);
+    // Ensure we have valid scale options
+    if (validScaleOptions.empty())
+        updateScaleComboOptions();
     
-    for (int i = 1; i < GlobalUIScale::NUM_SCALE_OPTIONS; ++i)
+    // Find the closest matching scale factor in valid options
+    int bestIndex = 0;
+    float minDifference = std::abs(scale - validScaleOptions[0]);
+    
+    for (size_t i = 1; i < validScaleOptions.size(); ++i)
     {
-        float difference = std::abs(scale - GlobalUIScale::AVAILABLE_SCALES[i]);
+        float difference = std::abs(scale - validScaleOptions[i]);
         if (difference < minDifference)
         {
             minDifference = difference;
-            bestIndex = i;
+            bestIndex = static_cast<int>(i);
         }
     }
     
@@ -344,6 +392,10 @@ inline void GlobalSettingsTab::scaleFactorChanged(float newScale)
     bpmLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     syncStatusLabel.setFont(GlobalUIScale::getInstance().getScaledFont(10.0f));
     uiScaleLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    
+    // Update scale combo options (constraints may have changed)
+    updateScaleComboOptions();
+    setUIScale(newScale);  // Update selection to match new scale
     
     // Trigger layout and repaint
     resized();

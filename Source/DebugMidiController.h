@@ -243,6 +243,9 @@ public:
         // Register for scale change notifications
         GlobalUIScale::getInstance().addScaleChangeListener(this);
         
+        // Initialize screen constraints for adaptive scaling
+        GlobalUIScale::getInstance().updateScreenConstraints(this);
+        
     }
     
     ~DebugMidiController()
@@ -1456,8 +1459,8 @@ private:
     {
         auto preset = settingsWindow.getPresetManager().loadAutoSavedState();
         
-        // Apply UI scale factor first (before other UI operations)
-        GlobalUIScale::getInstance().setScaleFactor(preset.uiScale);
+        // Apply UI scale factor first (before other UI operations) with constraint checking
+        GlobalUIScale::getInstance().setScaleFactorWithConstraints(preset.uiScale, this, false);
         
         // Force settings window to initialize its controls if not already done
         if (!settingsWindow.isVisible())

@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 #include <functional>
 #include <vector>
+#include <algorithm>
 
 /**
  * GlobalUIScale - Singleton class providing application-wide UI scaling functionality
@@ -31,6 +32,17 @@ public:
     };
     static constexpr int NUM_SCALE_OPTIONS = 6;
     
+    // Screen dimension and scaling constraints
+    struct ScreenConstraints
+    {
+        float minScale;
+        float maxScale;
+        juce::Rectangle<int> availableArea;
+        bool isValid;
+        
+        ScreenConstraints() : minScale(SCALE_75), maxScale(SCALE_200), isValid(false) {}
+    };
+    
     // Scale change listener interface
     class ScaleChangeListener
     {
@@ -49,13 +61,124 @@ public:
     // Core scaling methods
     float getScaleFactor() const { return currentScale; }
     
+    // Screen-aware scaling methods
+    ScreenConstraints calculateScreenConstraints(juce::Component* referenceComponent = nullptr) const
+    {
+        ScreenConstraints constraints;
+        
+        try 
+        {
+            // Get display information
+            auto displays = juce::Desktop::getInstance().getDisplays();
+            if (displays.displays.isEmpty())
+            {
+                DBG("No displays found, using default constraints");
+                return constraints;
+            }
+            
+            // Use primary display or the display containing the reference component
+            auto primaryDisplay = displays.getPrimaryDisplay();
+            if (referenceComponent)
+            {
+                auto componentCentre = referenceComponent->getBounds().getCentre();
+                for (auto& display : displays.displays)
+                {
+                    if (display.totalArea.contains(componentCentre))
+                    {
+                        primaryDisplay = &display;
+                        break;
+                    }
+                }
+            }
+            
+            if (!primaryDisplay)
+            {
+                DBG("Primary display not found, using default constraints");
+                return constraints;
+            }
+            
+            // Calculate available screen area (subtract dock/taskbar areas)
+            constraints.availableArea = primaryDisplay->userArea;
+            
+            // Calculate minimum scale based on minimum readable UI size
+            // Minimum window dimensions at 100% scale: 4-slider mode = 490x660, 8-slider = 970x660
+            const int minWindowWidth4 = 490;
+            const int minWindowHeight = 660;
+            const int minWindowWidth8 = 970;
+            
+            // Account for window decorations and OS elements (estimated)
+            const int decorationPadding = 100;
+            int usableWidth = constraints.availableArea.getWidth() - decorationPadding;
+            int usableHeight = constraints.availableArea.getHeight() - decorationPadding;
+            
+            // Calculate maximum scale that allows both 4-slider and 8-slider modes
+            float maxScaleFor4Slider = static_cast<float>(usableWidth) / minWindowWidth4;
+            float maxScaleFor8Slider = static_cast<float>(usableWidth) / minWindowWidth8;
+            float maxScaleForHeight = static_cast<float>(usableHeight) / minWindowHeight;
+            
+            // Use the most restrictive constraint (8-slider mode requires more width)
+            constraints.maxScale = std::min({maxScaleFor8Slider, maxScaleForHeight, SCALE_200});
+            
+            // Ensure minimum scale for readability
+            constraints.minScale = std::max(SCALE_75, 0.5f);
+            
+            // Round to nearest available scale factor
+            constraints.maxScale = findNearestValidScale(constraints.maxScale, false);
+            constraints.minScale = findNearestValidScale(constraints.minScale, true);
+            
+            constraints.isValid = true;
+            
+            DBG("Screen constraints calculated - Available area: " + 
+                juce::String(constraints.availableArea.getWidth()) + "x" + 
+                juce::String(constraints.availableArea.getHeight()) + 
+                ", Scale range: " + juce::String(constraints.minScale, 2) + 
+                " to " + juce::String(constraints.maxScale, 2));
+        }
+        catch (const std::exception& e)
+        {
+            DBG("Exception calculating screen constraints: " + juce::String(e.what()));
+        }
+        
+        return constraints;
+    }
+    
+    // Get current screen constraints
+    ScreenConstraints getCurrentScreenConstraints() const { return cachedConstraints; }
+    
+    // Update cached screen constraints
+    void updateScreenConstraints(juce::Component* referenceComponent = nullptr)
+    {
+        cachedConstraints = calculateScreenConstraints(referenceComponent);
+    }
+    
     void setScaleFactor(float scale)
     {
-        // Validate scale factor
+        setScaleFactorWithConstraints(scale);
+    }
+    
+    // Screen-aware scale setting with automatic constraint validation
+    float setScaleFactorWithConstraints(float scale, juce::Component* referenceComponent = nullptr, bool showUserFeedback = false)
+    {
+        // Update constraints if needed
+        if (!cachedConstraints.isValid)
+        {
+            updateScreenConstraints(referenceComponent);
+        }
+        
+        float originalScale = scale;
+        float clampedScale = scale;
+        
+        // Apply screen-based constraints if available
+        if (cachedConstraints.isValid)
+        {
+            clampedScale = juce::jlimit(cachedConstraints.minScale, cachedConstraints.maxScale, scale);
+        }
+        
+        // Validate against available scale factors
         bool validScale = false;
         for (int i = 0; i < NUM_SCALE_OPTIONS; ++i)
         {
-            if (std::abs(scale - AVAILABLE_SCALES[i]) < 0.01f)
+            if (std::abs(clampedScale - AVAILABLE_SCALES[i]) < 0.01f)
             {
                 validScale = true;
                 break;
@@ -64,15 +187,25 @@ public:
         
         if (!validScale)
         {
-            DBG("Invalid scale factor: " + juce::String(scale) + ", defaulting to 100%");
-            scale = SCALE_100;
+            // Find nearest valid scale
+            clampedScale = findNearestValidScale(clampedScale, false);
         }
         
-        if (std::abs(currentScale - scale) > 0.01f)
+        // Check if scale was clamped
+        bool wasClamped = std::abs(originalScale - clampedScale) > 0.01f;
+        
+        if (wasClamped && showUserFeedback)
         {
-            currentScale = scale;
+            showScalingLimitFeedback(originalScale, clampedScale);
+        }
+        
+        if (std::abs(currentScale - clampedScale) > 0.01f)
+        {
+            currentScale = clampedScale;
             notifyScaleChangeListeners();
         }
+        
+        return clampedScale;
     }
     
     // Template scaling functions for different numeric types
@@ -129,8 +262,35 @@ public:
     {
         if (index >= 0 && index < NUM_SCALE_OPTIONS)
         {
-            setScaleFactor(AVAILABLE_SCALES[index]);
+            setScaleFactorWithConstraints(AVAILABLE_SCALES[index]);
         }
+    }
+    
+    // Get available scale options respecting current screen constraints
+    std::vector<float> getValidScaleOptions(juce::Component* referenceComponent = nullptr) const
+    {
+        std::vector<float> validScales;
+        
+        // Update constraints if needed
+        auto constraints = cachedConstraints.isValid ? cachedConstraints : calculateScreenConstraints(referenceComponent);
+        
+        for (int i = 0; i < NUM_SCALE_OPTIONS; ++i)
+        {
+            float scale = AVAILABLE_SCALES[i];
+            if (!constraints.isValid || 
+                (scale >= constraints.minScale - 0.01f && scale <= constraints.maxScale + 0.01f))
+            {
+                validScales.push_back(scale);
+            }
+        }
+        
+        // Ensure at least one valid scale exists
+        if (validScales.empty())
+        {
+            validScales.push_back(SCALE_100);
+        }
+        
+        return validScales;
     }
     
     // Persistence methods (to be integrated with PresetManager)
@@ -179,6 +339,62 @@ private:
     
     float currentScale;
     std::vector<ScaleChangeListener*> listeners;
+    mutable ScreenConstraints cachedConstraints;
+    
+    // Helper function to find nearest valid scale
+    float findNearestValidScale(float targetScale, bool preferLower) const
+    {
+        float nearestScale = AVAILABLE_SCALES[0];
+        float minDistance = std::abs(targetScale - nearestScale);
+        
+        for (int i = 1; i < NUM_SCALE_OPTIONS; ++i)
+        {
+            float distance = std::abs(targetScale - AVAILABLE_SCALES[i]);
+            if (distance < minDistance || 
+                (distance == minDistance && 
+                 ((preferLower && AVAILABLE_SCALES[i] < nearestScale) ||
+                  (!preferLower && AVAILABLE_SCALES[i] > nearestScale))))
+            {
+                nearestScale = AVAILABLE_SCALES[i];
+                minDistance = distance;
+            }
+        }
+        
+        return nearestScale;
+    }
+    
+    // Show user feedback when scaling is limited
+    void showScalingLimitFeedback(float requestedScale, float actualScale) const
+    {
+        juce::String message;
+        auto constraints = getCurrentScreenConstraints();
+        
+        if (actualScale < requestedScale)
+        {
+            message = "UI Scale limited to " + juce::String(static_cast<int>(actualScale * 100)) + 
+                     "% (requested " + juce::String(static_cast<int>(requestedScale * 100)) + 
+                     "%) due to screen size constraints";
+        }
+        else
+        {
+            message = "UI Scale increased to " + juce::String(static_cast<int>(actualScale * 100)) + 
+                     "% (requested " + juce::String(static_cast<int>(requestedScale * 100)) + 
+                     "%) to maintain readability";
+        }
+        
+        if (constraints.isValid)
+        {
+            message += " [Screen: " + juce::String(constraints.availableArea.getWidth()) + "x" + 
+                      juce::String(constraints.availableArea.getHeight()) + 
+                      ", Range: " + juce::String(static_cast<int>(constraints.minScale * 100)) + 
+                      "%-" + juce::String(static_cast<int>(constraints.maxScale * 100)) + "%]";
+        }
+        
+        DBG("Adaptive Scaling: " + message);
+        
+        // Future: Could implement a subtle tooltip or status bar notification here
+        // For now, debug output provides sufficient feedback for development and troubleshooting
+    }
     
     void notifyScaleChangeListeners()
     {
