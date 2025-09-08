@@ -1,7 +1,7 @@
 # 14-bit Virtual MIDI Controller - Architecture Overview
 
-**Last Updated**: September 8, 2025 (Adaptive Scaling Implementation)  
-**Status**: Production-ready with intelligent screen-aware UI scaling system (75%-200%)
+**Last Updated**: September 8, 2025 (Scale-Aware Font Implementation Complete)  
+**Status**: Production-ready with complete adaptive UI scaling system (75%-200%)
 
 ## Quick Project Summary
 
@@ -44,20 +44,24 @@ Source/
 
 ## Recent Critical Updates
 
-### September 8, 2025: Adaptive Scaling Implementation
-**Feature**: Intelligent screen-aware UI scaling with automatic constraint validation
-**Implementation**: Complete adaptive scaling system that prevents UI overflow on smaller screens
+### September 8, 2025: Scale-Aware Font Implementation Complete
+**Feature**: Complete font scaling system for all UI input components
+**Implementation**: TextEditor and input box fonts now scale immediately with UI scale changes
 **Files Modified**: 
-- `GlobalUIScale.h` - Added screen detection using JUCE's Desktop::getDisplays(), constraint calculation
-- `GlobalSettingsTab.h` - Updated UI controls to show only valid scale options with visual indicators  
-- `DebugMidiController.h` - Added constraint-aware initialization and preset loading
+- `ControllerSettingsTab.h` - Added `.setFont()` calls to all TextEditor components with refresh pattern
+- `GlobalSettingsTab.h` - Separated BPM slider text box into standalone TextEditor with bidirectional sync
+- All settings input boxes now use clear/setText pattern to force immediate font refresh
 
 **Key Features**:
-- Screen dimension detection with multi-monitor support
-- Dynamic scale limit calculation (prevents 8-slider mode overflow on small screens)
-- Smart UI dropdown showing only applicable scale options
-- User feedback system with detailed constraint reasoning
-- Maintains 75% minimum scale for readability, respects 200% maximum
+- All TextEditor input boxes scale fonts immediately (no editing required to see changes)
+- BPM input separated from slider for consistent scaling behavior  
+- Font refresh pattern: `clear()` → `setText()` forces JUCE to show new fonts immediately
+- Maintains 12pt base font size across all input components
+
+### September 8, 2025: Adaptive Scaling Implementation  
+**Feature**: Intelligent screen-aware UI scaling with automatic constraint validation
+**Implementation**: Complete adaptive scaling system that prevents UI overflow on smaller screens
+**Key Features**: Screen detection, dynamic scale limits, smart UI dropdowns, constraint validation
 
 ### September 6, 2025: Settings Window Scale-Aware Resizing
 **Issue**: Settings window width incorrect at non-100% scales, sliders cut off
@@ -69,13 +73,20 @@ Source/
 ## Implementation Guidelines
 
 ### Adaptive Scale-Aware Development
-- **Always use**: `GlobalUIScale::getInstance().getScaled(value)` for dimensions
+- **Dimensions**: `GlobalUIScale::getInstance().getScaled(value)` for all UI measurements
+- **Fonts**: `GlobalUIScale::getInstance().getScaledFont(baseSize)` for all text components
+- **TextEditor fonts**: Set in setup AND in `scaleFactorChanged()` with refresh pattern
 - **Constraint-aware scaling**: Use `setScaleFactorWithConstraints()` instead of `setScaleFactor()` 
 - **Screen-aware setup**: Call `updateScreenConstraints()` during component initialization
 - **Window constraints**: Use `WindowManager.h` methods, never hardcode widths
 - **Layout**: Use `MainControllerLayout::Constants::` methods for scaled values
-- **Valid options**: Use `getValidScaleOptions()` for UI dropdowns and validation
-- **Reference implementation**: Check `scaleFactorChanged()` in `DebugMidiController.h:1135-1180`
+- **Reference implementation**: Check `scaleFactorChanged()` methods in settings tabs
+
+### Font Scaling Patterns
+- **TextEditor components**: `.setFont()` after setup, then clear/setText refresh in scaleFactorChanged
+- **ComboBox components**: Font scaling requires custom LookAndFeel (not implemented - acceptable)
+- **Slider text boxes**: Separate into standalone TextEditor for proper font scaling
+- **Labels**: Standard `.setFont()` calls work immediately
 
 ### Common Patterns
 - **MIDI Values**: Internal 0-16383, display mapping via `SliderDisplayManager`
@@ -98,12 +109,12 @@ For detailed information, see `docs/` folder:
 ## Quick Debugging Reference
 
 **Common Issues**:
+- Input box fonts not scaling → Check TextEditor `.setFont()` calls and clear/setText refresh pattern
 - Scale problems → Check `GlobalUIScale` usage, screen constraints, and `WindowManager` 
 - Scale overflow → Verify `setScaleFactorWithConstraints()` usage instead of direct `setScaleFactor()`
-- Invalid scale options → Check `getValidScaleOptions()` and screen constraint calculation
+- ComboBox fonts not scaling → Expected behavior (requires custom LookAndFeel)
 - MIDI learn issues → Check `Midi7BitController` and learn zone activation
 - Window sizing → Verify `MainControllerLayout::Constants` usage, not hardcoded values
-- Automation problems → Check `AutomationEngine` state and curve calculations
 
 **Key Methods**:
 - `setScaleFactorWithConstraints()` - Constraint-aware scale setting with validation

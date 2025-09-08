@@ -452,6 +452,8 @@ inline void ControllerSettingsTab::setupNameControls()
     nameInput.onReturnKey = [this]() { nameInput.moveKeyboardFocusToSibling(true); };
     nameInput.onFocusLost = [this]() { applyCustomName(); };
     nameInput.onTextChange = [this]() { applyCustomName(); };
+    // Set font after all other properties are configured
+    nameInput.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
 }
 
 inline void ControllerSettingsTab::setupPerSliderControls()
@@ -475,6 +477,8 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     ccNumberInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
     ccNumberInput.onReturnKey = [this]() { ccNumberInput.moveKeyboardFocusToSibling(true); };
     ccNumberInput.onFocusLost = [this]() { validateAndApplyCCNumber(); };
+    // Set font after all other properties are configured
+    ccNumberInput.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     
     // outputModeLabel setup removed - no longer needed
     
@@ -520,6 +524,8 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     rangeMinInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
     rangeMinInput.onReturnKey = [this]() { rangeMinInput.moveKeyboardFocusToSibling(true); };
     rangeMinInput.onFocusLost = [this]() { validateAndApplyRange(); };
+    // Set font after all other properties are configured
+    rangeMinInput.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     
     addAndMakeVisible(rangeDashLabel);
     rangeDashLabel.setText("-", juce::dontSendNotification);
@@ -534,6 +540,8 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     rangeMaxInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
     rangeMaxInput.onReturnKey = [this]() { rangeMaxInput.moveKeyboardFocusToSibling(true); };
     rangeMaxInput.onFocusLost = [this]() { validateAndApplyRange(); };
+    // Set font after all other properties are configured
+    rangeMaxInput.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     
     
     addAndMakeVisible(incrementsLabel);
@@ -552,6 +560,8 @@ inline void ControllerSettingsTab::setupPerSliderControls()
         // Mark as custom step when user manually changes the value
         isCustomStepFlag = true;
     };
+    // Set font after all other properties are configured
+    incrementsInput.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     
     // Auto step button
     addAndMakeVisible(autoStepButton);
@@ -1324,6 +1334,33 @@ inline void ControllerSettingsTab::scaleFactorChanged(float newScale)
     snapLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     automationVisibilityLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     colorPickerLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    
+    // Update fonts for input boxes
+    nameInput.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    ccNumberInput.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    rangeMinInput.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    rangeMaxInput.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    incrementsInput.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    
+    // Force TextEditor components to refresh and show new fonts immediately
+    // Store current text, clear, and reset to force font refresh
+    auto nameText = nameInput.getText();
+    auto ccText = ccNumberInput.getText();
+    auto minText = rangeMinInput.getText();
+    auto maxText = rangeMaxInput.getText();
+    auto incText = incrementsInput.getText();
+    
+    nameInput.clear();
+    ccNumberInput.clear();
+    rangeMinInput.clear();
+    rangeMaxInput.clear();
+    incrementsInput.clear();
+    
+    nameInput.setText(nameText, false);
+    ccNumberInput.setText(ccText, false);
+    rangeMinInput.setText(minText, false);
+    rangeMaxInput.setText(maxText, false);
+    incrementsInput.setText(incText, false);
     
     // Trigger layout and repaint
     resized();

@@ -29,7 +29,10 @@ public:
     // Access methods for main window
     int getMidiChannel() const { return midiChannelCombo.getSelectedId(); }
     double getBPM() const { return bpmSlider.getValue(); }
-    void setBPM(double bpm) { bpmSlider.setValue(bpm, juce::dontSendNotification); }
+    void setBPM(double bpm) { 
+        bpmSlider.setValue(bpm, juce::dontSendNotification); 
+        bpmInput.setText(juce::String(static_cast<int>(bpm)), false);
+    }
     void setSyncStatus(bool isExternal, double externalBPM = 0.0);
     
     // UI Scale methods
@@ -54,6 +57,7 @@ private:
     // BPM controls
     juce::Label bpmLabel;
     juce::Slider bpmSlider;
+    juce::TextEditor bpmInput;
     juce::Label syncStatusLabel;
     
     // UI Scale controls
@@ -155,7 +159,9 @@ inline void GlobalSettingsTab::resized()
     auto bpmRow = globalBounds.removeFromTop(labelHeight);
     bpmLabel.setBounds(bpmRow.removeFromLeft(scale.getScaled(40)));
     bpmRow.removeFromLeft(scale.getScaled(8));
-    bpmSlider.setBounds(bpmRow.removeFromLeft(scale.getScaled(120)));
+    bpmSlider.setBounds(bpmRow.removeFromLeft(scale.getScaled(80)));
+    bpmRow.removeFromLeft(scale.getScaled(4));
+    bpmInput.setBounds(bpmRow.removeFromLeft(scale.getScaled(50)));
     bpmRow.removeFromLeft(scale.getScaled(8));
     syncStatusLabel.setBounds(bpmRow);
     
@@ -232,21 +238,39 @@ inline void GlobalSettingsTab::setupGlobalControls()
     addAndMakeVisible(bpmSlider);
     bpmSlider.setSliderStyle(juce::Slider::LinearHorizontal);
     auto& scale = GlobalUIScale::getInstance();
-    bpmSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, scale.getScaled(50), scale.getScaled(20));
+    bpmSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);  // No text box on slider
     bpmSlider.setRange(60.0, 200.0, 1.0);
     bpmSlider.setValue(120.0);
     bpmSlider.setColour(juce::Slider::backgroundColourId, BlueprintColors::background);
     bpmSlider.setColour(juce::Slider::trackColourId, BlueprintColors::blueprintLines);
     bpmSlider.setColour(juce::Slider::thumbColourId, BlueprintColors::active);
-    bpmSlider.setColour(juce::Slider::textBoxTextColourId, BlueprintColors::textPrimary);
-    bpmSlider.setColour(juce::Slider::textBoxBackgroundColourId, BlueprintColors::background);
-    bpmSlider.setColour(juce::Slider::textBoxOutlineColourId, BlueprintColors::blueprintLines);
     bpmSlider.onValueChange = [this]() {
+        // Update text editor when slider changes
+        bpmInput.setText(juce::String(static_cast<int>(bpmSlider.getValue())), false);
         if (onBPMChanged)
             onBPMChanged(bpmSlider.getValue());
         // Restore focus to parent after slider adjustment
         if (onRequestFocus) onRequestFocus();
     };
+    
+    // BPM input text editor
+    addAndMakeVisible(bpmInput);
+    bpmInput.setInputRestrictions(3, "0123456789");
+    bpmInput.setText("120", false);
+    bpmInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
+    bpmInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
+    bpmInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
+    bpmInput.onReturnKey = [this]() { bpmInput.moveKeyboardFocusToSibling(true); };
+    bpmInput.onFocusLost = [this]() {
+        // Update slider when text editor changes
+        double value = juce::jlimit(60.0, 200.0, bpmInput.getText().getDoubleValue());
+        bpmSlider.setValue(value, juce::dontSendNotification);
+        bpmInput.setText(juce::String(static_cast<int>(value)), false);  // Ensure valid display
+        if (onBPMChanged)
+            onBPMChanged(value);
+    };
+    // Set font after all other properties are configured
+    bpmInput.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     
     addAndMakeVisible(syncStatusLabel);
     syncStatusLabel.setText("Internal Sync", juce::dontSendNotification);
@@ -382,9 +406,8 @@ inline void GlobalSettingsTab::setUIScale(float scale)
 
 inline void GlobalSettingsTab::scaleFactorChanged(float newScale)
 {
-    // Update BPM slider text box size for new scale
+    // No need to update BPM slider text box since we use separate TextEditor
     auto& scale = GlobalUIScale::getInstance();
-    bpmSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, scale.getScaled(50), scale.getScaled(20));
     
     // Update fonts for all labels
     globalHeader.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
@@ -392,6 +415,12 @@ inline void GlobalSettingsTab::scaleFactorChanged(float newScale)
     bpmLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     syncStatusLabel.setFont(GlobalUIScale::getInstance().getScaledFont(10.0f));
     uiScaleLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    
+    // Update BPM TextEditor font and force refresh
+    bpmInput.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    auto bpmText = bpmInput.getText();
+    bpmInput.clear();
+    bpmInput.setText(bpmText, false);
     
     // Update scale combo options (constraints may have changed)
     updateScaleComboOptions();
