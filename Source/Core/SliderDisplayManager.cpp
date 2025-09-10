@@ -1,6 +1,6 @@
 #include "SliderDisplayManager.h"
 
-//==============================================================================
+//================================================================================
 SliderDisplayManager::SliderDisplayManager()
 {
     DBG("SliderDisplayManager: Created");
