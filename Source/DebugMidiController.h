@@ -97,6 +97,37 @@ public:
             sliderControl->onLearnZoneClicked = [this](const LearnZone& zone) {
                 handleLearnZoneClicked(zone);
             };
+            
+            // Set up automation start/stop callback
+            sliderControl->onAutomationToggled = [this](int sliderIndex, bool isStarting) {
+                if (isStarting) {
+                    updateActionTooltip("Automation Started");
+                } else {
+                    updateActionTooltip("Automation Stopped");
+                }
+            };
+            
+            // Set up time mode change callback
+            sliderControl->onTimeModeChanged = [this](int sliderIndex, AutomationControlPanel::TimeMode mode) {
+                if (mode == AutomationControlPanel::TimeMode::Seconds) {
+                    updateActionTooltip("Timing Mode: Seconds");
+                } else {
+                    updateActionTooltip("Timing Mode: Beats");
+                }
+            };
+            
+            // Set up lock state change callback
+            sliderControl->onLockStateChanged = [this](int sliderIndex, bool isLocked) {
+                juce::String sliderName = settingsWindow.getSliderDisplayName(sliderIndex);
+                if (sliderName.isEmpty()) {
+                    sliderName = "Slider " + juce::String(sliderIndex + 1);
+                }
+                if (isLocked) {
+                    updateActionTooltip("(" + sliderName + ") - Locked");
+                } else {
+                    updateActionTooltip("(" + sliderName + ") - Unlocked");
+                }
+            };
         }
         
         // Bank buttons - setup through BankButtonManager
@@ -156,6 +187,7 @@ public:
         };
         settingsWindow.onPresetLoaded = [this](const ControllerPreset& preset) {
             applyPresetToSliders(preset);
+            updateActionTooltip("Preset Loaded: " + preset.name);
         };
         settingsWindow.onSelectedSliderChanged = [this](int sliderIndex) {
             // Update visual highlighting when slider selection changes in settings
@@ -167,6 +199,14 @@ public:
             bankManager.setActiveBank(bankIndex);
             updatingFromSettingsWindow = false;
         };
+        settingsWindow.onSliderReset = [this](int sliderIndex) {
+            // Get the slider's display name for the tooltip
+            juce::String sliderName = settingsWindow.getSliderDisplayName(sliderIndex);
+            if (sliderName.isEmpty()) {
+                sliderName = "Slider " + juce::String(sliderIndex + 1);
+            }
+            updateActionTooltip("(" + sliderName + ") - Reset");
+        };
         
         // MIDI Learn window
         addChildComponent(&midiLearnWindow);
@@ -174,12 +214,16 @@ public:
             // The mapping is already handled by Midi7BitController
             // Update tooltip to show current mapping
             updateMidiTooltip(sliderIndex, midiChannel, ccNumber, -1);
+            // Update action tooltip for MIDI learn confirmation
+            updateActionTooltip("MIDI Mapping: Ch" + juce::String(midiChannel) + " CC" + juce::String(ccNumber));
         };
         midiLearnWindow.onMappingCleared = [this](int sliderIndex) {
             midi7BitController.clearMapping(sliderIndex);
+            updateActionTooltip("MIDI Mapping Cleared");
         };
         midiLearnWindow.onAllMappingsCleared = [this]() {
             midi7BitController.clearAllMappings();
+            updateActionTooltip("All MIDI Mappings Cleared");
         };
         
         // MIDI device selection callbacks will be set up in setupMidiManager()
@@ -192,12 +236,13 @@ public:
             updateMonitorButtonText(isVisible);
         };
         
-        // Movement speed tooltip - blueprint style
-        addAndMakeVisible(&movementSpeedLabel);
-        movementSpeedLabel.setJustificationType(juce::Justification::centredLeft);
-        movementSpeedLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
-        movementSpeedLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background);
-        movementSpeedLabel.setFont(GlobalUIScale::getInstance().getScaledFont(10.0f));
+        // Action tooltip - blueprint style (replaces movement speed tooltip)
+        addAndMakeVisible(&actionTooltipLabel);
+        actionTooltipLabel.setJustificationType(juce::Justification::centredLeft);
+        actionTooltipLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
+        actionTooltipLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background);
+        actionTooltipLabel.setFont(GlobalUIScale::getInstance().getScaledFont(10.0f));
+        actionTooltipLabel.setText("Ready", juce::dontSendNotification);
         
         // MIDI tracking tooltip - blueprint style
         addAndMakeVisible(&windowSizeLabel);
@@ -329,6 +374,21 @@ public:
     // Get currently selected slider for editing (for testing/debugging)
     int getSelectedSliderForEditing() const { return selectedSliderForEditing; }
     
+    // Update action tooltip with new message
+    void updateActionTooltip(const juce::String& message)
+    {
+        // Truncate long messages for display (max ~40 characters for tooltip width)
+        juce::String displayMessage = message;
+        if (message.length() > 40)
+        {
+            displayMessage = message.substring(0, 37) + "...";
+        }
+        
+        // Ensure thread safety - always update UI on message thread
+        juce::MessageManager::callAsync([this, displayMessage]() {
+            actionTooltipLabel.setText(displayMessage, juce::dontSendNotification);
+        });
+    }
     
     void paint(juce::Graphics& g) override
     {
@@ -491,7 +551,7 @@ public:
                                 [this](int i) { return bankManager.getVisibleSliderIndex(i); });
         
         // Position tooltips using MainControllerLayout
-        mainLayout.layoutTooltips(area, movementSpeedLabel, windowSizeLabel,
+        mainLayout.layoutTooltips(area, actionTooltipLabel, windowSizeLabel,
                                  isInSettingsMode, isInLearnMode, bankManager.isEightSliderMode());
         
         // Update bank button learn overlay positions
@@ -731,7 +791,7 @@ public:
         };
         
         keyboardController.onSpeedDisplayChanged = [this](const juce::String& speedText) {
-            movementSpeedLabel.setText(speedText, juce::dontSendNotification);
+            updateActionTooltip("Keyboard Speed: " + speedText);
         };
         
         keyboardController.isSliderLocked = [this](int sliderIndex) -> bool {
@@ -1004,6 +1064,7 @@ public:
                 {
                     sliderControls[targetSlider]->applyAutomationConfig(config);
                     DBG("Loaded config '" + config.name + "' to slider " + juce::String(targetSlider + 1));
+                    updateActionTooltip("Automation Config Loaded: " + config.name);
                 }
             };
             
@@ -1013,6 +1074,7 @@ public:
                     // Load the config
                     sliderControls[targetSlider]->applyAutomationConfig(config);
                     DBG("Loaded config '" + config.name + "' to slider " + juce::String(targetSlider + 1));
+                    updateActionTooltip("Automation Config Loaded: " + config.name);
                     
                     if (alsoSave)
                     {
@@ -1034,6 +1096,7 @@ public:
                     {
                         DBG("Saved new config '" + configName + "' from slider " + juce::String(sourceSlider + 1));
                         configManagementWindow->refreshConfigList();
+                        updateActionTooltip("Automation Config Saved: " + configName);
                         
                         // Clear highlighting after successful save
                         sliderControls[sourceSlider]->setAutomationHighlighted(false);
@@ -1136,7 +1199,7 @@ public:
         // Update font scaling for labels
         auto& scale = GlobalUIScale::getInstance();
         showingLabel.setFont(scale.getScaledFont(12.0f).boldened());
-        movementSpeedLabel.setFont(scale.getScaledFont(10.0f));
+        actionTooltipLabel.setFont(scale.getScaledFont(10.0f));
         windowSizeLabel.setFont(scale.getScaledFont(10.0f));
         
         // Update window constraints for new scale
@@ -1156,7 +1219,6 @@ public:
             // Immediately resize to new scaled dimensions
             topLevel->setSize(targetWidth, optimalHeight);
         }
-        windowSizeLabel.setFont(scale.getScaledFont(10.0f));
         
         // Trigger full layout update
         resized();
@@ -1699,7 +1761,7 @@ private:
     MidiLearnWindow midiLearnWindow;
     std::unique_ptr<MidiMonitorWindow> midiMonitorWindow;
     std::unique_ptr<AutomationConfigManagementWindow> configManagementWindow;
-    juce::Label movementSpeedLabel;
+    juce::Label actionTooltipLabel;
     juce::Label windowSizeLabel;
     
     // Core Systems

@@ -157,15 +157,20 @@ public:
             {
                 automationEngine.stopAutomation(index);
                 automationControlPanel.updateGoButtonState(false);
+                if (onAutomationToggled) onAutomationToggled(index, false);
             }
             else
             {
                 startAutomation();
                 automationControlPanel.updateGoButtonState(automationEngine.isSliderAutomating(index));
+                if (onAutomationToggled) onAutomationToggled(index, true);
             }
         };
         automationControlPanel.onKnobValueChanged = [this](double newValue) {
             // Knob values changed - no specific action needed here
+        };
+        automationControlPanel.onTimeModeChanged = [this](AutomationControlPanel::TimeMode mode) {
+            if (onTimeModeChanged) onTimeModeChanged(index, mode);
         };
         
         // Set up context menu callback for automation area
@@ -354,6 +359,9 @@ public:
             
             // Enable/disable slider interaction
             mainSlider.setInterceptsMouseClicks(!lockState, !lockState);
+            
+            // Notify about lock state change
+            if (onLockStateChanged) onLockStateChanged(index, lockState);
         }
     }
     
@@ -1053,6 +1061,15 @@ public:
     // Automation config callbacks
     std::function<void()> onConfigManagementRequested;
     std::function<void(int sliderIndex, AutomationConfigManagementWindow::Mode mode)> onOpenConfigManagement;
+    
+    // Automation start/stop callback
+    std::function<void(int sliderIndex, bool isStarting)> onAutomationToggled;
+    
+    // Time mode change callback
+    std::function<void(int sliderIndex, AutomationControlPanel::TimeMode mode)> onTimeModeChanged;
+    
+    // Lock state change callback
+    std::function<void(int sliderIndex, bool isLocked)> onLockStateChanged;
     
     // Learn mode callbacks
     std::function<void(MidiTargetType, int)> onLearnModeTargetClicked;

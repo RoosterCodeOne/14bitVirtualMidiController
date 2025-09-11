@@ -184,6 +184,9 @@ public:
         delayKnob.setTimeMode(knobTimeMode);
         attackKnob.setTimeMode(knobTimeMode); 
         returnKnob.setTimeMode(knobTimeMode);
+        
+        // Notify about time mode change
+        if (onTimeModeChanged) onTimeModeChanged(mode);
     }
     
     TimeMode getTimeMode() const { return currentTimeMode; }
@@ -402,6 +405,7 @@ public:
     std::function<void(double)> onKnobValueChanged;
     std::function<void(juce::Point<int>)> onContextMenuRequested;
     std::function<void(MidiTargetType, int)> onLearnModeTargetClicked;
+    std::function<void(TimeMode)> onTimeModeChanged;
     
 private:
     void setupKnobs()

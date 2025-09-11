@@ -1,13 +1,13 @@
 # 14-bit Virtual MIDI Controller - Architecture Overview
 
-**Last Updated**: September 8, 2025 (Scale-Aware Font Implementation Complete)  
-**Status**: Production-ready with complete adaptive UI scaling system (75%-200%)
+**Last Updated**: September 11, 2025 (Action Tooltip System Implementation Complete)  
+**Status**: Production-ready with complete adaptive UI scaling system (75%-200%) and comprehensive action confirmation system
 
 ## Quick Project Summary
 
-JUCE-based desktop application providing hardware-realistic 14-bit MIDI slider control with professional automation, blueprint-style UI, and adaptive scaling system that intelligently adjusts to screen constraints.
+JUCE-based desktop application providing hardware-realistic 14-bit MIDI slider control with professional automation, blueprint-style UI, adaptive scaling system, and comprehensive action confirmation feedback.
 
-**Key Features**: 16 sliders, 4/8 slider modes, 4 banks, MIDI learn, advanced automation, preset management, adaptive screen-aware UI scaling
+**Key Features**: 16 sliders, 4/8 slider modes, 4 banks, MIDI learn, advanced automation, preset management, adaptive screen-aware UI scaling, action tooltip system
 
 ## Essential Architecture
 
@@ -25,6 +25,7 @@ MidiLearnWindow.h                   - MIDI mapping interface
 - **Automation**: `AutomationEngine.h`, `AutomationConfigManager.h` - 3-phase curves with BPM sync
 - **Layout**: `MainControllerLayout.h` - Scale-aware positioning and bounds
 - **Display**: `SliderDisplayManager.h` - MIDI-to-display value mapping
+- **Action Feedback**: `actionTooltipLabel` - Comprehensive action confirmation system with thread-safe updates
 
 ### Critical File Locations
 ```
@@ -43,6 +44,24 @@ Source/
 ```
 
 ## Recent Critical Updates
+
+### September 11, 2025: Action Tooltip System Implementation Complete
+**Feature**: Comprehensive action confirmation system replacing keyboard speed tooltip
+**Implementation**: Thread-safe action feedback with intelligent text truncation and comprehensive coverage
+**Files Modified**: 
+- `DebugMidiController.h` - Replaced `movementSpeedLabel` with `actionTooltipLabel`, added `updateActionTooltip()` method
+- `MainControllerLayout.h` - Updated layout method parameter names for new tooltip system
+- `SimpleSliderControl.h` - Added callbacks for automation, timing mode, and lock state changes
+- `AutomationControlPanel.h` - Added time mode change callback system
+- `ControllerSettingsTab.h` - Added slider reset action tracking
+- `SettingsWindow.h` - Added slider reset callback forwarding
+
+**Key Features**:
+- **Action Coverage**: Keyboard speed, automation operations, slider resets, timing modes, MIDI learning, preset loading, lock/unlock
+- **Smart Formatting**: Slider-specific actions use "(Slider Name) - Action" format with custom or fallback naming
+- **Thread Safety**: All tooltip updates use `MessageManager::callAsync()` for safe cross-thread operation
+- **Text Truncation**: Messages >40 characters automatically truncated with "..." for optimal display
+- **Blueprint Integration**: Maintains original tooltip positioning and styling in bottom-left area
 
 ### September 8, 2025: Scale-Aware Font Implementation Complete
 **Feature**: Complete font scaling system for all UI input components
@@ -115,6 +134,8 @@ For detailed information, see `docs/` folder:
 - ComboBox fonts not scaling → Expected behavior (requires custom LookAndFeel)
 - MIDI learn issues → Check `Midi7BitController` and learn zone activation
 - Window sizing → Verify `MainControllerLayout::Constants` usage, not hardcoded values
+- Action tooltip not appearing → Check callback connections and `updateActionTooltip()` calls
+- Tooltip text truncated → Expected for messages >40 chars; check original message content
 
 **Key Methods**:
 - `setScaleFactorWithConstraints()` - Constraint-aware scale setting with validation
@@ -123,3 +144,20 @@ For detailed information, see `docs/` folder:
 - `scaleFactorChanged()` - Reference implementation for scale-aware resizing
 - `toggleSettingsWindow()`/`toggleLearnWindow()` - Window mode switching
 - `updateWindowConstraints()` - Window constraint management
+- `updateActionTooltip()` - Thread-safe action confirmation with text truncation
+
+## Action Tooltip System
+
+### Tracked Actions
+- **Keyboard Speed**: "Keyboard Speed: [X]"
+- **Automation**: "Automation Started/Stopped", "Automation Config Saved/Loaded: [Name]"
+- **Slider Operations**: "([SliderName]) - Reset/Locked/Unlocked"
+- **MIDI**: "MIDI Mapping: Ch[X] CC[Y]", "MIDI Mapping Cleared"
+- **System**: "Preset Loaded: [Name]", "Timing Mode: Seconds/Beats"
+
+### Implementation Notes
+- Thread-safe updates via `MessageManager::callAsync()`
+- 40-character truncation with "..." for long messages
+- Slider-specific format: "(Slider Name) - Action"
+- Positioned in bottom-left area (former keyboard speed tooltip location)
+- Blueprint styling with `textSecondary` color and 10pt scaled font

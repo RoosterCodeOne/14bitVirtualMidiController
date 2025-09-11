@@ -59,6 +59,7 @@ public:
     std::function<void(double)> onBPMChanged;
     std::function<void(int)> onSelectedSliderChanged;
     std::function<void(int)> onBankSelectionChanged;
+    std::function<void(int)> onSliderReset;
     
     // Keyboard handling
     bool keyPressed(const juce::KeyPress& key) override;
@@ -267,6 +268,12 @@ inline void SettingsWindow::setupCommunication()
         
         if (onSelectedSliderChanged)
             onSelectedSliderChanged(selectedSlider);
+    };
+    
+    // Callback for slider reset action
+    controllerTab->onSliderReset = [this](int sliderIndex) {
+        if (onSliderReset)
+            onSliderReset(sliderIndex);
     };
     
     // Preset tab callbacks

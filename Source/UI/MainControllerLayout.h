@@ -146,7 +146,7 @@ public:
     
     // Layout tooltip components at bottom
     void layoutTooltips(const juce::Rectangle<int>& totalArea,
-                       juce::Component& movementSpeedLabel,
+                       juce::Component& actionTooltipLabel,
                        juce::Component& windowSizeLabel,
                        bool isInSettingsMode,
                        bool isInLearnMode,
@@ -161,7 +161,7 @@ public:
             // Settings or learn open: tooltips span remaining width after panel
             auto adjustedTooltipArea = tooltipArea.withTrimmedLeft(Constants::getSettingsPanelWidth());
             auto leftTooltip = adjustedTooltipArea.removeFromLeft(adjustedTooltipArea.getWidth() / 2);
-            movementSpeedLabel.setBounds(leftTooltip);
+            actionTooltipLabel.setBounds(leftTooltip);
             windowSizeLabel.setBounds(adjustedTooltipArea);
         }
         else
@@ -170,7 +170,7 @@ public:
             int contentAreaX = (totalArea.getWidth() - contentAreaWidth) / 2;
             auto contentTooltipArea = tooltipArea.withX(contentAreaX).withWidth(contentAreaWidth);
             auto leftTooltip = contentTooltipArea.removeFromLeft(contentTooltipArea.getWidth() / 2);
-            movementSpeedLabel.setBounds(leftTooltip);
+            actionTooltipLabel.setBounds(leftTooltip);
             windowSizeLabel.setBounds(contentTooltipArea);
         }
     }

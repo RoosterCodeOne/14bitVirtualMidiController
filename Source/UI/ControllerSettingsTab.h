@@ -60,6 +60,7 @@ public:
     std::function<void(int)> onBankSelected;
     std::function<void(int)> onSliderSettingChanged;
     std::function<void(int)> onSliderSelectionChanged; // For cycling without saving settings
+    std::function<void(int)> onSliderReset; // For reset button action tracking
     std::function<void()> onRequestFocus; // Callback to request focus restoration
     
 private:
@@ -675,6 +676,8 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     resetSliderButton.setLookAndFeel(&customButtonLookAndFeel);
     resetSliderButton.onClick = [this]() { 
         resetCurrentSlider();
+        // Notify about reset action
+        if (onSliderReset) onSliderReset(selectedSlider);
         // Restore focus to parent after reset
         if (onRequestFocus) onRequestFocus();
     };
