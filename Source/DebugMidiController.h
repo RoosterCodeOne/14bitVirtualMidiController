@@ -22,7 +22,7 @@
 #include "Components/LearnZoneTypes.h"
 #include "UI/GlobalUIScale.h"
 
-//====================================================================================
+//=====================================================================================
 class DebugMidiController : public juce::Component, 
                             public juce::Timer, 
                             public GlobalUIScale::ScaleChangeListener
