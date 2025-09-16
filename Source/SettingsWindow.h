@@ -455,6 +455,7 @@ inline ControllerPreset SettingsWindow::getCurrentPreset() const
     preset.name = "Current State";
     preset.midiChannel = getMidiChannel();
     preset.uiScale = globalTab->getUIScale(); // Get current UI scale from GlobalSettingsTab
+    preset.alwaysOnTop = globalTab->getAlwaysOnTop(); // Get current Always On Top setting
     
     // Read from internal slider settings data
     for (int i = 0; i < 16; ++i)

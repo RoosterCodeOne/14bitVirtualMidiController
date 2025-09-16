@@ -39,6 +39,17 @@ public:
     float getUIScale() const;
     void setUIScale(float scale);
     
+    // Always On Top methods
+    bool getAlwaysOnTop() const { return alwaysOnTopToggle.getToggleState(); }
+    void setAlwaysOnTop(bool alwaysOnTop) { 
+        alwaysOnTopToggle.setToggleState(alwaysOnTop, juce::dontSendNotification);
+        // Apply to main window immediately
+        if (auto* topLevel = getTopLevelComponent())
+        {
+            topLevel->setAlwaysOnTop(alwaysOnTop);
+        }
+    }
+    
     // Callback functions for communication with parent
     std::function<void()> onSettingsChanged;
     std::function<void(double)> onBPMChanged;
@@ -64,6 +75,10 @@ private:
     juce::Label uiScaleLabel;
     juce::ComboBox uiScaleCombo;
     std::vector<float> validScaleOptions;
+    
+    // Always On Top controls
+    juce::Label alwaysOnTopLabel;
+    juce::ToggleButton alwaysOnTopToggle;
     
     // Private methods
     void setupGlobalControls();
@@ -120,8 +135,8 @@ inline void GlobalSettingsTab::paint(juce::Graphics& g)
     
     bounds.removeFromTop(sectionSpacing);
     
-    // Window Scaling section box (placeholder for future implementation)
-    auto section2Height = headerHeight + labelHeight + controlSpacing * 2;
+    // Window Scaling section box (UI Scale + Always On Top)
+    auto section2Height = headerHeight + (labelHeight + controlSpacing) * 2 + controlSpacing;
     auto section2Bounds = bounds.removeFromTop(section2Height);
     section2Bounds = section2Bounds.expanded(scale.getScaled(8), scale.getScaled(4));
     
@@ -168,13 +183,21 @@ inline void GlobalSettingsTab::resized()
     bounds.removeFromTop(sectionSpacing);
     
     // UI Scale section
-    auto scaleBounds = bounds.removeFromTop(labelHeight + controlSpacing);
+    auto scaleBounds = bounds.removeFromTop((labelHeight + controlSpacing) * 2);
     
     // UI Scale row
     auto scaleRow = scaleBounds.removeFromTop(labelHeight);
     uiScaleLabel.setBounds(scaleRow.removeFromLeft(scale.getScaled(80)));
     scaleRow.removeFromLeft(scale.getScaled(8));
     uiScaleCombo.setBounds(scaleRow.removeFromLeft(scale.getScaled(100)));
+    
+    scaleBounds.removeFromTop(controlSpacing);
+    
+    // Always On Top row
+    auto alwaysOnTopRow = scaleBounds.removeFromTop(labelHeight);
+    alwaysOnTopLabel.setBounds(alwaysOnTopRow.removeFromLeft(scale.getScaled(100)));
+    alwaysOnTopRow.removeFromLeft(scale.getScaled(8));
+    alwaysOnTopToggle.setBounds(alwaysOnTopRow.removeFromLeft(scale.getScaled(80)));
 }
 
 inline bool GlobalSettingsTab::keyPressed(const juce::KeyPress& key)
@@ -313,6 +336,32 @@ inline void GlobalSettingsTab::setupGlobalControls()
             if (onRequestFocus) onRequestFocus();
         }
     };
+    
+    // Always On Top controls
+    addAndMakeVisible(alwaysOnTopLabel);
+    alwaysOnTopLabel.setText("Always On Top:", juce::dontSendNotification);
+    alwaysOnTopLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    alwaysOnTopLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    
+    addAndMakeVisible(alwaysOnTopToggle);
+    alwaysOnTopToggle.setToggleState(false, juce::dontSendNotification);
+    alwaysOnTopToggle.setColour(juce::ToggleButton::textColourId, BlueprintColors::textPrimary);
+    alwaysOnTopToggle.setColour(juce::ToggleButton::tickColourId, BlueprintColors::active);
+    alwaysOnTopToggle.setColour(juce::ToggleButton::tickDisabledColourId, BlueprintColors::textSecondary);
+    alwaysOnTopToggle.onClick = [this]() {
+        // Find the main window and set always on top property
+        if (auto* topLevel = getTopLevelComponent())
+        {
+            topLevel->setAlwaysOnTop(alwaysOnTopToggle.getToggleState());
+        }
+        
+        // Save setting
+        if (onSettingsChanged)
+            onSettingsChanged();
+            
+        // Restore focus to parent after toggle
+        if (onRequestFocus) onRequestFocus();
+    };
 }
 
 inline void GlobalSettingsTab::setSyncStatus(bool isExternal, double externalBPM)
@@ -337,6 +386,9 @@ inline void GlobalSettingsTab::applyPreset(const ControllerPreset& preset)
     
     // Apply UI scale factor
     setUIScale(preset.uiScale);
+    
+    // Apply Always On Top setting
+    setAlwaysOnTop(preset.alwaysOnTop);
 }
 
 inline void GlobalSettingsTab::updateScaleComboOptions()
@@ -415,6 +467,7 @@ inline void GlobalSettingsTab::scaleFactorChanged(float newScale)
     bpmLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     syncStatusLabel.setFont(GlobalUIScale::getInstance().getScaledFont(10.0f));
     uiScaleLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    alwaysOnTopLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     
     // Update BPM TextEditor font and force refresh
     bpmInput.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));

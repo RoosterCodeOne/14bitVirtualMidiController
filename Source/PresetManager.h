@@ -71,6 +71,7 @@ struct ControllerPreset
     int midiChannel = 1;
     double bpm = 120.0; // Default BPM
     float uiScale = 1.0f; // Default UI scale factor
+    bool alwaysOnTop = false; // Default to not always on top
     juce::Array<SliderPreset> sliders;
     
     ControllerPreset()
@@ -103,6 +104,7 @@ struct ControllerPreset
         obj->setProperty("midiChannel", midiChannel);
         obj->setProperty("bpm", bpm);
         obj->setProperty("uiScale", uiScale);
+        obj->setProperty("alwaysOnTop", alwaysOnTop);
         
         juce::Array<juce::var> sliderArray;
         for (const auto& slider : sliders)
@@ -120,6 +122,7 @@ struct ControllerPreset
             midiChannel = obj->hasProperty("midiChannel") ? (int)obj->getProperty("midiChannel") : 1;
             bpm = obj->hasProperty("bpm") ? (double)obj->getProperty("bpm") : 120.0;
             uiScale = obj->hasProperty("uiScale") ? (float)obj->getProperty("uiScale") : 1.0f;
+            alwaysOnTop = obj->hasProperty("alwaysOnTop") ? (bool)obj->getProperty("alwaysOnTop") : false;
             
             sliders.clear();
             if (obj->hasProperty("sliders"))
