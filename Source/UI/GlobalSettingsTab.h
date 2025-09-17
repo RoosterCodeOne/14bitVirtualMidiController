@@ -2,6 +2,7 @@
 #pragma once
 #include <JuceHeader.h>
 #include "../CustomLookAndFeel.h"
+#include "../SimpleSliderControl.h"
 #include "GlobalUIScale.h"
 
 // Forward declaration
@@ -41,7 +42,7 @@ public:
     
     // Always On Top methods
     bool getAlwaysOnTop() const { return alwaysOnTopToggle.getToggleState(); }
-    void setAlwaysOnTop(bool alwaysOnTop) { 
+    void setAlwaysOnTop(bool alwaysOnTop) {
         alwaysOnTopToggle.setToggleState(alwaysOnTop, juce::dontSendNotification);
         // Apply to main window immediately
         if (auto* topLevel = getTopLevelComponent())
@@ -49,10 +50,19 @@ public:
             topLevel->setAlwaysOnTop(alwaysOnTop);
         }
     }
+
+    // MIDI Input Mode methods
+    MidiInputMode getMidiInputMode() const {
+        return static_cast<MidiInputMode>(midiModeCombo.getSelectedId() - 1);
+    }
+    void setMidiInputMode(MidiInputMode mode) {
+        midiModeCombo.setSelectedId(static_cast<int>(mode) + 1, juce::dontSendNotification);
+    }
     
     // Callback functions for communication with parent
     std::function<void()> onSettingsChanged;
     std::function<void(double)> onBPMChanged;
+    std::function<void(MidiInputMode)> onMidiInputModeChanged;
     std::function<void()> onRequestFocus; // Callback to request focus restoration
     
 private:
@@ -79,7 +89,11 @@ private:
     // Always On Top controls
     juce::Label alwaysOnTopLabel;
     juce::ToggleButton alwaysOnTopToggle;
-    
+
+    // MIDI Input Mode controls
+    juce::Label midiModeLabel;
+    juce::ComboBox midiModeCombo;
+
     // Private methods
     void setupGlobalControls();
     void updateScaleComboOptions();
@@ -123,8 +137,8 @@ inline void GlobalSettingsTab::paint(juce::Graphics& g)
     const int labelHeight = scale.getScaled(18);
     const int headerHeight = scale.getScaled(22);
     
-    // Global Settings section box
-    auto section1Height = headerHeight + (labelHeight + controlSpacing) * 2 + controlSpacing;
+    // Global Settings section box (expanded to include MIDI mode)
+    auto section1Height = headerHeight + (labelHeight + controlSpacing) * 3 + controlSpacing;
     auto section1Bounds = bounds.removeFromTop(section1Height);
     section1Bounds = section1Bounds.expanded(scale.getScaled(8), scale.getScaled(4));
     
@@ -156,21 +170,21 @@ inline void GlobalSettingsTab::resized()
     const int labelHeight = scale.getScaled(18);
     const int headerHeight = scale.getScaled(22);
     
-    // Global Settings section
-    auto globalBounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 2 + controlSpacing);
-    
+    // Global Settings section (expanded to include MIDI mode)
+    auto globalBounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 3 + controlSpacing);
+
     globalHeader.setBounds(globalBounds.removeFromTop(headerHeight));
     globalBounds.removeFromTop(controlSpacing);
-    
+
     // MIDI Channel row
     auto channelRow = globalBounds.removeFromTop(labelHeight);
     midiChannelLabel.setBounds(channelRow.removeFromLeft(scale.getScaled(100)));
     channelRow.removeFromLeft(scale.getScaled(8));
     midiChannelCombo.setBounds(channelRow.removeFromLeft(scale.getScaled(120)));
-    
+
     globalBounds.removeFromTop(controlSpacing);
-    
-    // BPM row  
+
+    // BPM row
     auto bpmRow = globalBounds.removeFromTop(labelHeight);
     bpmLabel.setBounds(bpmRow.removeFromLeft(scale.getScaled(40)));
     bpmRow.removeFromLeft(scale.getScaled(8));
@@ -179,9 +193,17 @@ inline void GlobalSettingsTab::resized()
     bpmInput.setBounds(bpmRow.removeFromLeft(scale.getScaled(50)));
     bpmRow.removeFromLeft(scale.getScaled(8));
     syncStatusLabel.setBounds(bpmRow);
-    
+
+    globalBounds.removeFromTop(controlSpacing);
+
+    // MIDI Input Mode row
+    auto midiModeRow = globalBounds.removeFromTop(labelHeight);
+    midiModeLabel.setBounds(midiModeRow.removeFromLeft(scale.getScaled(120)));
+    midiModeRow.removeFromLeft(scale.getScaled(8));
+    midiModeCombo.setBounds(midiModeRow.removeFromLeft(scale.getScaled(250)));
+
     bounds.removeFromTop(sectionSpacing);
-    
+
     // UI Scale section
     auto scaleBounds = bounds.removeFromTop((labelHeight + controlSpacing) * 2);
     
@@ -360,6 +382,29 @@ inline void GlobalSettingsTab::setupGlobalControls()
             onSettingsChanged();
             
         // Restore focus to parent after toggle
+        if (onRequestFocus) onRequestFocus();
+    };
+
+    // MIDI Input Mode controls
+    addAndMakeVisible(midiModeLabel);
+    midiModeLabel.setText("MIDI Input Mode:", juce::dontSendNotification);
+    midiModeLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    midiModeLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+
+    addAndMakeVisible(midiModeCombo);
+    midiModeCombo.addItem("Direct (1:1 Hardware -> Slider)", static_cast<int>(MidiInputMode::Direct) + 1);
+    midiModeCombo.addItem("Deadzone (Hardware -> Helper -> Slider)", static_cast<int>(MidiInputMode::Deadzone) + 1);
+    midiModeCombo.setSelectedId(static_cast<int>(MidiInputMode::Direct) + 1); // Default to Direct mode
+    midiModeCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background);
+    midiModeCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary);
+    midiModeCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines);
+    midiModeCombo.onChange = [this]() {
+        MidiInputMode selectedMode = static_cast<MidiInputMode>(midiModeCombo.getSelectedId() - 1);
+        if (onMidiInputModeChanged)
+            onMidiInputModeChanged(selectedMode);
+        if (onSettingsChanged)
+            onSettingsChanged();
+        // Restore focus to parent after combo selection
         if (onRequestFocus) onRequestFocus();
     };
 }

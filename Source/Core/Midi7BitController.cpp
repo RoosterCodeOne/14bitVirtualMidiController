@@ -267,7 +267,9 @@ void Midi7BitController::processSliderTarget(const MidiTargetInfo& target, int c
         controlState.isActive = true;
         
         // Check if we're in the deadzone (58-68)
-        if (ccValue >= DEADZONE_MIN && ccValue <= DEADZONE_MAX)
+        bool isInDeadzone = (ccValue >= DEADZONE_MIN && ccValue <= DEADZONE_MAX);
+
+        if (isInDeadzone)
         {
             // Stop continuous movement
             controlState.isMoving = false;
@@ -280,10 +282,18 @@ void Midi7BitController::processSliderTarget(const MidiTargetInfo& target, int c
             controlState.movementSpeed = calculateExponentialSpeed(distanceFromCenter);
             controlState.movementDirection = (ccValue > DEADZONE_MAX) ? 1.0 : -1.0;
             controlState.isMoving = true;
-            
+
             // Start continuous movement timer if not already running
             if (!isTimerRunning())
                 startTimer(TIMER_INTERVAL); // ~60fps
+        }
+
+        // Send initial value update to slider with deadzone info
+        if (onSliderValueChanged)
+        {
+            // Convert 7-bit CC value to 14-bit range for slider
+            double convertedValue = (double(ccValue) / 127.0) * 16383.0;
+            onSliderValueChanged(sliderIndex, convertedValue, isInDeadzone);
         }
         
         // Trigger activity indicator
@@ -439,9 +449,9 @@ void Midi7BitController::updateContinuousMovement()
                 
             double newValue = juce::jlimit(0.0, 16383.0, currentValue + movementDelta);
             
-            // Update slider value through callback
+            // Update slider value through callback (continuous movement is outside deadzone)
             if (onSliderValueChanged)
-                onSliderValueChanged(i, newValue);
+                onSliderValueChanged(i, newValue, false);
         }
     }
     

@@ -57,6 +57,7 @@ public:
     std::function<void()> onSettingsChanged;
     std::function<void(const ControllerPreset&)> onPresetLoaded;
     std::function<void(double)> onBPMChanged;
+    std::function<void(MidiInputMode)> onMidiInputModeChanged;
     std::function<void(int)> onSelectedSliderChanged;
     std::function<void(int)> onBankSelectionChanged;
     std::function<void(int)> onSliderReset;
@@ -207,7 +208,12 @@ inline void SettingsWindow::setupCommunication()
         if (onBPMChanged)
             onBPMChanged(bpm);
     };
-    
+
+    globalTab->onMidiInputModeChanged = [this](MidiInputMode mode) {
+        if (onMidiInputModeChanged)
+            onMidiInputModeChanged(mode);
+    };
+
     globalTab->onRequestFocus = [this]() {
         if (isVisible() && isShowing() && !hasKeyboardFocus(true))
         {
@@ -613,14 +619,14 @@ inline bool SettingsWindow::keyPressed(const juce::KeyPress& key)
     }
     else if (key == juce::KeyPress::upKey)
     {
-        // Up: Switch between banks A→B→C→D→A, reset to first slider in bank
+        // Up: Switch between banks A->B->C->D->A, reset to first slider in bank
         int newBank = (selectedSlider / 4 + 3) % 4; // Previous bank
         setSelectedSlider(newBank * 4);
         return true;
     }
     else if (key == juce::KeyPress::downKey)
     {
-        // Down: Switch between banks A→B→C→D→A, reset to first slider in bank
+        // Down: Switch between banks A->B->C->D->A, reset to first slider in bank
         int newBank = (selectedSlider / 4 + 1) % 4; // Next bank
         setSelectedSlider(newBank * 4);
         return true;
@@ -628,7 +634,7 @@ inline bool SettingsWindow::keyPressed(const juce::KeyPress& key)
     else if (key == juce::KeyPress::leftKey)
     {
         // Left: Navigate to previous slider globally (cross-bank navigation with wraparound)
-        // Examples: 4→3, 4→3 (B1→A4), 0→15 (A1→D4)
+        // Examples: 4->3, 4->3 (B1->A4), 0->15 (A1->D4)
         int newSlider = (selectedSlider + 15) % 16; // Previous slider globally (wraparound from 0 to 15)
         setSelectedSlider(newSlider); // Automatically switches banks and updates visual feedback
         return true;
@@ -636,7 +642,7 @@ inline bool SettingsWindow::keyPressed(const juce::KeyPress& key)
     else if (key == juce::KeyPress::rightKey)
     {
         // Right: Navigate to next slider globally (cross-bank navigation with wraparound)  
-        // Examples: 3→4, 3→4 (A4→B1), 15→0 (D4→A1)
+        // Examples: 3->4, 3->4 (A4->B1), 15->0 (D4->A1)
         int newSlider = (selectedSlider + 1) % 16; // Next slider globally (wraparound from 15 to 0)
         setSelectedSlider(newSlider); // Automatically switches banks and updates visual feedback
         return true;

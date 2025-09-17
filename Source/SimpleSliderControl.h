@@ -21,6 +21,147 @@
 #include "UI/GlobalUIScale.h"
 
 //==============================================================================
+// MIDI Input Mode for slider control
+enum class MidiInputMode
+{
+    Direct,    // Traditional direct Hardware MIDI -> App Slider connection
+    Deadzone   // Smoothed Hardware MIDI -> Helper Knob -> App Slider with deadzone processing
+};
+
+//==============================================================================
+// Invisible helper knob for deadzone smoothing
+class InvisibleHelperKnob : public juce::Component, public juce::Timer
+{
+public:
+    InvisibleHelperKnob()
+    {
+        // Initialize to center position (8191.5 for 14-bit)
+        currentPosition = 8191.5;
+        targetPosition = 8191.5;
+        lastMidiValue = 8191.5;
+
+        // Start smoothing timer
+        startTimer(16); // ~60fps for smooth interpolation
+    }
+
+    ~InvisibleHelperKnob() override
+    {
+        stopTimer();
+    }
+
+    // Set the MIDI input mode for this helper knob
+    void setMidiInputMode(MidiInputMode mode)
+    {
+        midiMode = mode;
+
+        if (mode == MidiInputMode::Direct)
+        {
+            // In direct mode, disable smoothing and pass through values immediately
+            currentPosition = lastMidiValue;
+            targetPosition = lastMidiValue;
+            isSmoothing = false;
+            stopTimer();
+        }
+        else
+        {
+            // In deadzone mode, enable smoothing
+            startTimer(16);
+        }
+    }
+
+    // Process incoming MIDI value based on current mode
+    void processMidiInput(double midiValue, bool isInDeadzone = false)
+    {
+        lastMidiValue = midiValue;
+
+        if (midiMode == MidiInputMode::Direct)
+        {
+            // Direct mode: immediate 1:1 mapping
+            currentPosition = midiValue;
+            targetPosition = midiValue;
+
+            // Immediately notify listeners
+            if (onValueChanged)
+                onValueChanged(currentPosition);
+        }
+        else
+        {
+            // Deadzone mode: process through deadzone logic
+            processDeadzoneInput(midiValue, isInDeadzone);
+        }
+    }
+
+    // Get current output value for the app slider
+    double getCurrentValue() const { return currentPosition; }
+
+    // Get the last received MIDI value
+    double getLastMidiValue() const { return lastMidiValue; }
+
+    // Check if currently smoothing to target
+    bool isSmoothingActive() const { return isSmoothing; }
+
+    // Callback when value changes
+    std::function<void(double newValue)> onValueChanged;
+
+private:
+    void timerCallback() override
+    {
+        if (midiMode == MidiInputMode::Direct || !isSmoothing)
+            return;
+
+        // Smooth interpolation towards target
+        double difference = targetPosition - currentPosition;
+
+        if (std::abs(difference) < 0.1)
+        {
+            // Close enough - snap to target and stop smoothing
+            currentPosition = targetPosition;
+            isSmoothing = false;
+
+            if (onValueChanged)
+                onValueChanged(currentPosition);
+            return;
+        }
+
+        // Apply smoothing with configurable rate
+        double smoothingRate = 0.1; // Adjust for smoother/faster response
+        currentPosition += difference * smoothingRate;
+
+        if (onValueChanged)
+            onValueChanged(currentPosition);
+    }
+
+    void processDeadzoneInput(double midiValue, bool isInDeadzone)
+    {
+        if (!isInDeadzone)
+        {
+            // Outside deadzone - update target position
+            targetPosition = midiValue;
+
+            // Start smoothing if not already active
+            if (!isSmoothing)
+            {
+                isSmoothing = true;
+                startTimer(16);
+            }
+        }
+        else
+        {
+            // Inside deadzone - maintain current target but allow continued smoothing
+            // This preserves the last valid position when hardware stops sending
+        }
+    }
+
+    MidiInputMode midiMode = MidiInputMode::Deadzone;
+    double currentPosition = 8191.5;
+    double targetPosition = 8191.5;
+    double lastMidiValue = 8191.5;
+    bool isSmoothing = false;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(InvisibleHelperKnob)
+};
+
+//==============================================================================
 // Custom clickable label for lock functionality
 class ClickableLabel : public juce::Label
 {
@@ -197,7 +338,10 @@ public:
         
         // Initialize learn zones
         setupLearnZones();
-        
+
+        // Initialize helper knob system (starts in Direct mode)
+        setupHelperKnobSystem();
+
         // Initialize GO button state based on current automation status
         automationControlPanel.updateGoButtonState(automationEngine.isSliderAutomating(index));
         
@@ -210,10 +354,17 @@ public:
         // CRITICAL: Stop automation and timer before destruction
         automationEngine.stopAutomation(index);
         stopTimer();
-        
+
+        // Clean up helper knob system
+        if (helperKnob)
+        {
+            removeChildComponent(helperKnob.get());
+            helperKnob.reset();
+        }
+
         // Remove scale change listener
         GlobalUIScale::getInstance().removeScaleChangeListener(this);
-        
+
         // CRITICAL: Remove look and feel before destruction
         mainSlider.setLookAndFeel(nullptr);
     }
@@ -629,7 +780,74 @@ public:
         // Trigger activity indicator to show MIDI input activity
         triggerMidiActivity();
     }
-    
+
+    // MIDI Input Mode Management
+    void setMidiInputMode(MidiInputMode mode)
+    {
+        if (midiInputMode == mode)
+            return; // No change needed
+
+        midiInputMode = mode;
+
+        if (mode == MidiInputMode::Deadzone)
+        {
+            // Create helper knob if not exists
+            if (!helperKnob)
+            {
+                helperKnob = std::make_unique<InvisibleHelperKnob>();
+                addChildComponent(*helperKnob);
+
+                // Set up helper knob callback to update main slider
+                helperKnob->onValueChanged = [this](double newValue) {
+                    updateSliderFromHelper(newValue);
+                };
+            }
+
+            // Configure helper knob for deadzone mode
+            helperKnob->setMidiInputMode(MidiInputMode::Deadzone);
+
+            // Initialize helper knob with current slider value
+            helperKnob->processMidiInput(mainSlider.getValue(), false);
+        }
+        else // Direct mode
+        {
+            // Destroy helper knob - not needed for direct mode
+            if (helperKnob)
+            {
+                removeChildComponent(helperKnob.get());
+                helperKnob.reset();
+            }
+        }
+    }
+
+    MidiInputMode getMidiInputMode() const
+    {
+        return midiInputMode;
+    }
+
+    // Updated MIDI input method that routes through helper knob system
+    void setValueFromMIDIWithMode(double newValue, bool isInDeadzone = false)
+    {
+        if (midiInputMode == MidiInputMode::Direct)
+        {
+            // Direct mode: use existing direct method
+            setValueFromMIDI(newValue);
+        }
+        else
+        {
+            // Deadzone mode: route through helper knob
+            if (helperKnob)
+            {
+                helperKnob->processMidiInput(newValue, isInDeadzone);
+            }
+            else
+            {
+                // Fallback to direct if helper knob not available
+                setValueFromMIDI(newValue);
+            }
+        }
+    }
+
     // Callback for slider click (used for learn mode)
     std::function<void()> onSliderClick;
     
@@ -1169,7 +1387,31 @@ private:
         // Initialize target LED input with current display value
         automationControlPanel.setTargetValue(displayManager.getDisplayValue());
     }
-    
+
+    void updateSliderFromHelper(double helperValue)
+    {
+        // Update main slider from helper knob value (used in Deadzone mode)
+        double quantizedValue = quantizeValue(helperValue);
+
+        isSettingValueProgrammatically = true;
+        mainSlider.setValue(quantizedValue, juce::dontSendNotification);
+        isSettingValueProgrammatically = false;
+
+        // Update display manager with smooth value (no snapping from helper)
+        displayManager.setMidiValue(quantizedValue);
+
+        // Send MIDI output
+        if (sendMidiCallback)
+            sendMidiCallback(index, (int)quantizedValue);
+
+        // Trigger parent repaint to update visual thumb position
+        if (auto* parent = getParentComponent())
+            parent->repaint();
+
+        // Trigger activity indicator to show ongoing movement
+        triggerMidiActivity();
+    }
+
     void setupAutomationEngine()
     {
         // Set up automation value update callback
@@ -1227,7 +1469,15 @@ private:
                 onLearnZoneClicked(zone);
         };
     }
-    
+
+    void setupHelperKnobSystem()
+    {
+        // Initialize in Direct mode by default (no helper knob created)
+        // Helper knob will be created when switching to Deadzone mode
+        midiInputMode = MidiInputMode::Direct;
+        helperKnob = nullptr;
+    }
+
     void updateLearnZoneBounds()
     {
         if (!learnZones) return;
@@ -1416,6 +1666,10 @@ public:
     
     // Learn zones for individual component targeting
     std::unique_ptr<SliderLearnZones> learnZones;
-    
+
+    // MIDI Input Mode and Helper Knob System
+    MidiInputMode midiInputMode = MidiInputMode::Direct; // Default to Direct mode
+    std::unique_ptr<InvisibleHelperKnob> helperKnob;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SimpleSliderControl)
 };

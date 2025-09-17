@@ -117,7 +117,7 @@ public:
     std::vector<MappingInfo> getAllMappings() const;
     
     // Callbacks for parent components
-    std::function<void(int sliderIndex, double newValue)> onSliderValueChanged;
+    std::function<void(int sliderIndex, double newValue, bool isInDeadzone)> onSliderValueChanged;
     std::function<void(MidiTargetType targetType, int sliderIndex, int ccNumber, int channel)> onMappingLearned;
     std::function<void(int sliderIndex)> onMappingCleared;
     std::function<void()> onLearnModeChanged;

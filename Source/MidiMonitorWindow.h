@@ -43,8 +43,8 @@ struct MidiMessage
         
         // Generate display text
         juce::String timeStr = formatTimestamp(timestamp);
-        displayText = timeStr + " " + source + " → Ch:" + juce::String(channel) + 
-                     " CC:" + juce::String(cc) + " MSB:" + juce::String(msb) + 
+        displayText = timeStr + " " + source + " -> Ch:" + juce::String(channel) +
+                     " CC:" + juce::String(cc) + " MSB:" + juce::String(msb) +
                      " LSB:" + juce::String(lsb) + " (Value:" + juce::String(combined) + ")";
     }
     
@@ -62,7 +62,7 @@ struct MidiMessage
         
         // Generate display text
         juce::String timeStr = formatTimestamp(timestamp);
-        displayText = timeStr + " " + sourceText + " → Ch:" + juce::String(channel) + 
+        displayText = timeStr + " " + sourceText + " -> Ch:" + juce::String(channel) +
                      " CC:" + juce::String(cc) + " Val:" + juce::String(value);
         
         if (targetSlider >= 1)
@@ -78,8 +78,8 @@ struct MidiMessage
         combinedValue = combined;
         
         juce::String timeStr = formatTimestamp(timestamp);
-        displayText = timeStr + " " + source + " → Ch:" + juce::String(midiChannel) + 
-                     " CC:" + juce::String(ccNumber) + " MSB:" + juce::String(msb) + 
+        displayText = timeStr + " " + source + " -> Ch:" + juce::String(midiChannel) +
+                     " CC:" + juce::String(ccNumber) + " MSB:" + juce::String(msb) +
                      " LSB:" + juce::String(lsb) + " (Value:" + juce::String(combined) + ")";
     }
     
@@ -89,7 +89,7 @@ struct MidiMessage
         combinedValue = value;
         
         juce::String timeStr = formatTimestamp(timestamp);
-        displayText = timeStr + " " + source + " → Ch:" + juce::String(midiChannel) + 
+        displayText = timeStr + " " + source + " -> Ch:" + juce::String(midiChannel) +
                      " CC:" + juce::String(ccNumber) + " Val:" + juce::String(value);
         
         if (sliderNumber >= 1)

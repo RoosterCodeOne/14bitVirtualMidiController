@@ -1142,7 +1142,7 @@ inline void ControllerSettingsTab::cycleSliderInBank(int bankIndex)
     
     if (currentBank == bankIndex)
     {
-        // Same bank clicked - cycle to next slider in bank (A1→A2→A3→A4→A1)
+        // Same bank clicked - cycle to next slider in bank (A1->A2->A3->A4->A1)
         int sliderInBank = selectedSlider % 4;
         int nextSliderInBank = (sliderInBank + 1) % 4; // Cycle within bank
         selectedSlider = bankIndex * 4 + nextSliderInBank;

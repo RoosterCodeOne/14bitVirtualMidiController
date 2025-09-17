@@ -189,6 +189,11 @@ public:
             applyPresetToSliders(preset);
             updateActionTooltip("Preset Loaded: " + preset.name);
         };
+        settingsWindow.onMidiInputModeChanged = [this](MidiInputMode mode) {
+            setMidiInputMode(mode);
+            juce::String modeName = (mode == MidiInputMode::Direct) ? "Direct" : "Deadzone";
+            updateActionTooltip("MIDI Input Mode: " + modeName);
+        };
         settingsWindow.onSelectedSliderChanged = [this](int sliderIndex) {
             // Update visual highlighting when slider selection changes in settings
             setSelectedSliderForEditing(sliderIndex);
@@ -822,14 +827,15 @@ public:
     
     void setupMidi7BitController()
     {
-        // Set up slider value update callback
-        midi7BitController.onSliderValueChanged = [this](int sliderIndex, double newValue) {
+        // Set up slider value update callback with deadzone support
+        midi7BitController.onSliderValueChanged = [this](int sliderIndex, double newValue, bool isInDeadzone) {
             if (sliderIndex < sliderControls.size())
             {
                 auto* slider = sliderControls[sliderIndex];
                 if (slider)
                 {
-                    slider->setValueFromKeyboard(newValue);
+                    // Use the new mode-aware MIDI input method
+                    slider->setValueFromMIDIWithMode(newValue, isInDeadzone);
                 }
             }
         };
@@ -1366,7 +1372,7 @@ private:
         }
         else
         {
-            // In 4-slider mode, cycle through individual banks: A→B→C→D→A
+            // In 4-slider mode, cycle through individual banks: A->B->C->D->A
             int newBank = (currentBank + 1) % 4;
             bankManager.setActiveBank(newBank);
         }
@@ -1389,7 +1395,7 @@ private:
         }
         else
         {
-            // In 4-slider mode, cycle through individual banks: D→C→B→A→D
+            // In 4-slider mode, cycle through individual banks: D->C->B->A->D
             int newBank = (currentBank + 3) % 4; // +3 is equivalent to -1 in mod 4
             bankManager.setActiveBank(newBank);
         }
@@ -1493,7 +1499,47 @@ private:
         
         resized(); // Re-layout components
     }
-    
+
+    // MIDI Input Mode Management
+    void setMidiInputMode(MidiInputMode mode)
+    {
+        // Apply the mode to all sliders
+        for (auto* slider : sliderControls)
+        {
+            if (slider)
+            {
+                slider->setMidiInputMode(mode);
+            }
+        }
+    }
+
+    void setSliderMidiInputMode(int sliderIndex, MidiInputMode mode)
+    {
+        // Apply the mode to a specific slider
+        if (sliderIndex >= 0 && sliderIndex < sliderControls.size())
+        {
+            auto* slider = sliderControls[sliderIndex];
+            if (slider)
+            {
+                slider->setMidiInputMode(mode);
+            }
+        }
+    }
+
+    MidiInputMode getMidiInputMode(int sliderIndex = 0) const
+    {
+        // Get mode from first available slider (assuming all sliders use same mode)
+        if (sliderIndex >= 0 && sliderIndex < sliderControls.size())
+        {
+            auto* slider = sliderControls[sliderIndex];
+            if (slider)
+            {
+                return slider->getMidiInputMode();
+            }
+        }
+        return MidiInputMode::Direct; // Default fallback
+    }
+
     void toggleSliderMode()
     {
         // Toggle mode state through bank manager
