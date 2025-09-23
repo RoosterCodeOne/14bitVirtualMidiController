@@ -382,11 +382,11 @@ public:
     // Update action tooltip with new message
     void updateActionTooltip(const juce::String& message)
     {
-        // Truncate long messages for display (max ~40 characters for tooltip width)
+        // Truncate long messages for display (max ~60 characters for tooltip width)
         juce::String displayMessage = message;
-        if (message.length() > 40)
+        if (message.length() > 60)
         {
-            displayMessage = message.substring(0, 37) + "...";
+            displayMessage = message.substring(0, 57) + "...";
         }
         
         // Ensure thread safety - always update UI on message thread
@@ -796,7 +796,7 @@ public:
         };
         
         keyboardController.onSpeedDisplayChanged = [this](const juce::String& speedText) {
-            updateActionTooltip("Keyboard Speed: " + speedText);
+            updateActionTooltip(speedText);
         };
         
         keyboardController.isSliderLocked = [this](int sliderIndex) -> bool {

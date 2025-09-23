@@ -160,7 +160,7 @@ public:
         {
             // Settings or learn open: tooltips span remaining width after panel
             auto adjustedTooltipArea = tooltipArea.withTrimmedLeft(Constants::getSettingsPanelWidth());
-            auto leftTooltip = adjustedTooltipArea.removeFromLeft(adjustedTooltipArea.getWidth() / 2);
+            auto leftTooltip = adjustedTooltipArea.removeFromLeft(adjustedTooltipArea.getWidth() * 7 / 10);
             actionTooltipLabel.setBounds(leftTooltip);
             windowSizeLabel.setBounds(adjustedTooltipArea);
         }
@@ -169,7 +169,7 @@ public:
             // Settings closed: tooltips positioned within content area bounds
             int contentAreaX = (totalArea.getWidth() - contentAreaWidth) / 2;
             auto contentTooltipArea = tooltipArea.withX(contentAreaX).withWidth(contentAreaWidth);
-            auto leftTooltip = contentTooltipArea.removeFromLeft(contentTooltipArea.getWidth() / 2);
+            auto leftTooltip = contentTooltipArea.removeFromLeft(contentTooltipArea.getWidth() * 7 / 10);
             actionTooltipLabel.setBounds(leftTooltip);
             windowSizeLabel.setBounds(contentTooltipArea);
         }
