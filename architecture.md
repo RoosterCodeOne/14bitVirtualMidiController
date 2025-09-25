@@ -150,7 +150,7 @@ For detailed information, see `docs/` folder:
 
 ### Tracked Actions
 - **Keyboard Speed**: "Keyboard Speed: [X]"
-- **Automation**: "Automation Started/Stopped", "Automation Config Saved/Loaded: [Name]"
+- **Automation**: "Automation Started/Stopped", "([SliderName]) - Automation Config Saved/Loaded/Copied/Pasted/Reset: [Name]"
 - **Slider Operations**: "([SliderName]) - Reset/Locked/Unlocked"
 - **MIDI**: "MIDI Mapping: Ch[X] CC[Y]", "MIDI Mapping Cleared"
 - **System**: "Preset Loaded: [Name]", "Timing Mode: Seconds/Beats"

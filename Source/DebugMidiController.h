@@ -128,6 +128,39 @@ public:
                     updateActionTooltip("(" + sliderName + ") - Unlocked");
                 }
             };
+
+            // Set up automation config callbacks
+            sliderControl->onAutomationConfigCopied = [this](int sliderIndex) {
+                juce::String sliderName = settingsWindow.getSliderDisplayName(sliderIndex);
+                if (sliderName.isEmpty()) {
+                    sliderName = "Slider " + juce::String(sliderIndex + 1);
+                }
+                updateActionTooltip("(" + sliderName + ") - Automation Config Copied");
+            };
+
+            sliderControl->onAutomationConfigPasted = [this](int sliderIndex) {
+                juce::String sliderName = settingsWindow.getSliderDisplayName(sliderIndex);
+                if (sliderName.isEmpty()) {
+                    sliderName = "Slider " + juce::String(sliderIndex + 1);
+                }
+                updateActionTooltip("(" + sliderName + ") - Automation Config Pasted");
+            };
+
+            sliderControl->onAutomationConfigReset = [this](int sliderIndex) {
+                juce::String sliderName = settingsWindow.getSliderDisplayName(sliderIndex);
+                if (sliderName.isEmpty()) {
+                    sliderName = "Slider " + juce::String(sliderIndex + 1);
+                }
+                updateActionTooltip("(" + sliderName + ") - Automation Config Reset");
+            };
+
+            sliderControl->onAutomationConfigLoaded = [this](int sliderIndex, const juce::String& configName) {
+                juce::String sliderName = settingsWindow.getSliderDisplayName(sliderIndex);
+                if (sliderName.isEmpty()) {
+                    sliderName = "Slider " + juce::String(sliderIndex + 1);
+                }
+                updateActionTooltip("(" + sliderName + ") - Automation Config Loaded: " + configName);
+            };
         }
         
         // Bank buttons - setup through BankButtonManager
@@ -1070,7 +1103,12 @@ public:
                 {
                     sliderControls[targetSlider]->applyAutomationConfig(config);
                     DBG("Loaded config '" + config.name + "' to slider " + juce::String(targetSlider + 1));
-                    updateActionTooltip("Automation Config Loaded: " + config.name);
+
+                    juce::String sliderName = settingsWindow.getSliderDisplayName(targetSlider);
+                    if (sliderName.isEmpty()) {
+                        sliderName = "Slider " + juce::String(targetSlider + 1);
+                    }
+                    updateActionTooltip("(" + sliderName + ") - Automation Config Loaded: " + config.name);
                 }
             };
             
@@ -1080,7 +1118,12 @@ public:
                     // Load the config
                     sliderControls[targetSlider]->applyAutomationConfig(config);
                     DBG("Loaded config '" + config.name + "' to slider " + juce::String(targetSlider + 1));
-                    updateActionTooltip("Automation Config Loaded: " + config.name);
+
+                    juce::String sliderName = settingsWindow.getSliderDisplayName(targetSlider);
+                    if (sliderName.isEmpty()) {
+                        sliderName = "Slider " + juce::String(targetSlider + 1);
+                    }
+                    updateActionTooltip("(" + sliderName + ") - Automation Config Loaded: " + config.name);
                     
                     if (alsoSave)
                     {
@@ -1102,7 +1145,12 @@ public:
                     {
                         DBG("Saved new config '" + configName + "' from slider " + juce::String(sourceSlider + 1));
                         configManagementWindow->refreshConfigList();
-                        updateActionTooltip("Automation Config Saved: " + configName);
+
+                        juce::String sliderName = settingsWindow.getSliderDisplayName(sourceSlider);
+                        if (sliderName.isEmpty()) {
+                            sliderName = "Slider " + juce::String(sourceSlider + 1);
+                        }
+                        updateActionTooltip("(" + sliderName + ") - Automation Config Saved: " + configName);
                         
                         // Clear highlighting after successful save
                         sliderControls[sourceSlider]->setAutomationHighlighted(false);

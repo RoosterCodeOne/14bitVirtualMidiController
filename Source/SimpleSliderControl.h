@@ -1151,6 +1151,9 @@ public:
                 {
                     applyAutomationConfig(config);
                     DBG("Successfully loaded and applied config: " + configId);
+
+                    // Notify about load action
+                    if (onAutomationConfigLoaded) onAutomationConfigLoaded(sliderIdx, config.name);
                 }
                 else
                 {
@@ -1191,7 +1194,10 @@ public:
                 DBG("Calling configManager->copyConfigFromSlider...");
                 configManager->copyConfigFromSlider(sliderIdx, config);
                 DBG("Successfully copied config from slider " + juce::String(sliderIdx));
-                
+
+                // Notify about copy action
+                if (onAutomationConfigCopied) onAutomationConfigCopied(sliderIdx);
+
                 DBG("=== onCopyConfig callback completed successfully");
             }
             catch (const std::exception& e) {
@@ -1219,6 +1225,9 @@ public:
                         automationControlPanel.applyConfig(config.targetValue, config.delayTime, config.attackTime,
                                                   config.returnTime, config.curveValue, config.timeMode);
                         DBG("Successfully pasted and applied config to slider " + juce::String(sliderIdx));
+
+                        // Notify about paste action
+                        if (onAutomationConfigPasted) onAutomationConfigPasted(sliderIdx);
                     } else {
                         DBG("ERROR: Pasted config is invalid for slider " + juce::String(sliderIdx));
                     }
@@ -1242,7 +1251,10 @@ public:
                 
                 // Reset automation parameters to defaults
                 automationControlPanel.resetToDefaults();
-                
+
+                // Notify about reset action
+                if (onAutomationConfigReset) onAutomationConfigReset(sliderIdx);
+
                 DBG("Successfully reset automation parameters for slider " + juce::String(sliderIdx));
             }
             catch (const std::exception& e) {
@@ -1288,7 +1300,13 @@ public:
     
     // Lock state change callback
     std::function<void(int sliderIndex, bool isLocked)> onLockStateChanged;
-    
+
+    // Automation config callbacks
+    std::function<void(int sliderIndex)> onAutomationConfigCopied;
+    std::function<void(int sliderIndex)> onAutomationConfigPasted;
+    std::function<void(int sliderIndex)> onAutomationConfigReset;
+    std::function<void(int sliderIndex, const juce::String& configName)> onAutomationConfigLoaded;
+
     // Learn mode callbacks
     std::function<void(MidiTargetType, int)> onLearnModeTargetClicked;
     
