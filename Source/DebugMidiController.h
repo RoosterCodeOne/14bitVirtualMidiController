@@ -97,6 +97,11 @@ public:
             sliderControl->onLearnZoneClicked = [this](const LearnZone& zone) {
                 handleLearnZoneClicked(zone);
             };
+
+            // Set up MIDI mapping check callback
+            sliderControl->hasMidiMapping = [this, i]() {
+                return hasSliderMidiMapping(i);
+            };
             
             // Set up automation start/stop callback
             sliderControl->onAutomationToggled = [this](int sliderIndex, bool isStarting) {
@@ -222,11 +227,6 @@ public:
             applyPresetToSliders(preset);
             updateActionTooltip("Preset Loaded: " + preset.name);
         };
-        settingsWindow.onMidiInputModeChanged = [this](MidiInputMode mode) {
-            setMidiInputMode(mode);
-            juce::String modeName = (mode == MidiInputMode::Direct) ? "Direct" : "Deadzone";
-            updateActionTooltip("MIDI Input Mode: " + modeName);
-        };
         settingsWindow.onSelectedSliderChanged = [this](int sliderIndex) {
             // Update visual highlighting when slider selection changes in settings
             setSelectedSliderForEditing(sliderIndex);
@@ -245,6 +245,9 @@ public:
             }
             updateActionTooltip("(" + sliderName + ") - Reset");
         };
+        settingsWindow.onSliderMidiInputModeChanged = [this](int sliderIndex, MidiInputMode mode) {
+            setSliderMidiInputMode(sliderIndex, mode);
+        };
         
         // MIDI Learn window
         addChildComponent(&midiLearnWindow);
@@ -258,10 +261,14 @@ public:
         midiLearnWindow.onMappingCleared = [this](int sliderIndex) {
             midi7BitController.clearMapping(sliderIndex);
             updateActionTooltip("MIDI Mapping Cleared");
+            // Refresh helper knobs after mapping change
+            refreshHelperKnobsForMappingChanges();
         };
         midiLearnWindow.onAllMappingsCleared = [this]() {
             midi7BitController.clearAllMappings();
             updateActionTooltip("All MIDI Mappings Cleared");
+            // Refresh helper knobs after mapping change
+            refreshHelperKnobsForMappingChanges();
         };
         
         // MIDI device selection callbacks will be set up in setupMidiManager()
@@ -895,6 +902,9 @@ public:
             juce::String message = "Mapped CC " + juce::String(ccNumber) + " (Ch " + juce::String(channel) + ") to " + targetInfo.getDisplayName();
             juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "MIDI Learn", message);
             DBG("Showing success message: " << message);
+
+            // Refresh helper knobs after mapping change
+            refreshHelperKnobsForMappingChanges();
         };
         
         // Set up MIDI tooltip update callback
@@ -1395,6 +1405,11 @@ private:
             // Update automation visibility
             bool showAutomation = settingsWindow.getShowAutomation(i);
             sliderControls[i]->setAutomationVisible(showAutomation);
+
+            // Update MIDI input mode (per-slider deadzone/direct setting)
+            bool useDeadzone = settingsWindow.getUseDeadzone(i);
+            MidiInputMode mode = useDeadzone ? MidiInputMode::Deadzone : MidiInputMode::Direct;
+            sliderControls[i]->setMidiInputMode(mode);
         }
         
         // Trigger layout update when automation visibility changes
@@ -1549,17 +1564,6 @@ private:
     }
 
     // MIDI Input Mode Management
-    void setMidiInputMode(MidiInputMode mode)
-    {
-        // Apply the mode to all sliders
-        for (auto* slider : sliderControls)
-        {
-            if (slider)
-            {
-                slider->setMidiInputMode(mode);
-            }
-        }
-    }
 
     void setSliderMidiInputMode(int sliderIndex, MidiInputMode mode)
     {
@@ -1586,6 +1590,35 @@ private:
             }
         }
         return MidiInputMode::Direct; // Default fallback
+    }
+
+    bool hasSliderMidiMapping(int sliderIndex) const
+    {
+        // Check if a specific slider has a MIDI mapping
+        auto mappings = midi7BitController.getAllMappings();
+        for (const auto& mapping : mappings)
+        {
+            if (mapping.targetType == MidiTargetType::SliderValue && mapping.sliderIndex == sliderIndex)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void refreshHelperKnobsForMappingChanges()
+    {
+        // Update helper knob status for all sliders when MIDI mappings change
+        for (int i = 0; i < sliderControls.size(); ++i)
+        {
+            auto* slider = sliderControls[i];
+            if (slider)
+            {
+                // Re-apply the MIDI input mode to refresh helper knob status
+                MidiInputMode currentMode = slider->getMidiInputMode();
+                slider->setMidiInputMode(currentMode);
+            }
+        }
     }
 
     void toggleSliderMode()

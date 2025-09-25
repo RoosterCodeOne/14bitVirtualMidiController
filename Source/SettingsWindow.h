@@ -27,6 +27,7 @@ public:
     int getCCNumber(int sliderIndex) const;
     std::pair<double, double> getCustomRange(int sliderIndex) const;
     juce::Colour getSliderColor(int sliderIndex) const;
+    bool getUseDeadzone(int sliderIndex) const;
     
     // Preset system interface
     ControllerPreset getCurrentPreset() const;
@@ -57,10 +58,10 @@ public:
     std::function<void()> onSettingsChanged;
     std::function<void(const ControllerPreset&)> onPresetLoaded;
     std::function<void(double)> onBPMChanged;
-    std::function<void(MidiInputMode)> onMidiInputModeChanged;
     std::function<void(int)> onSelectedSliderChanged;
     std::function<void(int)> onBankSelectionChanged;
     std::function<void(int)> onSliderReset;
+    std::function<void(int, MidiInputMode)> onSliderMidiInputModeChanged;
     
     // Keyboard handling
     bool keyPressed(const juce::KeyPress& key) override;
@@ -133,6 +134,7 @@ private:
     void resetCurrentSlider();
     void cycleSliderInBank(int bankIndex);
     void applyOrientationToSlider(int sliderIndex); // Apply orientation to actual slider
+    void applyMidiInputModeToSlider(int sliderIndex); // Apply MIDI input mode to actual slider
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SettingsWindow)
 };
@@ -209,10 +211,6 @@ inline void SettingsWindow::setupCommunication()
             onBPMChanged(bpm);
     };
 
-    globalTab->onMidiInputModeChanged = [this](MidiInputMode mode) {
-        if (onMidiInputModeChanged)
-            onMidiInputModeChanged(mode);
-    };
 
     globalTab->onRequestFocus = [this]() {
         if (isVisible() && isShowing() && !hasKeyboardFocus(true))
@@ -455,6 +453,15 @@ inline juce::Colour SettingsWindow::getSliderColor(int sliderIndex) const
     return juce::Colours::cyan;
 }
 
+inline bool SettingsWindow::getUseDeadzone(int sliderIndex) const
+{
+    if (sliderIndex >= 0 && sliderIndex < 16)
+    {
+        return sliderSettingsData[sliderIndex].useDeadzone;
+    }
+    return false; // Default to Direct mode
+}
+
 inline ControllerPreset SettingsWindow::getCurrentPreset() const
 {
     ControllerPreset preset;
@@ -690,6 +697,9 @@ inline void SettingsWindow::saveCurrentSliderSettings()
         
         // Apply orientation to the actual slider
         applyOrientationToSlider(selectedSlider);
+
+        // Apply MIDI input mode to the actual slider
+        applyMidiInputModeToSlider(selectedSlider);
     }
 }
 
@@ -725,6 +735,17 @@ inline void SettingsWindow::applyOrientationToSlider(int sliderIndex)
     // The actual application happens in DebugMidiController::updateSliderSettings()
     if (onSettingsChanged)
         onSettingsChanged();
+}
+
+inline void SettingsWindow::applyMidiInputModeToSlider(int sliderIndex)
+{
+    // Apply the MIDI input mode from the settings data to the actual slider
+    if (sliderIndex >= 0 && sliderIndex < 16 && onSliderMidiInputModeChanged)
+    {
+        const auto& settings = sliderSettingsData[sliderIndex];
+        MidiInputMode mode = settings.useDeadzone ? MidiInputMode::Deadzone : MidiInputMode::Direct;
+        onSliderMidiInputModeChanged(sliderIndex, mode);
+    }
 }
 
 inline void SettingsWindow::scaleFactorChanged(float newScale)

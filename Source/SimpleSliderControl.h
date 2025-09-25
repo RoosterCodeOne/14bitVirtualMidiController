@@ -791,23 +791,39 @@ public:
 
         if (mode == MidiInputMode::Deadzone)
         {
-            // Create helper knob if not exists
-            if (!helperKnob)
+            // Only create helper knob if slider has MIDI mapping
+            bool hasMapping = hasMidiMapping ? hasMidiMapping() : false;
+
+            if (hasMapping)
             {
-                helperKnob = std::make_unique<InvisibleHelperKnob>();
-                addChildComponent(*helperKnob);
+                // Create helper knob if not exists
+                if (!helperKnob)
+                {
+                    helperKnob = std::make_unique<InvisibleHelperKnob>();
+                    addChildComponent(*helperKnob);
 
-                // Set up helper knob callback to update main slider
-                helperKnob->onValueChanged = [this](double newValue) {
-                    updateSliderFromHelper(newValue);
-                };
+                    // Set up helper knob callback to update main slider
+                    helperKnob->onValueChanged = [this](double newValue) {
+                        updateSliderFromHelper(newValue);
+                    };
+                }
+
+                // Configure helper knob for deadzone mode
+                helperKnob->setMidiInputMode(MidiInputMode::Deadzone);
+
+                // Don't initialize helper knob with current slider value
+                // This prevents sliders from moving when the app starts
+                // Helper knob will be positioned by first MIDI input
             }
-
-            // Configure helper knob for deadzone mode
-            helperKnob->setMidiInputMode(MidiInputMode::Deadzone);
-
-            // Initialize helper knob with current slider value
-            helperKnob->processMidiInput(mainSlider.getValue(), false);
+            else
+            {
+                // No MIDI mapping - destroy helper knob if it exists
+                if (helperKnob)
+                {
+                    removeChildComponent(helperKnob.get());
+                    helperKnob.reset();
+                }
+            }
         }
         else // Direct mode
         {
@@ -853,7 +869,10 @@ public:
     
     // Callback to check if slider is in 14-bit mode (for quantization)
     std::function<bool(int)> is14BitMode;
-    
+
+    // Callback to check if slider has MIDI mapping (for helper knob activation)
+    std::function<bool()> hasMidiMapping;
+
     // Callback for learn zone clicks (new learn system)
     std::function<void(const LearnZone&)> onLearnZoneClicked;
     
