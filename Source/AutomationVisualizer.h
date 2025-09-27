@@ -193,7 +193,7 @@ private:
         
         // Use curve calculator to determine ball position
         ballPosition = curveCalculator.calculateBallPosition(currentCurvePoints, elapsed,
-                                                            animationDelayTime, animationAttackTime, animationReturnTime);
+                                                            animationDelayTime, animationAttackTime, animationReturnTime, curveValue);
         
         // Stop animation when complete
         if (elapsed >= totalAnimationDuration)
