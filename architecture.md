@@ -45,6 +45,25 @@ Source/
 
 ## Recent Critical Updates
 
+### September 29, 2025: Automation Visualizer Curve Issues Investigation
+**Issue**: Automation visualizer ball movement and return curve mirroring problems
+**Investigation**:
+- Fixed ball movement to follow curved attack path by applying curve transformation to Y position
+- Fixed return curve segmentation by using consistent 20-step resolution (was variable steps)
+- Updated inverse curve calculation to match AutomationEngine behavior exactly
+- **Remaining Issue**: Return curves still don't visually mirror attack curves as expected for professional automation display
+
+**Files Modified**:
+- `Source/Graphics/CurveCalculator.h` - Fixed ball position calculation and curve generation consistency
+- Attack phase ball movement: Now applies `applyCurve()` to Y position for proper curve following
+- Return curve generation: Fixed step count from variable to consistent 20 steps
+- Inverse curve calculation: Updated to match AutomationEngine formula exactly
+
+**Future Considerations**:
+- Consider alternative visualizer implementation for more robust curve mirroring
+- Current mathematical approach may need geometric/visual approach instead of inverse curve formulas
+- Professional automation tools typically show perfect visual mirrors regardless of mathematical inverse
+
 ### September 11, 2025: Action Tooltip System Implementation Complete
 **Feature**: Comprehensive action confirmation system replacing keyboard speed tooltip
 **Implementation**: Thread-safe action feedback with intelligent text truncation and comprehensive coverage

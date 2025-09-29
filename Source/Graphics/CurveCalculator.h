@@ -81,12 +81,12 @@ public:
         if (curveValue < 1.0)
         {
             // Attack was exponential, return should be logarithmic
-            return 2.0 - curveValue; // Converts 0.0-1.0 to 2.0-1.0
+            return 1.0 + (1.0 - curveValue); // Maps 0.0->2.0, 1.0->1.0
         }
         else if (curveValue > 1.0)
         {
             // Attack was logarithmic, return should be exponential
-            return 2.0 - curveValue; // Converts 1.0-2.0 to 1.0-0.0
+            return 1.0 - (curveValue - 1.0); // Maps 2.0->0.0, 1.0->1.0
         }
         else
         {
@@ -128,19 +128,22 @@ public:
         }
         else if (elapsed < animationDelayTime + animationAttackTime)
         {
-            // ATTACK PHASE: Move along attack slope to peak
+            // ATTACK PHASE: Move along attack slope to peak with curve
             double attackElapsed = elapsed - animationDelayTime;
             double attackProgress = animationAttackTime > 0.0 ? attackElapsed / animationAttackTime : 1.0;
             attackProgress = juce::jlimit(0.0, 1.0, attackProgress);
-            
+
+            // Apply curve to the Y position like in curve generation
+            double curvedProgress = applyCurve(attackProgress, curveValue);
+
             float startX = curvePoints.delayEndPoint.x;
             float startY = curvePoints.delayEndPoint.y;
             float endX = curvePoints.attackEndPoint.x;
             float endY = curvePoints.attackEndPoint.y;
-            
+
             return {
                 startX + (endX - startX) * (float)attackProgress,
-                startY + (endY - startY) * (float)attackProgress
+                startY + (endY - startY) * (float)curvedProgress
             };
         }
         else if (animationReturnTime > 0.0 && elapsed < totalAnimationDuration)
@@ -248,11 +251,11 @@ private:
             // Calculate inverse curve for return phase
             double inverseCurve = calculateInverseCurve(curveValue);
 
-            int returnSteps = juce::jmax(1, (int)(returnWidth / 5.0f));
+            int returnSteps = 20; // Use same step count as attack for consistency
             for (int i = 1; i <= returnSteps; ++i)
             {
                 float t = i / (float)returnSteps;
-                float curvedT = applyCurve(t, inverseCurve); // Apply inverse curve
+                float curvedT = applyCurve(t, inverseCurve); // Apply inverse curve exactly like AutomationEngine
                 float x = result.attackEndPoint.x + (returnWidth * t);
                 float y = result.attackEndPoint.y + ((originY - result.attackEndPoint.y) * curvedT);
                 result.points.push_back({x, y});
