@@ -16,6 +16,7 @@
 #include "UI/GlobalUIScale.h"
 #include "UI/SliderLayoutManager.h"
 #include "UI/AutomationContextMenu.h"
+#include "UI/SliderContextMenu.h"
 #include "UI/AutomationSaveDialog.h"
 #include "UI/AutomationConfigManagementWindow.h"
 #include "UI/GlobalUIScale.h"
@@ -895,7 +896,7 @@ public:
     
     void mouseDown(const juce::MouseEvent& event) override
     {
-        // Right-click context menu for automation area (only when not in learn mode)
+        // Right-click context menu (only when not in learn mode)
         if (event.mods.isRightButtonDown() && !showLearnMarkers)
         {
             // Check if click is specifically in automation control area
@@ -904,24 +905,28 @@ public:
                 showAutomationContextMenu(event.getPosition());
                 return;
             }
+
+            // Otherwise, show slider context menu
+            showSliderContextMenu(event.getPosition());
+            return;
         }
-        
+
         // Handle learn mode clicks first
         if (showLearnMarkers)
         {
             handleLearnModeClick(event);
             return;
         }
-        
+
         // Set drag state for movement tracking
         displayManager.setDragState(true);
-        
+
         bool handled = interactionHandler.handleMouseDown(event, getVisualThumbBounds(), lockState,
                                                          mainSlider.getValue(), onSliderClick);
-        
+
         // Enable/disable normal slider interaction based on whether we're handling custom dragging
         mainSlider.setInterceptsMouseClicks(!handled, !handled);
-        
+
         if (!handled)
         {
             // Pass to base class for normal handling
@@ -1306,7 +1311,90 @@ public:
             DBG("UNKNOWN EXCEPTION in showAutomationContextMenu");
         }
     }
-    
+
+    void showSliderContextMenu(juce::Point<int> position)
+    {
+        try {
+            // Validate slider index
+            if (index < 0 || index >= 16) {
+                DBG("ERROR: Invalid slider index in showSliderContextMenu: " + juce::String(index));
+                return;
+            }
+
+            DBG("Creating SliderContextMenu for slider " + juce::String(index) + " at position (" + juce::String(position.x) + ", " + juce::String(position.y) + ")");
+
+            // Create context menu with shared ownership to prevent double-delete
+            auto contextMenu = std::make_shared<SliderContextMenu>();
+
+            // Capture the slider index by value to ensure it's not corrupted
+            const int sliderIdx = this->index;
+
+            // Set up context menu callbacks with captured slider index
+
+            // Range preset callback
+            contextMenu->onRangePresetSelected = [this, sliderIdx](int, int rangeType) {
+                DBG("Range preset " + juce::String(rangeType) + " selected for slider " + juce::String(sliderIdx));
+                // TODO: Implement range preset functionality
+            };
+
+            // Copy slider callback
+            contextMenu->onCopySlider = [this, sliderIdx](int) {
+                DBG("Copy slider " + juce::String(sliderIdx));
+                // TODO: Implement copy slider functionality
+            };
+
+            // Paste slider callback
+            contextMenu->onPasteSlider = [this, sliderIdx](int) {
+                DBG("Paste slider " + juce::String(sliderIdx));
+                // TODO: Implement paste slider functionality
+            };
+
+            // Reset slider callback
+            contextMenu->onResetSlider = [this, sliderIdx](int) {
+                DBG("Reset slider " + juce::String(sliderIdx));
+                // TODO: Implement reset slider functionality
+            };
+
+            // Set all in bank callback
+            contextMenu->onSetAllInBank = [this, sliderIdx](int) {
+                DBG("Set all in bank to value of slider " + juce::String(sliderIdx));
+                // TODO: Implement set all in bank functionality
+            };
+
+            // Set all sliders callback
+            contextMenu->onSetAllSliders = [this, sliderIdx](int) {
+                DBG("Set all sliders to value of slider " + juce::String(sliderIdx));
+                // TODO: Implement set all sliders functionality
+            };
+
+            // Copy to bank callback
+            contextMenu->onCopyToBank = [this, sliderIdx](int) {
+                DBG("Copy slider " + juce::String(sliderIdx) + " settings to all in bank");
+                // TODO: Implement copy to bank functionality
+            };
+
+            // Copy to all callback
+            contextMenu->onCopyToAll = [this, sliderIdx](int) {
+                DBG("Copy slider " + juce::String(sliderIdx) + " settings to all sliders");
+                // TODO: Implement copy to all functionality
+            };
+
+            // Show context menu with captured index
+            // TODO: Determine clipboard status (for now, always false)
+            bool hasClipboard = false;
+            DBG("Showing slider context menu for slider " + juce::String(sliderIdx));
+            contextMenu->showForSlider(sliderIdx, position, this, hasClipboard, contextMenu);
+            DBG("Slider context menu completed for slider " + juce::String(sliderIdx));
+
+            // shared_ptr will automatically clean up when it goes out of scope
+
+        } catch (const std::exception& e) {
+            DBG("EXCEPTION in showSliderContextMenu: " + juce::String(e.what()));
+        } catch (...) {
+            DBG("UNKNOWN EXCEPTION in showSliderContextMenu");
+        }
+    }
+
     // Automation config callbacks
     std::function<void()> onConfigManagementRequested;
     std::function<void(int sliderIndex, AutomationConfigManagementWindow::Mode mode)> onOpenConfigManagement;
