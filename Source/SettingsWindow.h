@@ -39,6 +39,13 @@ public:
     int getSelectedBank() const { return selectedBank; }
     void selectSlider(int sliderIndex);
     void updateBankSelection(int bankIndex);
+    void applyRangePreset(int sliderIndex, int rangeType);
+
+    // Copy/Paste operations
+    void copySlider(int sliderIndex);
+    void pasteSlider(int sliderIndex);
+    void resetSlider(int sliderIndex);
+    bool hasClipboardData() const { return hasClipboard; }
     
     // New per-slider settings access methods
     double getIncrement(int sliderIndex) const;
@@ -70,20 +77,20 @@ public:
     void scaleFactorChanged(float newScale) override;
     
 private:
+    // Shared state (must be declared before tabs that use them)
+    PresetManager presetManager;
+    int selectedBank = 0;
+    int selectedSlider = 0;
+    bool controlsInitialized = false;
+    bool updatingFromMainWindow = false;
+
     // Tab management using raw pointers for JUCE compatibility
     juce::TabbedComponent* tabbedComponent;
     std::unique_ptr<GlobalSettingsTab> globalTab;
     std::unique_ptr<ControllerSettingsTab> controllerTab;
     std::unique_ptr<PresetManagementTab> presetTab;
     std::unique_ptr<AboutTab> aboutTab;
-    
-    // Shared state
-    PresetManager presetManager;
-    int selectedBank = 0;
-    int selectedSlider = 0;
-    bool controlsInitialized = false;
-    bool updatingFromMainWindow = false;
-    
+
     // Data storage for all 16 sliders
     struct SliderSettings {
         int ccNumber = 0;
@@ -117,6 +124,10 @@ private:
         // updateBipolarCenter() method removed - center value is now automatically calculated
     };
     SliderSettings sliderSettingsData[16];
+
+    // Clipboard for copy/paste slider settings
+    bool hasClipboard = false;
+    SliderSettings clipboardSettings;
     
     // Private methods
     void setupTabs();
@@ -540,13 +551,146 @@ inline void SettingsWindow::updateBankSelection(int bankIndex)
     // Set flag to prevent circular callback
     updatingFromMainWindow = true;
     selectedBank = bankIndex;
-    
+
     if (controllerTab)
     {
         controllerTab->updateBankSelectorAppearance(bankIndex);
     }
-    
+
     updatingFromMainWindow = false;
+}
+
+inline void SettingsWindow::applyRangePreset(int sliderIndex, int rangeType)
+{
+    if (sliderIndex < 0 || sliderIndex >= 16)
+        return;
+
+    auto& settings = sliderSettingsData[sliderIndex];
+
+    // Map range type to actual range values
+    // Range type IDs from SliderContextMenu enum
+    switch (rangeType)
+    {
+        case 1: // Range_0_127 (7-bit MIDI)
+            settings.rangeMin = 0.0;
+            settings.rangeMax = 127.0;
+            break;
+        case 2: // Range_Minus100_Plus100
+            settings.rangeMin = -100.0;
+            settings.rangeMax = 100.0;
+            break;
+        case 3: // Range_0_1
+            settings.rangeMin = 0.0;
+            settings.rangeMax = 1.0;
+            break;
+        case 4: // Range_0_16383 (14-bit MIDI)
+            settings.rangeMin = 0.0;
+            settings.rangeMax = 16383.0;
+            break;
+        default:
+            return; // Unknown range type
+    }
+
+    // Update UI if this is the currently selected slider
+    if (sliderIndex == selectedSlider && controllerTab && controlsInitialized)
+    {
+        updateControlsForSelectedSlider();
+    }
+
+    // Notify parent that settings have changed
+    if (onSettingsChanged)
+        onSettingsChanged();
+}
+
+inline void SettingsWindow::copySlider(int sliderIndex)
+{
+    if (sliderIndex < 0 || sliderIndex >= 16)
+        return;
+
+    // Copy all settings from the specified slider to clipboard
+    clipboardSettings = sliderSettingsData[sliderIndex];
+    hasClipboard = true;
+}
+
+inline void SettingsWindow::pasteSlider(int sliderIndex)
+{
+    if (sliderIndex < 0 || sliderIndex >= 16 || !hasClipboard)
+        return;
+
+    // Paste all settings from clipboard to the specified slider
+    // Note: We keep the CC number as-is (don't paste it) to avoid conflicts
+    auto& settings = sliderSettingsData[sliderIndex];
+    int originalCCNumber = settings.ccNumber; // Preserve original CC number
+
+    settings = clipboardSettings;
+    settings.ccNumber = originalCCNumber; // Restore original CC number
+
+    // Update UI if this is the currently selected slider
+    if (sliderIndex == selectedSlider && controllerTab && controlsInitialized)
+    {
+        updateControlsForSelectedSlider();
+    }
+
+    // Apply orientation to the actual slider
+    applyOrientationToSlider(sliderIndex);
+
+    // Apply MIDI input mode to the actual slider
+    applyMidiInputModeToSlider(sliderIndex);
+
+    // Notify parent that settings have changed
+    if (onSettingsChanged)
+        onSettingsChanged();
+}
+
+inline void SettingsWindow::resetSlider(int sliderIndex)
+{
+    if (sliderIndex < 0 || sliderIndex >= 16)
+        return;
+
+    // Reset slider to default settings
+    auto& settings = sliderSettingsData[sliderIndex];
+
+    settings.ccNumber = sliderIndex; // Keep CC number as slider index
+    settings.rangeMin = 0.0;
+    settings.rangeMax = 16383.0;
+    settings.increment = 1.0;
+    settings.isCustomStep = false;
+    settings.useDeadzone = true;
+    settings.orientation = SliderOrientation::Normal;
+    settings.bipolarSettings = BipolarSettings();
+    settings.customName = "";
+    settings.showAutomation = true;
+
+    // Set default color based on bank
+    int bankIndex = sliderIndex / 4;
+    switch (bankIndex)
+    {
+        case 0: settings.colorId = 0; break; // Red
+        case 1: settings.colorId = 1; break; // Blue
+        case 2: settings.colorId = 2; break; // Green
+        case 3: settings.colorId = 3; break; // Yellow
+        default: settings.colorId = 0; break;
+    }
+
+    // Update UI if this is the currently selected slider
+    if (sliderIndex == selectedSlider && controllerTab && controlsInitialized)
+    {
+        updateControlsForSelectedSlider();
+    }
+
+    // Apply orientation to the actual slider
+    applyOrientationToSlider(sliderIndex);
+
+    // Apply MIDI input mode to the actual slider
+    applyMidiInputModeToSlider(sliderIndex);
+
+    // Notify parent that settings have changed
+    if (onSettingsChanged)
+        onSettingsChanged();
+
+    // Trigger the reset callback for any additional handling
+    if (onSliderReset)
+        onSliderReset(sliderIndex);
 }
 
 

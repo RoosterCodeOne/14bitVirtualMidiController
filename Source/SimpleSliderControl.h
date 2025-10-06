@@ -1334,25 +1334,33 @@ public:
             // Range preset callback
             contextMenu->onRangePresetSelected = [this, sliderIdx](int, int rangeType) {
                 DBG("Range preset " + juce::String(rangeType) + " selected for slider " + juce::String(sliderIdx));
-                // TODO: Implement range preset functionality
+                if (onRangePresetSelected) {
+                    onRangePresetSelected(sliderIdx, rangeType);
+                }
             };
 
             // Copy slider callback
             contextMenu->onCopySlider = [this, sliderIdx](int) {
                 DBG("Copy slider " + juce::String(sliderIdx));
-                // TODO: Implement copy slider functionality
+                if (onCopySlider) {
+                    onCopySlider(sliderIdx);
+                }
             };
 
             // Paste slider callback
             contextMenu->onPasteSlider = [this, sliderIdx](int) {
                 DBG("Paste slider " + juce::String(sliderIdx));
-                // TODO: Implement paste slider functionality
+                if (onPasteSlider) {
+                    onPasteSlider(sliderIdx);
+                }
             };
 
             // Reset slider callback
             contextMenu->onResetSlider = [this, sliderIdx](int) {
                 DBG("Reset slider " + juce::String(sliderIdx));
-                // TODO: Implement reset slider functionality
+                if (onResetSlider) {
+                    onResetSlider(sliderIdx);
+                }
             };
 
             // Set all in bank callback
@@ -1380,8 +1388,11 @@ public:
             };
 
             // Show context menu with captured index
-            // TODO: Determine clipboard status (for now, always false)
+            // Get clipboard status from callback if available
             bool hasClipboard = false;
+            if (hasClipboardData) {
+                hasClipboard = hasClipboardData();
+            }
             DBG("Showing slider context menu for slider " + juce::String(sliderIdx));
             contextMenu->showForSlider(sliderIdx, position, this, hasClipboard, contextMenu);
             DBG("Slider context menu completed for slider " + juce::String(sliderIdx));
@@ -1413,6 +1424,13 @@ public:
     std::function<void(int sliderIndex)> onAutomationConfigPasted;
     std::function<void(int sliderIndex)> onAutomationConfigReset;
     std::function<void(int sliderIndex, const juce::String& configName)> onAutomationConfigLoaded;
+
+    // Slider context menu callbacks
+    std::function<void(int sliderIndex, int rangeType)> onRangePresetSelected;
+    std::function<void(int sliderIndex)> onCopySlider;
+    std::function<void(int sliderIndex)> onPasteSlider;
+    std::function<void(int sliderIndex)> onResetSlider;
+    std::function<bool()> hasClipboardData;
 
     // Learn mode callbacks
     std::function<void(MidiTargetType, int)> onLearnModeTargetClicked;

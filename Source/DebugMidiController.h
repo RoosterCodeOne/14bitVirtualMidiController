@@ -166,6 +166,72 @@ public:
                 }
                 updateActionTooltip("(" + sliderName + ") - Automation Config Loaded: " + configName);
             };
+
+            // Set up range preset callback
+            sliderControl->onRangePresetSelected = [this](int sliderIndex, int rangeType) {
+                settingsWindow.applyRangePreset(sliderIndex, rangeType);
+                updateSliderSettings(); // Refresh all slider displays
+
+                // Update action tooltip
+                juce::String sliderName = settingsWindow.getSliderDisplayName(sliderIndex);
+                if (sliderName.isEmpty()) {
+                    sliderName = "Slider " + juce::String(sliderIndex + 1);
+                }
+                juce::String rangeText;
+                switch (rangeType) {
+                    case 1: rangeText = "0-127"; break;
+                    case 2: rangeText = "-100 to +100"; break;
+                    case 3: rangeText = "0.0-1.0"; break;
+                    case 4: rangeText = "0-16383"; break;
+                    default: rangeText = "Custom"; break;
+                }
+                updateActionTooltip("(" + sliderName + ") - Range: " + rangeText);
+            };
+
+            // Set up copy slider callback
+            sliderControl->onCopySlider = [this](int sliderIndex) {
+                settingsWindow.copySlider(sliderIndex);
+
+                juce::String sliderName = settingsWindow.getSliderDisplayName(sliderIndex);
+                if (sliderName.isEmpty()) {
+                    sliderName = "Slider " + juce::String(sliderIndex + 1);
+                }
+                updateActionTooltip("(" + sliderName + ") - Copied");
+            };
+
+            // Set up paste slider callback
+            sliderControl->onPasteSlider = [this](int sliderIndex) {
+                settingsWindow.pasteSlider(sliderIndex);
+                updateSliderSettings(); // Refresh all slider displays
+
+                juce::String sliderName = settingsWindow.getSliderDisplayName(sliderIndex);
+                if (sliderName.isEmpty()) {
+                    sliderName = "Slider " + juce::String(sliderIndex + 1);
+                }
+                updateActionTooltip("(" + sliderName + ") - Pasted");
+            };
+
+            // Set up reset slider callback
+            sliderControl->onResetSlider = [this](int sliderIndex) {
+                settingsWindow.resetSlider(sliderIndex);
+                updateSliderSettings(); // Refresh all slider displays
+
+                // Set the slider value to 0 (minimum)
+                if (sliderIndex >= 0 && sliderIndex < sliderControls.size()) {
+                    sliderControls[sliderIndex]->setValue(0.0);
+                }
+
+                juce::String sliderName = settingsWindow.getSliderDisplayName(sliderIndex);
+                if (sliderName.isEmpty()) {
+                    sliderName = "Slider " + juce::String(sliderIndex + 1);
+                }
+                updateActionTooltip("(" + sliderName + ") - Reset");
+            };
+
+            // Set up clipboard status callback
+            sliderControl->hasClipboardData = [this]() {
+                return settingsWindow.hasClipboardData();
+            };
         }
         
         // Bank buttons - setup through BankButtonManager
@@ -238,6 +304,11 @@ public:
             updatingFromSettingsWindow = false;
         };
         settingsWindow.onSliderReset = [this](int sliderIndex) {
+            // Set the slider value to 0 (minimum)
+            if (sliderIndex >= 0 && sliderIndex < sliderControls.size()) {
+                sliderControls[sliderIndex]->setValue(0.0);
+            }
+
             // Get the slider's display name for the tooltip
             juce::String sliderName = settingsWindow.getSliderDisplayName(sliderIndex);
             if (sliderName.isEmpty()) {
