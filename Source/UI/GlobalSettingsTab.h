@@ -112,36 +112,36 @@ inline GlobalSettingsTab::~GlobalSettingsTab()
 inline void GlobalSettingsTab::paint(juce::Graphics& g)
 {
     auto& scale = GlobalUIScale::getInstance();
-    
+
     // Blueprint aesthetic background
     g.setColour(BlueprintColors::windowBackground);
     g.fillAll();
-    
+
     // Draw section backgrounds
     auto bounds = getLocalBounds().reduced(scale.getScaled(15));
-    
+
     const int sectionSpacing = scale.getScaled(8);
     const int controlSpacing = scale.getScaled(4);
     const int labelHeight = scale.getScaled(18);
     const int headerHeight = scale.getScaled(22);
-    
+
     // Global Settings section box
-    auto section1Height = headerHeight + (labelHeight + controlSpacing) * 2 + controlSpacing;
+    const auto section1Height = headerHeight + (labelHeight + controlSpacing) * 2 + controlSpacing;
     auto section1Bounds = bounds.removeFromTop(section1Height);
     section1Bounds = section1Bounds.expanded(scale.getScaled(8), scale.getScaled(4));
-    
+
     g.setColour(BlueprintColors::sectionBackground);
     g.fillRoundedRectangle(section1Bounds.toFloat(), scale.getScaled(4.0f));
     g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
     g.drawRoundedRectangle(section1Bounds.toFloat(), scale.getScaled(4.0f), scale.getScaledLineThickness());
-    
+
     bounds.removeFromTop(sectionSpacing);
-    
+
     // Window Scaling section box (UI Scale + Always On Top)
-    auto section2Height = headerHeight + (labelHeight + controlSpacing) * 2 + controlSpacing;
+    const auto section2Height = headerHeight + (labelHeight + controlSpacing) * 2 + controlSpacing;
     auto section2Bounds = bounds.removeFromTop(section2Height);
     section2Bounds = section2Bounds.expanded(scale.getScaled(8), scale.getScaled(4));
-    
+
     g.setColour(BlueprintColors::sectionBackground);
     g.fillRoundedRectangle(section2Bounds.toFloat(), scale.getScaled(4.0f));
     g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));

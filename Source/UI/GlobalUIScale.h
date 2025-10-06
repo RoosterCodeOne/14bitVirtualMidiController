@@ -270,26 +270,26 @@ public:
     std::vector<float> getValidScaleOptions(juce::Component* referenceComponent = nullptr) const
     {
         std::vector<float> validScales;
-        
+
         // Update constraints if needed
-        auto constraints = cachedConstraints.isValid ? cachedConstraints : calculateScreenConstraints(referenceComponent);
-        
+        const auto constraints = cachedConstraints.isValid ? cachedConstraints : calculateScreenConstraints(referenceComponent);
+
         for (int i = 0; i < NUM_SCALE_OPTIONS; ++i)
         {
-            float scale = AVAILABLE_SCALES[i];
-            if (!constraints.isValid || 
+            const float scale = AVAILABLE_SCALES[i];
+            if (!constraints.isValid ||
                 (scale >= constraints.minScale - 0.01f && scale <= constraints.maxScale + 0.01f))
             {
                 validScales.push_back(scale);
             }
         }
-        
+
         // Ensure at least one valid scale exists
         if (validScales.empty())
         {
             validScales.push_back(SCALE_100);
         }
-        
+
         return validScales;
     }
     

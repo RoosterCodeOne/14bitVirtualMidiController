@@ -179,8 +179,8 @@ public:
                            int topAreaHeight,
                            int settingsPanelWidth) const
     {
-        int windowY = topAreaHeight;
-        int windowHeight = totalBounds.getHeight() - windowY;
+        const int windowY = topAreaHeight;
+        const int windowHeight = totalBounds.getHeight() - windowY;
         window.setBounds(0, windowY, settingsPanelWidth, windowHeight);
     }
     

@@ -703,48 +703,48 @@ private:
     {
         auto* content = getContentComponent();
         if (!content) return;
-        
+
         auto area = content->getLocalBounds().reduced(8);
-        
+
         // Mode label at top left, learn mode indicator at top right
         auto topArea = area.removeFromTop(20);
         auto learnIndicatorArea = topArea.removeFromRight(120);
         modeLabel.setBounds(topArea);
         learnModeIndicator.setBounds(learnIndicatorArea);
         area.removeFromTop(3);
-        
+
         // Table takes most of the space
         auto tableArea = area.removeFromTop(area.getHeight() - 40);
         configTable.setBounds(tableArea);
-        
+
         area.removeFromTop(3);
-        
+
         // Dynamic bottom panel based on mode (more compact)
         auto bottomPanel = area.removeFromTop(25);
-        
+
         if (currentMode == Mode::Save)
         {
             // Save mode: input box + Save button (no label)
             auto buttonArea = bottomPanel.removeFromRight(60);
             saveButton.setBounds(buttonArea);
             bottomPanel.removeFromRight(3);
-            
+
             configNameInput.setBounds(bottomPanel);
         }
         else if (currentMode == Mode::Load || currentMode == Mode::Manage)
         {
             // Selection mode: Load, Load & Save, Delete buttons (more compact)
-            int buttonWidth = 55;
-            int wideButtonWidth = 70;
-            int buttonSpacing = 3;
-            
+            const int buttonWidth = 55;
+            const int wideButtonWidth = 70;
+            const int buttonSpacing = 3;
+
             deleteButton.setBounds(bottomPanel.removeFromRight(buttonWidth));
             bottomPanel.removeFromRight(buttonSpacing);
             loadAndSaveButton.setBounds(bottomPanel.removeFromRight(wideButtonWidth));
             bottomPanel.removeFromRight(buttonSpacing);
             loadButton.setBounds(bottomPanel.removeFromRight(buttonWidth));
         }
-        
+
         // Status at very bottom (more space for tooltip)
         area.removeFromTop(3);
         statusLabel.setBounds(area);

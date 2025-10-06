@@ -92,14 +92,14 @@ public:
     {
         auto& scale = GlobalUIScale::getInstance();
         auto bounds = getLocalBounds();
-        int scaledKnobSize = scale.getScaled(knobSize);
-        
+        const int scaledKnobSize = scale.getScaled(knobSize);
+
         // Allocate enough space for knob + bezel (knobSize + 4 pixels)
-        auto knobAreaHeight = scaledKnobSize + scale.getScaled(4);
+        const auto knobAreaHeight = scaledKnobSize + scale.getScaled(4);
         auto knobAreaBounds = bounds.removeFromTop(knobAreaHeight);
         auto knobArea = knobAreaBounds.withSizeKeepingCentre(scaledKnobSize, scaledKnobSize);
         auto labelArea = bounds;
-        
+
         drawKnobShadow(g, knobArea);
         drawKnobBezel(g, knobArea);
         drawKnobBody(g, knobArea);

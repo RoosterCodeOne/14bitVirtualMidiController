@@ -64,24 +64,23 @@ inline AboutTab::~AboutTab()
 inline void AboutTab::paint(juce::Graphics& g)
 {
     auto& scale = GlobalUIScale::getInstance();
-    
+
     // Blueprint aesthetic background
     g.setColour(BlueprintColors::windowBackground);
     g.fillAll();
-    
+
     // Draw section background
     auto bounds = getLocalBounds().reduced(scale.getScaled(15));
-    
-    const int sectionSpacing = scale.getScaled(8);
+
     const int controlSpacing = scale.getScaled(4);
     const int labelHeight = scale.getScaled(18);
     const int headerHeight = scale.getScaled(22);
-    
+
     // About section box
     auto section1Height = headerHeight + labelHeight + controlSpacing * 2;
     auto section1Bounds = bounds.removeFromTop(section1Height);
     section1Bounds = section1Bounds.expanded(scale.getScaled(8), scale.getScaled(4));
-    
+
     g.setColour(BlueprintColors::sectionBackground);
     g.fillRoundedRectangle(section1Bounds.toFloat(), scale.getScaled(4.0f));
     g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
@@ -92,18 +91,17 @@ inline void AboutTab::resized()
 {
     auto& scale = GlobalUIScale::getInstance();
     auto bounds = getLocalBounds().reduced(scale.getScaled(15));
-    
-    const int sectionSpacing = scale.getScaled(8);
+
     const int controlSpacing = scale.getScaled(4);
     const int labelHeight = scale.getScaled(18);
     const int headerHeight = scale.getScaled(22);
-    
+
     // About section
     auto aboutBounds = bounds.removeFromTop(headerHeight + labelHeight + controlSpacing * 2);
-    
+
     aboutHeader.setBounds(aboutBounds.removeFromTop(headerHeight));
     aboutBounds.removeFromTop(controlSpacing);
-    
+
     // Placeholder content
     auto placeholderRow = aboutBounds.removeFromTop(labelHeight);
     placeholderLabel.setBounds(placeholderRow);

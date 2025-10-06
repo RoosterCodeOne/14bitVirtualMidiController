@@ -219,48 +219,48 @@ inline ControllerSettingsTab::~ControllerSettingsTab()
 inline void ControllerSettingsTab::paint(juce::Graphics& g)
 {
     auto& scale = GlobalUIScale::getInstance();
-    
+
     // Blueprint aesthetic background
     g.setColour(BlueprintColors::windowBackground);
     g.fillAll();
-    
+
     // Draw section backgrounds for the 3-section structure
     auto bounds = getLocalBounds().reduced(scale.getScaled(15));
-    
+
     // Calculate section positions based on new layout
     const int sectionSpacing = scale.getScaled(8);
     const int controlSpacing = scale.getScaled(4);
     const int labelHeight = scale.getScaled(18);
     const int headerHeight = scale.getScaled(22);
-    
+
     // Skip Breadcrumb (no background box)
     bounds.removeFromTop(scale.getScaled(20 + 6));
-    
+
     // Skip Bank selector (no background box)
     bounds.removeFromTop(scale.getScaled(22) + sectionSpacing);
-    
+
     // Section 1 - Slider Configuration Box
     auto section2Height = headerHeight + (labelHeight + controlSpacing) * 4 + controlSpacing;
     auto section2Bounds = bounds.removeFromTop(section2Height);
     section2Bounds = section2Bounds.expanded(scale.getScaled(8), scale.getScaled(4));
-    
+
     g.setColour(BlueprintColors::sectionBackground);
     g.fillRoundedRectangle(section2Bounds.toFloat(), scale.getScaled(4.0f));
     g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
     g.drawRoundedRectangle(section2Bounds.toFloat(), scale.getScaled(4.0f), scale.getScaledLineThickness());
-    
+
     bounds.removeFromTop(sectionSpacing);
-    
+
     // Section 2 - Display & Range Box (expanded)
     auto section3Height = headerHeight + (labelHeight + controlSpacing) * 6 + scale.getScaled(60) + controlSpacing * 2;
     auto section3Bounds = bounds.removeFromTop(section3Height);
     section3Bounds = section3Bounds.expanded(scale.getScaled(8), scale.getScaled(4));
-    
+
     g.setColour(BlueprintColors::sectionBackground);
     g.fillRoundedRectangle(section3Bounds.toFloat(), scale.getScaled(4.0f));
     g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
     g.drawRoundedRectangle(section3Bounds.toFloat(), scale.getScaled(4.0f), scale.getScaledLineThickness());
-    
+
     // Paint color grid if visible (appears on top of everything)
     paintColorGrid(g);
 }
@@ -839,44 +839,44 @@ inline void ControllerSettingsTab::hideColorGrid()
 inline void ControllerSettingsTab::paintColorGrid(juce::Graphics& g)
 {
     if (!colorGridVisible) return;
-    
+
     auto& scale = GlobalUIScale::getInstance();
-    
+
     // Draw background
     g.setColour(BlueprintColors::sectionBackground);
     g.fillRoundedRectangle(colorGridBounds.expanded(scale.getScaled(8)).toFloat(), scale.getScaled(4.0f));
     g.setColour(BlueprintColors::blueprintLines.withAlpha(0.8f));
     g.drawRoundedRectangle(colorGridBounds.expanded(scale.getScaled(8)).toFloat(), scale.getScaled(4.0f), scale.getScaledLineThickness(2.0f));
-    
+
     // Draw color grid - use same color array as getColorById for consistency
     const juce::Colour colors[] = {
         juce::Colours::red, juce::Colours::blue, juce::Colours::green, juce::Colours::yellow,
         juce::Colours::purple, juce::Colours::orange, juce::Colours::cyan, juce::Colours::white
     };
-    
+
     const int buttonSize = scale.getScaled(18); // Match showColorGrid scaled size
     const int buttonGap = scale.getScaled(4);   // Match showColorGrid scaled gap
-    
+
     for (int row = 0; row < 2; ++row)
     {
         for (int col = 0; col < 4; ++col)
         {
-            int index = row * 4 + col;
+            const int index = row * 4 + col;
             if (index < 8)
             {
-                int x = colorGridBounds.getX() + col * (buttonSize + buttonGap);
-                int y = colorGridBounds.getY() + row * (buttonSize + buttonGap);
-                
+                const int x = colorGridBounds.getX() + col * (buttonSize + buttonGap);
+                const int y = colorGridBounds.getY() + row * (buttonSize + buttonGap);
+
                 juce::Rectangle<int> colorRect(x, y, buttonSize, buttonSize);
-                
+
                 // Fill with color
                 g.setColour(colors[index]);
                 g.fillRect(colorRect);
-                
+
                 // Draw border
                 g.setColour(BlueprintColors::blueprintLines);
                 g.drawRect(colorRect, scale.getScaledLineThickness());
-                
+
                 // Highlight current color - match the grid index to currentColorId
                 if (index == currentColorId)
                 {
