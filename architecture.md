@@ -1,13 +1,13 @@
 # 14-bit Virtual MIDI Controller - Architecture Overview
 
-**Last Updated**: September 11, 2025 (Action Tooltip System Implementation Complete)  
-**Status**: Production-ready with complete adaptive UI scaling system (75%-200%) and comprehensive action confirmation system
+**Last Updated**: October 7, 2025 (Slider Context Menu Bulk Operations Complete)
+**Status**: Production-ready with complete adaptive UI scaling system (75%-200%), comprehensive action confirmation system, and full slider bulk operations
 
 ## Quick Project Summary
 
-JUCE-based desktop application providing hardware-realistic 14-bit MIDI slider control with professional automation, blueprint-style UI, adaptive scaling system, and comprehensive action confirmation feedback.
+JUCE-based desktop application providing hardware-realistic 14-bit MIDI slider control with professional automation, blueprint-style UI, adaptive scaling system, comprehensive action confirmation feedback, and powerful bulk slider operations.
 
-**Key Features**: 16 sliders, 4/8 slider modes, 4 banks, MIDI learn, advanced automation, preset management, adaptive screen-aware UI scaling, action tooltip system
+**Key Features**: 16 sliders (4 banks × 4 sliders), 4/8 slider modes, MIDI learn, advanced automation, preset management, adaptive screen-aware UI scaling, action tooltip system, slider bulk operations (value & settings copy)
 
 ## Essential Architecture
 
@@ -26,14 +26,18 @@ MidiLearnWindow.h                   - MIDI mapping interface
 - **Layout**: `MainControllerLayout.h` - Scale-aware positioning and bounds
 - **Display**: `SliderDisplayManager.h` - MIDI-to-display value mapping
 - **Action Feedback**: `actionTooltipLabel` - Comprehensive action confirmation system with thread-safe updates
+- **Context Menus**: `SliderContextMenu.h`, `AutomationContextMenu.h` - Right-click operations for sliders & automation
+- **Bulk Operations**: Slider value & settings propagation across banks (A/B/C/D) or all 16 sliders
 
 ### Critical File Locations
 ```
 Source/
-├── DebugMidiController.h           # Main controller (primary file)
-├── SimpleSliderControl.h           # Individual slider logic
-├── SettingsWindow.h                # Settings interface
+├── DebugMidiController.h           # Main controller with bulk operation callbacks (lines 236-320)
+├── SimpleSliderControl.h           # Individual slider logic with context menu (lines 1315-1407, 1443-1447)
+├── SettingsWindow.h                # Settings interface with copy/paste/reset methods
 ├── UI/
+│   ├── SliderContextMenu.h         # Slider right-click menu (range presets, copy/paste, bulk ops)
+│   ├── AutomationContextMenu.h     # Automation right-click menu (save/load/copy/paste configs)
 │   ├── GlobalUIScale.h             # Adaptive scaling with screen detection
 │   ├── WindowManager.h             # Window constraints & resizing
 │   ├── MainControllerLayout.h      # Layout calculations
@@ -45,68 +49,30 @@ Source/
 
 ## Recent Critical Updates
 
-### September 29, 2025: Automation Visualizer Curve Issues Investigation
-**Issue**: Automation visualizer ball movement and return curve mirroring problems
-**Investigation**:
-- Fixed ball movement to follow curved attack path by applying curve transformation to Y position
-- Fixed return curve segmentation by using consistent 20-step resolution (was variable steps)
-- Updated inverse curve calculation to match AutomationEngine behavior exactly
-- **Remaining Issue**: Return curves still don't visually mirror attack curves as expected for professional automation display
-
+### October 7, 2025: Slider Context Menu Bulk Operations Complete
+**Feature**: Full implementation of bulk operations for slider context menu
+**Implementation**: Four bulk operations for efficient slider management across banks and all sliders
 **Files Modified**:
-- `Source/Graphics/CurveCalculator.h` - Fixed ball position calculation and curve generation consistency
-- Attack phase ball movement: Now applies `applyCurve()` to Y position for proper curve following
-- Return curve generation: Fixed step count from variable to consistent 20 steps
-- Inverse curve calculation: Updated to match AutomationEngine formula exactly
+- `SimpleSliderControl.h:1367-1396` - Removed TODOs, added callback invocations for bulk operations
+- `SimpleSliderControl.h:1443-1447` - Added bulk operation callback declarations
+- `DebugMidiController.h:236-320` - Implemented bulk operation logic with bank calculation and action tooltips
 
-**Future Considerations**:
-- Consider alternative visualizer implementation for more robust curve mirroring
-- Current mathematical approach may need geometric/visual approach instead of inverse curve formulas
-- Professional automation tools typically show perfect visual mirrors regardless of mathematical inverse
+**Bulk Operations**:
+1. **Set All in Bank to This Value** - Copies slider value to all sliders in same bank (A/B/C/D)
+2. **Set All Sliders to This Value** - Copies slider value to all 16 sliders
+3. **Copy Settings to All in Bank** - Copies all settings (range, orientation, bipolar, color, deadzone, etc.) to bank, preserves CC numbers
+4. **Copy Settings to All Sliders** - Copies all settings to all 16 sliders, preserves CC numbers
 
-### September 11, 2025: Action Tooltip System Implementation Complete
-**Feature**: Comprehensive action confirmation system replacing keyboard speed tooltip
-**Implementation**: Thread-safe action feedback with intelligent text truncation and comprehensive coverage
-**Files Modified**: 
-- `DebugMidiController.h` - Replaced `movementSpeedLabel` with `actionTooltipLabel`, added `updateActionTooltip()` method
-- `MainControllerLayout.h` - Updated layout method parameter names for new tooltip system
-- `SimpleSliderControl.h` - Added callbacks for automation, timing mode, and lock state changes
-- `AutomationControlPanel.h` - Added time mode change callback system
-- `ControllerSettingsTab.h` - Added slider reset action tracking
-- `SettingsWindow.h` - Added slider reset callback forwarding
+**Implementation Details**:
+- Banks organized as: A (0-3), B (4-7), C (8-11), D (12-15), calculated via `sliderIndex / 4`
+- Settings copy uses existing clipboard mechanism from `SettingsWindow.copySlider()` / `pasteSlider()`
+- Action tooltips provide user feedback: "([SliderName]) - Set Bank [X] to value" format
+- Thread-safe updates via existing action tooltip system
 
-**Key Features**:
-- **Action Coverage**: Keyboard speed, automation operations, slider resets, timing modes, MIDI learning, preset loading, lock/unlock
-- **Smart Formatting**: Slider-specific actions use "(Slider Name) - Action" format with custom or fallback naming
-- **Thread Safety**: All tooltip updates use `MessageManager::callAsync()` for safe cross-thread operation
-- **Text Truncation**: Messages >40 characters automatically truncated with "..." for optimal display
-- **Blueprint Integration**: Maintains original tooltip positioning and styling in bottom-left area
-
-### September 8, 2025: Scale-Aware Font Implementation Complete
-**Feature**: Complete font scaling system for all UI input components
-**Implementation**: TextEditor and input box fonts now scale immediately with UI scale changes
-**Files Modified**: 
-- `ControllerSettingsTab.h` - Added `.setFont()` calls to all TextEditor components with refresh pattern
-- `GlobalSettingsTab.h` - Separated BPM slider text box into standalone TextEditor with bidirectional sync
-- All settings input boxes now use clear/setText pattern to force immediate font refresh
-
-**Key Features**:
-- All TextEditor input boxes scale fonts immediately (no editing required to see changes)
-- BPM input separated from slider for consistent scaling behavior  
-- Font refresh pattern: `clear()` → `setText()` forces JUCE to show new fonts immediately
-- Maintains 12pt base font size across all input components
-
-### September 8, 2025: Adaptive Scaling Implementation  
-**Feature**: Intelligent screen-aware UI scaling with automatic constraint validation
-**Implementation**: Complete adaptive scaling system that prevents UI overflow on smaller screens
-**Key Features**: Screen detection, dynamic scale limits, smart UI dropdowns, constraint validation
-
-### September 6, 2025: Settings Window Scale-Aware Resizing
-**Issue**: Settings window width incorrect at non-100% scales, sliders cut off
-**Root Cause**: Hardcoded `350` width instead of scaled `MainControllerLayout::Constants::getSettingsPanelWidth()`
-**Files Fixed**: 
-- `DebugMidiController.h:1409` - Changed from `350` to `MainControllerLayout::Constants::getSettingsPanelWidth()`
-- `WindowManager.h` - Updated width calculation logic to match working `scaleFactorChanged()` pattern
+### September 2025: Core Systems Stabilization
+**Action Tooltip System**: Thread-safe action confirmation with "(Slider Name) - Action" formatting, 40-char truncation
+**Adaptive Scaling**: Screen-aware UI scaling (75%-200%) with constraint validation and dynamic scale limits
+**Font Scaling**: TextEditor clear/setText refresh pattern for immediate font updates across all input components
 
 ## Implementation Guidelines
 
@@ -128,9 +94,11 @@ Source/
 
 ### Common Patterns
 - **MIDI Values**: Internal 0-16383, display mapping via `SliderDisplayManager`
+- **Bank Organization**: 16 sliders = 4 banks × 4 sliders, bank index = `sliderIndex / 4`, range = `bank * 4` to `bank * 4 + 3`
 - **Callbacks**: Components communicate via function callbacks, not direct references
 - **Visual-Functional Split**: Visual elements in parent, JUCE components handle interaction
 - **State Management**: Boolean flags + callback pattern for mode switching
+- **Context Menus**: Shared pointer pattern for async menu safety, callbacks capture slider index by value
 
 ### Build System
 - **Location**: `Builds/MacOSX/14bit Virtual Midi Controller.xcodeproj`
@@ -147,36 +115,16 @@ For detailed information, see `docs/` folder:
 ## Quick Debugging Reference
 
 **Common Issues**:
-- Input box fonts not scaling → Check TextEditor `.setFont()` calls and clear/setText refresh pattern
-- Scale problems → Check `GlobalUIScale` usage, screen constraints, and `WindowManager` 
-- Scale overflow → Verify `setScaleFactorWithConstraints()` usage instead of direct `setScaleFactor()`
-- ComboBox fonts not scaling → Expected behavior (requires custom LookAndFeel)
-- MIDI learn issues → Check `Midi7BitController` and learn zone activation
-- Window sizing → Verify `MainControllerLayout::Constants` usage, not hardcoded values
+- Bulk operations not working → Check callback wiring in `DebugMidiController.h:236-320` and declarations in `SimpleSliderControl.h:1443-1447`
+- Context menu callbacks null → Verify lambda captures use `[this, sliderIdx]` pattern to capture by value
+- Bank calculation wrong → Use `sliderIndex / 4` for bank index (0-3), `bank * 4` to `bank * 4 + 3` for range
+- Settings not copying → Check `SettingsWindow.copySlider()` / `pasteSlider()` preserve CC numbers
+- Scale problems → Check `GlobalUIScale` usage, screen constraints, and `WindowManager`
 - Action tooltip not appearing → Check callback connections and `updateActionTooltip()` calls
-- Tooltip text truncated → Expected for messages >40 chars; check original message content
 
 **Key Methods**:
-- `setScaleFactorWithConstraints()` - Constraint-aware scale setting with validation
-- `updateScreenConstraints()` - Initialize/refresh screen dimension constraints
-- `getValidScaleOptions()` - Get screen-appropriate scale options for UI
-- `scaleFactorChanged()` - Reference implementation for scale-aware resizing
-- `toggleSettingsWindow()`/`toggleLearnWindow()` - Window mode switching
-- `updateWindowConstraints()` - Window constraint management
+- `onSetAllInBank` / `onSetAllSliders` - Bulk value operations across bank or all sliders
+- `onCopyToBank` / `onCopyToAll` - Bulk settings copy using clipboard mechanism
 - `updateActionTooltip()` - Thread-safe action confirmation with text truncation
-
-## Action Tooltip System
-
-### Tracked Actions
-- **Keyboard Speed**: "Keyboard Speed: [X]"
-- **Automation**: "Automation Started/Stopped", "([SliderName]) - Automation Config Saved/Loaded/Copied/Pasted/Reset: [Name]"
-- **Slider Operations**: "([SliderName]) - Reset/Locked/Unlocked"
-- **MIDI**: "MIDI Mapping: Ch[X] CC[Y]", "MIDI Mapping Cleared"
-- **System**: "Preset Loaded: [Name]", "Timing Mode: Seconds/Beats"
-
-### Implementation Notes
-- Thread-safe updates via `MessageManager::callAsync()`
-- 40-character truncation with "..." for long messages
-- Slider-specific format: "(Slider Name) - Action"
-- Positioned in bottom-left area (former keyboard speed tooltip location)
-- Blueprint styling with `textSecondary` color and 10pt scaled font
+- `scaleFactorChanged()` - Reference implementation for scale-aware resizing
+- `setScaleFactorWithConstraints()` - Constraint-aware scale setting with validation

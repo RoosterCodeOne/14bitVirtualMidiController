@@ -232,6 +232,92 @@ public:
             sliderControl->hasClipboardData = [this]() {
                 return settingsWindow.hasClipboardData();
             };
+
+            // Set up bulk operation callbacks
+            sliderControl->onSetAllInBank = [this](int sliderIndex) {
+                double sourceValue = sliderControls[sliderIndex]->getValue();
+                int bankIndex = sliderIndex / 4; // Determine which bank (0=A, 1=B, 2=C, 3=D)
+                int bankStart = bankIndex * 4;
+                int bankEnd = bankStart + 4;
+
+                // Set all sliders in the same bank to this value
+                for (int i = bankStart; i < bankEnd; ++i) {
+                    if (i != sliderIndex && i < sliderControls.size()) {
+                        sliderControls[i]->setValue(sourceValue);
+                    }
+                }
+
+                juce::String sliderName = settingsWindow.getSliderDisplayName(sliderIndex);
+                if (sliderName.isEmpty()) {
+                    sliderName = "Slider " + juce::String(sliderIndex + 1);
+                }
+                juce::String bankName = juce::String("ABCD").substring(bankIndex, bankIndex + 1);
+                updateActionTooltip("(" + sliderName + ") - Set Bank " + bankName + " to value");
+            };
+
+            sliderControl->onSetAllSliders = [this](int sliderIndex) {
+                double sourceValue = sliderControls[sliderIndex]->getValue();
+
+                // Set all 16 sliders to this value
+                for (int i = 0; i < sliderControls.size(); ++i) {
+                    if (i != sliderIndex) {
+                        sliderControls[i]->setValue(sourceValue);
+                    }
+                }
+
+                juce::String sliderName = settingsWindow.getSliderDisplayName(sliderIndex);
+                if (sliderName.isEmpty()) {
+                    sliderName = "Slider " + juce::String(sliderIndex + 1);
+                }
+                updateActionTooltip("(" + sliderName + ") - Set all sliders to value");
+            };
+
+            sliderControl->onCopyToBank = [this](int sliderIndex) {
+                int bankIndex = sliderIndex / 4; // Determine which bank (0=A, 1=B, 2=C, 3=D)
+                int bankStart = bankIndex * 4;
+                int bankEnd = bankStart + 4;
+
+                // Copy settings from source slider to clipboard first
+                settingsWindow.copySlider(sliderIndex);
+
+                // Paste to all other sliders in the same bank
+                for (int i = bankStart; i < bankEnd; ++i) {
+                    if (i != sliderIndex && i < sliderControls.size()) {
+                        settingsWindow.pasteSlider(i);
+                    }
+                }
+
+                // Refresh all slider displays
+                updateSliderSettings();
+
+                juce::String sliderName = settingsWindow.getSliderDisplayName(sliderIndex);
+                if (sliderName.isEmpty()) {
+                    sliderName = "Slider " + juce::String(sliderIndex + 1);
+                }
+                juce::String bankName = juce::String("ABCD").substring(bankIndex, bankIndex + 1);
+                updateActionTooltip("(" + sliderName + ") - Copied settings to Bank " + bankName);
+            };
+
+            sliderControl->onCopyToAll = [this](int sliderIndex) {
+                // Copy settings from source slider to clipboard first
+                settingsWindow.copySlider(sliderIndex);
+
+                // Paste to all other sliders
+                for (int i = 0; i < sliderControls.size(); ++i) {
+                    if (i != sliderIndex) {
+                        settingsWindow.pasteSlider(i);
+                    }
+                }
+
+                // Refresh all slider displays
+                updateSliderSettings();
+
+                juce::String sliderName = settingsWindow.getSliderDisplayName(sliderIndex);
+                if (sliderName.isEmpty()) {
+                    sliderName = "Slider " + juce::String(sliderIndex + 1);
+                }
+                updateActionTooltip("(" + sliderName + ") - Copied settings to all sliders");
+            };
         }
         
         // Bank buttons - setup through BankButtonManager

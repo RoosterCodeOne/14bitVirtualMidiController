@@ -1366,25 +1366,33 @@ public:
             // Set all in bank callback
             contextMenu->onSetAllInBank = [this, sliderIdx](int) {
                 DBG("Set all in bank to value of slider " + juce::String(sliderIdx));
-                // TODO: Implement set all in bank functionality
+                if (onSetAllInBank) {
+                    onSetAllInBank(sliderIdx);
+                }
             };
 
             // Set all sliders callback
             contextMenu->onSetAllSliders = [this, sliderIdx](int) {
                 DBG("Set all sliders to value of slider " + juce::String(sliderIdx));
-                // TODO: Implement set all sliders functionality
+                if (onSetAllSliders) {
+                    onSetAllSliders(sliderIdx);
+                }
             };
 
             // Copy to bank callback
             contextMenu->onCopyToBank = [this, sliderIdx](int) {
                 DBG("Copy slider " + juce::String(sliderIdx) + " settings to all in bank");
-                // TODO: Implement copy to bank functionality
+                if (onCopyToBank) {
+                    onCopyToBank(sliderIdx);
+                }
             };
 
             // Copy to all callback
             contextMenu->onCopyToAll = [this, sliderIdx](int) {
                 DBG("Copy slider " + juce::String(sliderIdx) + " settings to all sliders");
-                // TODO: Implement copy to all functionality
+                if (onCopyToAll) {
+                    onCopyToAll(sliderIdx);
+                }
             };
 
             // Show context menu with captured index
@@ -1431,6 +1439,12 @@ public:
     std::function<void(int sliderIndex)> onPasteSlider;
     std::function<void(int sliderIndex)> onResetSlider;
     std::function<bool()> hasClipboardData;
+
+    // Bulk operation callbacks
+    std::function<void(int sliderIndex)> onSetAllInBank;
+    std::function<void(int sliderIndex)> onSetAllSliders;
+    std::function<void(int sliderIndex)> onCopyToBank;
+    std::function<void(int sliderIndex)> onCopyToAll;
 
     // Learn mode callbacks
     std::function<void(MidiTargetType, int)> onLearnModeTargetClicked;
