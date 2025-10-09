@@ -33,9 +33,8 @@ public:
                     // Add panel width to fixed width (panel width is already scaled from MainControllerLayout)
                     fixedWidth += settingsPanelWidth;
                 }
-                
+
                 // FIXED: Scale-aware height constraints
-                int optimalHeight = scale.getScaled(660);
                 int minHeight = scale.getScaled(580);  // Minimum functional height
                 int maxHeight = scale.getScaled(800);  // Maximum reasonable height
                 

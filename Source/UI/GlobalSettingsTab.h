@@ -263,7 +263,6 @@ inline void GlobalSettingsTab::setupGlobalControls()
     
     addAndMakeVisible(bpmSlider);
     bpmSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-    auto& scale = GlobalUIScale::getInstance();
     bpmSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);  // No text box on slider
     bpmSlider.setRange(60.0, 200.0, 1.0);
     bpmSlider.setValue(120.0);
@@ -463,8 +462,7 @@ inline void GlobalSettingsTab::setUIScale(float scale)
 inline void GlobalSettingsTab::scaleFactorChanged(float newScale)
 {
     // No need to update BPM slider text box since we use separate TextEditor
-    auto& scale = GlobalUIScale::getInstance();
-    
+
     // Update fonts for all labels
     globalHeader.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
     midiChannelLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));

@@ -271,9 +271,6 @@ inline void ControllerSettingsTab::resized()
     auto bounds = getLocalBounds().reduced(scale.getScaled(15));
     
     const int sectionSpacing = scale.getScaled(8);
-    const int controlSpacing = scale.getScaled(4);
-    const int labelHeight = scale.getScaled(18);
-    const int headerHeight = scale.getScaled(22);
     
     // Breadcrumb (no section box) - at the top
     auto breadcrumbArea = bounds.removeFromTop(scale.getScaled(20));
@@ -714,10 +711,6 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     
     section2Bounds.removeFromTop(controlSpacing);
     
-    // Output mode row
-    auto outputRow = section2Bounds.removeFromTop(labelHeight);
-    // outputModeLabel bounds removed
-    // Output mode buttons removed - always 14-bit
     
     section2Bounds.removeFromTop(controlSpacing);
     

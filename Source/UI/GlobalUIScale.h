@@ -99,10 +99,9 @@ public:
             
             // Calculate available screen area (subtract dock/taskbar areas)
             constraints.availableArea = primaryDisplay->userArea;
-            
+
             // Calculate minimum scale based on minimum readable UI size
             // Minimum window dimensions at 100% scale: 4-slider mode = 490x660, 8-slider = 970x660
-            const int minWindowWidth4 = 490;
             const int minWindowHeight = 660;
             const int minWindowWidth8 = 970;
             
@@ -112,7 +111,6 @@ public:
             int usableHeight = constraints.availableArea.getHeight() - decorationPadding;
             
             // Calculate maximum scale that allows both 4-slider and 8-slider modes
-            float maxScaleFor4Slider = static_cast<float>(usableWidth) / minWindowWidth4;
             float maxScaleFor8Slider = static_cast<float>(usableWidth) / minWindowWidth8;
             float maxScaleForHeight = static_cast<float>(usableHeight) / minWindowHeight;
             

@@ -335,7 +335,6 @@ public:
         settingsButton.setButtonText("Settings");
         settingsButton.setLookAndFeel(&customButtonLookAndFeel);
         settingsButton.onClick = [this]() {
-            bool previousSettingsMode = isInSettingsMode;
             toggleSettingsMode();
         };
         
