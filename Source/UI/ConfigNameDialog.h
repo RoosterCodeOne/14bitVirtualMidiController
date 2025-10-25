@@ -17,16 +17,16 @@ public:
         titleLabel.setText("Save Automation Config", juce::dontSendNotification);
         titleLabel.setFont(juce::FontOptions(16.0f, juce::Font::bold));
         titleLabel.setJustificationType(juce::Justification::centred);
-        titleLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        titleLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
         
         // Name input
         addAndMakeVisible(nameEditor);
         nameEditor.setText(defaultName);
         nameEditor.selectAll();
         nameEditor.setFont(juce::FontOptions(14.0f));
-        nameEditor.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
-        nameEditor.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
-        nameEditor.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
+        nameEditor.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background());
+        nameEditor.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary());
+        nameEditor.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines());
         nameEditor.onReturnKey = [this]() { 
             if (onOkClicked) onOkClicked(nameEditor.getText()); 
         };
@@ -64,10 +64,10 @@ public:
     void paint(juce::Graphics& g) override
     {
         // Background
-        g.fillAll(BlueprintColors::windowBackground);
+        g.fillAll(BlueprintColors::windowBackground());
         
         // Border
-        g.setColour(BlueprintColors::blueprintLines);
+        g.setColour(BlueprintColors::blueprintLines());
         g.drawRect(getLocalBounds(), 2);
     }
     

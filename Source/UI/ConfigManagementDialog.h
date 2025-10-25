@@ -19,13 +19,13 @@ public:
         titleLabel.setText("Automation Config Manager", juce::dontSendNotification);
         titleLabel.setFont(juce::FontOptions(18.0f, juce::Font::bold));
         titleLabel.setJustificationType(juce::Justification::centred);
-        titleLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        titleLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
         
         // Config list
         addAndMakeVisible(configListBox);
         configListBox.setModel(this);
-        configListBox.setColour(juce::ListBox::backgroundColourId, BlueprintColors::background);
-        configListBox.setColour(juce::ListBox::outlineColourId, BlueprintColors::blueprintLines);
+        configListBox.setColour(juce::ListBox::backgroundColourId, BlueprintColors::background());
+        configListBox.setColour(juce::ListBox::outlineColourId, BlueprintColors::blueprintLines());
         configListBox.setOutlineThickness(1);
         
         // Buttons
@@ -65,7 +65,7 @@ public:
         detailsLabel.setText("Select a config to view details", juce::dontSendNotification);
         detailsLabel.setFont(juce::FontOptions(12.0f));
         detailsLabel.setJustificationType(juce::Justification::topLeft);
-        detailsLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
+        detailsLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary());
         
         refreshConfigList();
         setSize(600, 450);
@@ -83,17 +83,17 @@ public:
     void paint(juce::Graphics& g) override
     {
         // Background
-        g.fillAll(BlueprintColors::windowBackground);
+        g.fillAll(BlueprintColors::windowBackground());
         
         // Border
-        g.setColour(BlueprintColors::blueprintLines);
+        g.setColour(BlueprintColors::blueprintLines());
         g.drawRect(getLocalBounds(), 2);
         
         // Details section background
         auto detailsArea = getDetailsArea();
-        g.setColour(BlueprintColors::sectionBackground);
+        g.setColour(BlueprintColors::sectionBackground());
         g.fillRect(detailsArea);
-        g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
+        g.setColour(BlueprintColors::blueprintLines().withAlpha(0.6f));
         g.drawRect(detailsArea, 1);
     }
     
@@ -148,9 +148,9 @@ public:
             const auto& config = allConfigs[rowNumber];
             
             if (rowIsSelected)
-                g.fillAll(BlueprintColors::active.withAlpha(0.3f));
+                g.fillAll(BlueprintColors::active().withAlpha(0.3f));
             
-            g.setColour(rowIsSelected ? BlueprintColors::textPrimary : BlueprintColors::textSecondary);
+            g.setColour(rowIsSelected ? BlueprintColors::textPrimary() : BlueprintColors::textSecondary());
             g.setFont(12.0f);
             
             // Config name
@@ -161,7 +161,7 @@ public:
             
             // Time mode indicator
             juce::String timeMode = (config.timeMode == AutomationControlPanel::TimeMode::Beats) ? "♪" : "s";
-            g.setColour(BlueprintColors::textSecondary);
+            g.setColour(BlueprintColors::textSecondary());
             g.drawText(timeMode, width - 45, 0, 20, height, juce::Justification::centred);
             
             // Original slider

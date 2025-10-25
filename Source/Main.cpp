@@ -2,6 +2,7 @@
 #include <JuceHeader.h>
 #include "DebugMidiController.h"
 #include "UI/GlobalUIScale.h"
+#include "UI/ThemeManager.h"
 
 //==============================================================================
 class MainWindow : public juce::DocumentWindow
@@ -60,6 +61,9 @@ public:
     
     void initialise(const juce::String& commandLine) override
     {
+        // Initialize ThemeManager early to ensure colors are available
+        ThemeManager::getInstance();
+
         mainWindow.reset(new MainWindow(getApplicationName()));
     }
     

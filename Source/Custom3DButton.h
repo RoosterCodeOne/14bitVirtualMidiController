@@ -50,11 +50,11 @@ public:
         // Blueprint-style flat button with scaled corner radius
         juce::Colour bgColor;
         if (shouldDrawButtonAsDown)
-            bgColor = BlueprintColors::active.darker(0.3f);
+            bgColor = BlueprintColors::active().darker(0.3f);
         else if (isSelected)
-            bgColor = BlueprintColors::active.withAlpha(0.7f);  // Same alpha as other active buttons
+            bgColor = BlueprintColors::active().withAlpha(0.7f);  // Same alpha as other active buttons
         else
-            bgColor = BlueprintColors::panel;
+            bgColor = BlueprintColors::panel();
             
         g.setColour(bgColor);
         g.fillRoundedRectangle(bounds, scale.getScaled(2.0f));
@@ -63,11 +63,11 @@ public:
         float lineWidth = (shouldDrawButtonAsDown || shouldDrawButtonAsHighlighted || isSelected) ? scale.getScaled(2.0f) : scale.getScaled(1.0f);
         juce::Colour outlineColor;
         if (shouldDrawButtonAsHighlighted)
-            outlineColor = BlueprintColors::active;
+            outlineColor = BlueprintColors::active();
         else if (isSelected)
-            outlineColor = BlueprintColors::active.brighter(0.2f);
+            outlineColor = BlueprintColors::active().brighter(0.2f);
         else
-            outlineColor = BlueprintColors::blueprintLines;
+            outlineColor = BlueprintColors::blueprintLines();
             
         g.setColour(outlineColor);
         g.drawRoundedRectangle(bounds, scale.getScaled(2.0f), lineWidth);
@@ -112,11 +112,11 @@ private:
         
         // Color based on state
         if (isHighlighted)
-            g.setColour(BlueprintColors::active);
+            g.setColour(BlueprintColors::active());
         else if (isPressed)
-            g.setColour(BlueprintColors::textPrimary.darker(0.2f));
+            g.setColour(BlueprintColors::textPrimary().darker(0.2f));
         else
-            g.setColour(BlueprintColors::textPrimary);
+            g.setColour(BlueprintColors::textPrimary());
             
         g.drawText(text, bounds, juce::Justification::centred);
     }

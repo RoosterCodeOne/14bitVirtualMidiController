@@ -9,10 +9,12 @@
 #include "UI/PresetManagementTab.h"
 #include "UI/AboutTab.h"
 #include "UI/GlobalUIScale.h"
+#include "UI/ThemeManager.h"
 
 //==============================================================================
-class SettingsWindow : public juce::Component, 
-                       public GlobalUIScale::ScaleChangeListener
+class SettingsWindow : public juce::Component,
+                       public GlobalUIScale::ScaleChangeListener,
+                       public ThemeManager::ThemeChangeListener
 {
 public:
     SettingsWindow();
@@ -75,7 +77,10 @@ public:
     
     // Scale change notification implementation
     void scaleFactorChanged(float newScale) override;
-    
+
+    // Theme change notification implementation
+    void themeChanged(ThemeManager::ThemeType newTheme, const ThemeManager::ThemePalette& palette) override;
+
 private:
     // Shared state (must be declared before tabs that use them)
     PresetManager presetManager;
@@ -158,19 +163,25 @@ inline SettingsWindow::SettingsWindow()
     setupTabs();
     setupCommunication();
     initializeSliderData();
-    
+
     // Enable keyboard focus for arrow key handling
     setWantsKeyboardFocus(true);
-    
+
     // Register for scale change notifications
     GlobalUIScale::getInstance().addScaleChangeListener(this);
+
+    // Register for theme change notifications
+    ThemeManager::getInstance().addThemeChangeListener(this);
 }
 
 inline SettingsWindow::~SettingsWindow()
 {
     // Remove scale change listener
     GlobalUIScale::getInstance().removeScaleChangeListener(this);
-    
+
+    // Remove theme change listener
+    ThemeManager::getInstance().removeThemeChangeListener(this);
+
     // Clean up tab component manually since it's a raw pointer
     delete tabbedComponent;
     tabbedComponent = nullptr;
@@ -196,17 +207,17 @@ inline void SettingsWindow::setupTabs()
     aboutTab = std::make_unique<AboutTab>(this);
     
     // Add tabs to tabbed component
-    tabbedComponent->addTab("Global", BlueprintColors::windowBackground, globalTab.get(), false);
-    tabbedComponent->addTab("Slider", BlueprintColors::windowBackground, controllerTab.get(), false);
-    tabbedComponent->addTab("Presets", BlueprintColors::windowBackground, presetTab.get(), false);
-    tabbedComponent->addTab("About", BlueprintColors::windowBackground, aboutTab.get(), false);
+    tabbedComponent->addTab("Global", BlueprintColors::windowBackground(), globalTab.get(), false);
+    tabbedComponent->addTab("Slider", BlueprintColors::windowBackground(), controllerTab.get(), false);
+    tabbedComponent->addTab("Presets", BlueprintColors::windowBackground(), presetTab.get(), false);
+    tabbedComponent->addTab("About", BlueprintColors::windowBackground(), aboutTab.get(), false);
     
     // Set tab colors
-    tabbedComponent->setColour(juce::TabbedComponent::backgroundColourId, BlueprintColors::windowBackground);
-    tabbedComponent->setColour(juce::TabbedComponent::outlineColourId, BlueprintColors::blueprintLines);
-    tabbedComponent->setColour(juce::TabbedButtonBar::tabOutlineColourId, BlueprintColors::blueprintLines);
-    tabbedComponent->setColour(juce::TabbedButtonBar::tabTextColourId, BlueprintColors::textSecondary);
-    tabbedComponent->setColour(juce::TabbedButtonBar::frontTextColourId, BlueprintColors::active.withAlpha(0.3f));
+    tabbedComponent->setColour(juce::TabbedComponent::backgroundColourId, BlueprintColors::windowBackground());
+    tabbedComponent->setColour(juce::TabbedComponent::outlineColourId, BlueprintColors::blueprintLines());
+    tabbedComponent->setColour(juce::TabbedButtonBar::tabOutlineColourId, BlueprintColors::blueprintLines());
+    tabbedComponent->setColour(juce::TabbedButtonBar::tabTextColourId, BlueprintColors::textSecondary());
+    tabbedComponent->setColour(juce::TabbedButtonBar::frontTextColourId, BlueprintColors::active().withAlpha(0.3f));
 }
 
 inline void SettingsWindow::setupCommunication()
@@ -400,11 +411,11 @@ inline void SettingsWindow::paint(juce::Graphics& g)
     auto bounds = getLocalBounds().toFloat();
     
     // Blueprint window background (slightly lighter than main background)
-    g.setColour(BlueprintColors::windowBackground);
+    g.setColour(BlueprintColors::windowBackground());
     g.fillAll();
     
     // Draw complete window outline - blueprint style
-    g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
+    g.setColour(BlueprintColors::blueprintLines().withAlpha(0.6f));
     g.drawRect(bounds, scale.getScaledLineThickness());
 }
 
@@ -481,6 +492,7 @@ inline ControllerPreset SettingsWindow::getCurrentPreset() const
     ControllerPreset preset;
     preset.name = "Current State";
     preset.midiChannel = getMidiChannel();
+    preset.themeName = globalTab->getThemeName(); // Get current theme from GlobalSettingsTab
     preset.uiScale = globalTab->getUIScale(); // Get current UI scale from GlobalSettingsTab
     preset.alwaysOnTop = globalTab->getAlwaysOnTop(); // Get current Always On Top setting
     
@@ -903,25 +915,48 @@ inline void SettingsWindow::scaleFactorChanged(float newScale)
         auto& scale = GlobalUIScale::getInstance();
         tabbedComponent->setTabBarDepth(scale.getScaled(30));
     }
-    
+
     // Trigger layout updates when scale changes
     resized();
     repaint();
-    
+
     // Notify all tabs of scale change
     if (globalTab)
         globalTab->repaint();
-    
+
     if (controllerTab)
         controllerTab->repaint();
-    
+
     if (presetTab)
         presetTab->repaint();
-    
+
     if (aboutTab)
         aboutTab->repaint();
-    
+
     // Update tabbed component layout
     if (tabbedComponent)
         tabbedComponent->resized();
+}
+
+inline void SettingsWindow::themeChanged(ThemeManager::ThemeType newTheme, const ThemeManager::ThemePalette& palette)
+{
+    // Repaint entire window with new theme
+    repaint();
+
+    // Notify all tabs of theme change
+    if (globalTab)
+        globalTab->repaint();
+
+    if (controllerTab)
+        controllerTab->repaint();
+
+    if (presetTab)
+        presetTab->repaint();
+
+    if (aboutTab)
+        aboutTab->repaint();
+
+    // Repaint tabbed component
+    if (tabbedComponent)
+        tabbedComponent->repaint();
 }

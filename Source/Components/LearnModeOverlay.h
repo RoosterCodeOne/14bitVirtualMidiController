@@ -46,7 +46,7 @@ public:
         auto bounds = getLocalBounds().toFloat();
         
         // Learn mode highlight
-        juce::Colour highlightColor = BlueprintColors::active;
+        juce::Colour highlightColor = BlueprintColors::active();
         if (isHovered)
         {
             // Brighter when hovered

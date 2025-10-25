@@ -72,6 +72,7 @@ struct ControllerPreset
     double bpm = 120.0; // Default BPM
     float uiScale = 1.0f; // Default UI scale factor
     bool alwaysOnTop = false; // Default to not always on top
+    juce::String themeName = "Dark"; // Default theme
     juce::Array<SliderPreset> sliders;
 
     ControllerPreset()
@@ -105,12 +106,13 @@ struct ControllerPreset
         obj->setProperty("bpm", bpm);
         obj->setProperty("uiScale", uiScale);
         obj->setProperty("alwaysOnTop", alwaysOnTop);
-        
+        obj->setProperty("themeName", themeName);
+
         juce::Array<juce::var> sliderArray;
         for (const auto& slider : sliders)
             sliderArray.add(slider.toVar());
         obj->setProperty("sliders", sliderArray);
-        
+
         return juce::var(obj);
     }
     
@@ -123,6 +125,7 @@ struct ControllerPreset
             bpm = obj->hasProperty("bpm") ? (double)obj->getProperty("bpm") : 120.0;
             uiScale = obj->hasProperty("uiScale") ? (float)obj->getProperty("uiScale") : 1.0f;
             alwaysOnTop = obj->hasProperty("alwaysOnTop") ? (bool)obj->getProperty("alwaysOnTop") : false;
+            themeName = obj->hasProperty("themeName") ? obj->getProperty("themeName").toString() : "Dark";
             
             sliders.clear();
             if (obj->hasProperty("sliders"))

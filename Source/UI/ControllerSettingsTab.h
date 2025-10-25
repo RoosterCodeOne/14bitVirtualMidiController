@@ -128,7 +128,7 @@ private:
             g.fillRect(getLocalBounds().reduced(1));
             
             // Draw border
-            g.setColour(BlueprintColors::blueprintLines);
+            g.setColour(BlueprintColors::blueprintLines());
             g.drawRect(getLocalBounds(), 1);
         }
         
@@ -221,7 +221,7 @@ inline void ControllerSettingsTab::paint(juce::Graphics& g)
     auto& scale = GlobalUIScale::getInstance();
 
     // Blueprint aesthetic background
-    g.setColour(BlueprintColors::windowBackground);
+    g.setColour(BlueprintColors::windowBackground());
     g.fillAll();
 
     // Draw section backgrounds for the 3-section structure
@@ -243,9 +243,9 @@ inline void ControllerSettingsTab::paint(juce::Graphics& g)
     auto displayHeight = headerHeight + (labelHeight + controlSpacing) * 5 + scale.getScaled(24) + controlSpacing * 2;
     auto displayBounds = bounds.removeFromTop(displayHeight);
 
-    g.setColour(BlueprintColors::sectionBackground);
+    g.setColour(BlueprintColors::sectionBackground());
     g.fillRoundedRectangle(displayBounds.reduced(0, scale.getScaled(2)).toFloat(), scale.getScaled(4.0f));
-    g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
+    g.setColour(BlueprintColors::blueprintLines().withAlpha(0.6f));
     g.drawRoundedRectangle(displayBounds.reduced(0, scale.getScaled(2)).toFloat(), scale.getScaled(4.0f), scale.getScaledLineThickness());
 
     bounds.removeFromTop(sectionSpacing); // Spacing between sections
@@ -254,9 +254,9 @@ inline void ControllerSettingsTab::paint(juce::Graphics& g)
     auto utilitiesHeight = headerHeight + (labelHeight + controlSpacing) * 3 + controlSpacing;
     auto utilitiesBounds = bounds.removeFromTop(utilitiesHeight);
 
-    g.setColour(BlueprintColors::sectionBackground);
+    g.setColour(BlueprintColors::sectionBackground());
     g.fillRoundedRectangle(utilitiesBounds.reduced(0, scale.getScaled(2)).toFloat(), scale.getScaled(4.0f));
-    g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
+    g.setColour(BlueprintColors::blueprintLines().withAlpha(0.6f));
     g.drawRoundedRectangle(utilitiesBounds.reduced(0, scale.getScaled(2)).toFloat(), scale.getScaled(4.0f), scale.getScaledLineThickness());
 
     // Paint color grid if visible (appears on top of everything)
@@ -373,13 +373,13 @@ inline void ControllerSettingsTab::setupBankSelector()
     addAndMakeVisible(breadcrumbLabel);
     breadcrumbLabel.setText("Bank A > Slider 1", juce::dontSendNotification);
     breadcrumbLabel.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
-    breadcrumbLabel.setColour(juce::Label::textColourId, BlueprintColors::active);
+    breadcrumbLabel.setColour(juce::Label::textColourId, BlueprintColors::active());
     breadcrumbLabel.setJustificationType(juce::Justification::centredLeft);
     
     addAndMakeVisible(bankSelectorLabel);
     bankSelectorLabel.setText("Bank:", juce::dontSendNotification);
     bankSelectorLabel.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
-    bankSelectorLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    bankSelectorLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
     
     // Bank selector buttons with proper colors
     addAndMakeVisible(bankASelector);
@@ -387,7 +387,7 @@ inline void ControllerSettingsTab::setupBankSelector()
     bankASelector.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
     bankASelector.setJustificationType(juce::Justification::centred);
     bankASelector.setColour(juce::Label::backgroundColourId, juce::Colours::red); // Start with A selected
-    bankASelector.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    bankASelector.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
     bankASelector.onClick = [this]() { 
         cycleSliderInBank(0);
         // Restore focus to parent after bank selection
@@ -399,7 +399,7 @@ inline void ControllerSettingsTab::setupBankSelector()
     bankBSelector.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
     bankBSelector.setJustificationType(juce::Justification::centred);
     bankBSelector.setColour(juce::Label::backgroundColourId, juce::Colours::blue.withAlpha(0.3f)); // Inactive blue
-    bankBSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
+    bankBSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary());
     bankBSelector.onClick = [this]() { 
         cycleSliderInBank(1);
         // Restore focus to parent after bank selection
@@ -411,7 +411,7 @@ inline void ControllerSettingsTab::setupBankSelector()
     bankCSelector.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
     bankCSelector.setJustificationType(juce::Justification::centred);
     bankCSelector.setColour(juce::Label::backgroundColourId, juce::Colours::green.withAlpha(0.3f)); // Inactive green
-    bankCSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
+    bankCSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary());
     bankCSelector.onClick = [this]() { 
         cycleSliderInBank(2);
         // Restore focus to parent after bank selection
@@ -423,7 +423,7 @@ inline void ControllerSettingsTab::setupBankSelector()
     bankDSelector.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
     bankDSelector.setJustificationType(juce::Justification::centred);
     bankDSelector.setColour(juce::Label::backgroundColourId, juce::Colours::yellow.withAlpha(0.3f)); // Inactive yellow
-    bankDSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
+    bankDSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary());
     bankDSelector.onClick = [this]() { 
         cycleSliderInBank(3);
         // Restore focus to parent after bank selection
@@ -437,14 +437,14 @@ inline void ControllerSettingsTab::setupNameControls()
     addAndMakeVisible(nameLabel);
     nameLabel.setText("Name:", juce::dontSendNotification);
     nameLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
-    nameLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    nameLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
     
     // Name input
     addAndMakeVisible(nameInput);
     nameInput.setInputRestrictions(20); // 20 character limit
-    nameInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
-    nameInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
-    nameInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
+    nameInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background());
+    nameInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary());
+    nameInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines());
     nameInput.onReturnKey = [this]() { nameInput.moveKeyboardFocusToSibling(true); };
     nameInput.onFocusLost = [this]() { applyCustomName(); };
     nameInput.onTextChange = [this]() { applyCustomName(); };
@@ -458,25 +458,25 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     addAndMakeVisible(displayHeader);
     displayHeader.setText("Display", juce::dontSendNotification);
     displayHeader.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
-    displayHeader.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    displayHeader.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
 
     // Section 2 - Utilities
     addAndMakeVisible(utilitiesHeader);
     utilitiesHeader.setText("Utilities", juce::dontSendNotification);
     utilitiesHeader.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
-    utilitiesHeader.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    utilitiesHeader.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
 
     addAndMakeVisible(ccNumberLabel);
     ccNumberLabel.setText("MIDI CC Number:", juce::dontSendNotification);
     ccNumberLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
-    ccNumberLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    ccNumberLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
 
     addAndMakeVisible(ccNumberInput);
     ccNumberInput.setInputRestrictions(3, "0123456789");
     ccNumberInput.setTooltip("MIDI CC number (0-127)");
-    ccNumberInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
-    ccNumberInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
-    ccNumberInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
+    ccNumberInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background());
+    ccNumberInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary());
+    ccNumberInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines());
     ccNumberInput.onReturnKey = [this]() { ccNumberInput.moveKeyboardFocusToSibling(true); };
     ccNumberInput.onFocusLost = [this]() { validateAndApplyCCNumber(); };
     // Set font after all other properties are configured
@@ -489,7 +489,7 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     addAndMakeVisible(inputModeLabel);
     inputModeLabel.setText("Input Behavior:", juce::dontSendNotification);
     inputModeLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
-    inputModeLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    inputModeLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
 
     addAndMakeVisible(deadzoneButton);
     deadzoneButton.setButtonText("Deadzone");
@@ -511,13 +511,13 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     addAndMakeVisible(rangeLabel);
     rangeLabel.setText("Range:", juce::dontSendNotification);
     rangeLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
-    rangeLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    rangeLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
     
     addAndMakeVisible(rangeMinInput);
     rangeMinInput.setInputRestrictions(0, "-0123456789.");
-    rangeMinInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
-    rangeMinInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
-    rangeMinInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
+    rangeMinInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background());
+    rangeMinInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary());
+    rangeMinInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines());
     rangeMinInput.onReturnKey = [this]() { rangeMinInput.moveKeyboardFocusToSibling(true); };
     rangeMinInput.onFocusLost = [this]() { validateAndApplyRange(); };
     // Set font after all other properties are configured
@@ -526,14 +526,14 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     addAndMakeVisible(rangeDashLabel);
     rangeDashLabel.setText("-", juce::dontSendNotification);
     rangeDashLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
-    rangeDashLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    rangeDashLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
     rangeDashLabel.setJustificationType(juce::Justification::centred);
     
     addAndMakeVisible(rangeMaxInput);
     rangeMaxInput.setInputRestrictions(0, "-0123456789.");
-    rangeMaxInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
-    rangeMaxInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
-    rangeMaxInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
+    rangeMaxInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background());
+    rangeMaxInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary());
+    rangeMaxInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines());
     rangeMaxInput.onReturnKey = [this]() { rangeMaxInput.moveKeyboardFocusToSibling(true); };
     rangeMaxInput.onFocusLost = [this]() { validateAndApplyRange(); };
     // Set font after all other properties are configured
@@ -543,13 +543,13 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     addAndMakeVisible(incrementsLabel);
     incrementsLabel.setText("Custom Steps:", juce::dontSendNotification);
     incrementsLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
-    incrementsLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    incrementsLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
     
     addAndMakeVisible(incrementsInput);
     incrementsInput.setInputRestrictions(0, "0123456789.");
-    incrementsInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
-    incrementsInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
-    incrementsInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
+    incrementsInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background());
+    incrementsInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary());
+    incrementsInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines());
     incrementsInput.onReturnKey = [this]() { incrementsInput.moveKeyboardFocusToSibling(true); };
     incrementsInput.onFocusLost = [this]() { applyIncrements(); };
     incrementsInput.onTextChange = [this]() { 
@@ -571,16 +571,16 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     addAndMakeVisible(orientationLabel);
     orientationLabel.setText("Orientation:", juce::dontSendNotification);
     orientationLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
-    orientationLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    orientationLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
     
     addAndMakeVisible(orientationCombo);
     orientationCombo.addItem("Normal", static_cast<int>(SliderOrientation::Normal) + 1);
     orientationCombo.addItem("Inverted", static_cast<int>(SliderOrientation::Inverted) + 1);
     orientationCombo.addItem("Bipolar", static_cast<int>(SliderOrientation::Bipolar) + 1);
     orientationCombo.setSelectedId(static_cast<int>(SliderOrientation::Normal) + 1);
-    orientationCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background);
-    orientationCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary);
-    orientationCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines);
+    orientationCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background());
+    orientationCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary());
+    orientationCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines());
     orientationCombo.onChange = [this]() { 
         applyOrientation();
         if (onRequestFocus) onRequestFocus();
@@ -592,7 +592,7 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     addAndMakeVisible(snapLabel);
     snapLabel.setText("Snap:", juce::dontSendNotification);
     snapLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
-    snapLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    snapLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
     snapLabel.setVisible(false); // Initially hidden
     
     addAndMakeVisible(snapSmallButton);
@@ -621,7 +621,7 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     addAndMakeVisible(automationVisibilityLabel);
     automationVisibilityLabel.setText("Show Automation:", juce::dontSendNotification);
     automationVisibilityLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
-    automationVisibilityLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    automationVisibilityLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
     
     addAndMakeVisible(showAutomationButton);
     showAutomationButton.setButtonText("Show Controls");
@@ -635,7 +635,7 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     addAndMakeVisible(colorPickerLabel);
     colorPickerLabel.setText("Color:", juce::dontSendNotification);
     colorPickerLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
-    colorPickerLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    colorPickerLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
     
     // Add current color box
     addAndMakeVisible(currentColorBox);
@@ -833,9 +833,9 @@ inline void ControllerSettingsTab::paintColorGrid(juce::Graphics& g)
     auto& scale = GlobalUIScale::getInstance();
 
     // Draw background
-    g.setColour(BlueprintColors::sectionBackground);
+    g.setColour(BlueprintColors::sectionBackground());
     g.fillRoundedRectangle(colorGridBounds.expanded(scale.getScaled(8)).toFloat(), scale.getScaled(4.0f));
-    g.setColour(BlueprintColors::blueprintLines.withAlpha(0.8f));
+    g.setColour(BlueprintColors::blueprintLines().withAlpha(0.8f));
     g.drawRoundedRectangle(colorGridBounds.expanded(scale.getScaled(8)).toFloat(), scale.getScaled(4.0f), scale.getScaledLineThickness(2.0f));
 
     // Draw color grid - use same color array as getColorById for consistency
@@ -864,7 +864,7 @@ inline void ControllerSettingsTab::paintColorGrid(juce::Graphics& g)
                 g.fillRect(colorRect);
 
                 // Draw border
-                g.setColour(BlueprintColors::blueprintLines);
+                g.setColour(BlueprintColors::blueprintLines());
                 g.drawRect(colorRect, scale.getScaledLineThickness());
 
                 // Highlight current color - match the grid index to currentColorId
@@ -1014,15 +1014,15 @@ inline void ControllerSettingsTab::updateStepIndicationVisuals()
     if (isCustomStepFlag)
     {
         // Custom step mode - normal appearance
-        incrementsInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
-        incrementsInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
+        incrementsInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background());
+        incrementsInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary());
         autoStepButton.setButtonText("Auto");
     }
     else
     {
         // Auto step mode - slightly different appearance to indicate auto-calculated
-        incrementsInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background.brighter(0.1f));
-        incrementsInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textSecondary);
+        incrementsInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background().brighter(0.1f));
+        incrementsInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textSecondary());
         autoStepButton.setButtonText("AUTO");
     }
     
@@ -1179,25 +1179,25 @@ inline void ControllerSettingsTab::updateBankSelectorAppearance(int selectedBank
     // Bank A - Red
     auto bankAColor = selectedBank == 0 ? juce::Colours::red : juce::Colours::red.withAlpha(0.3f);
     bankASelector.setColour(juce::Label::backgroundColourId, bankAColor);
-    bankASelector.setColour(juce::Label::textColourId, selectedBank == 0 ? BlueprintColors::textPrimary : BlueprintColors::textSecondary);
+    bankASelector.setColour(juce::Label::textColourId, selectedBank == 0 ? BlueprintColors::textPrimary() : BlueprintColors::textSecondary());
     bankASelector.repaint();
     
     // Bank B - Blue
     auto bankBColor = selectedBank == 1 ? juce::Colours::blue : juce::Colours::blue.withAlpha(0.3f);
     bankBSelector.setColour(juce::Label::backgroundColourId, bankBColor);
-    bankBSelector.setColour(juce::Label::textColourId, selectedBank == 1 ? BlueprintColors::textPrimary : BlueprintColors::textSecondary);
+    bankBSelector.setColour(juce::Label::textColourId, selectedBank == 1 ? BlueprintColors::textPrimary() : BlueprintColors::textSecondary());
     bankBSelector.repaint();
     
     // Bank C - Green
     auto bankCColor = selectedBank == 2 ? juce::Colours::green : juce::Colours::green.withAlpha(0.3f);
     bankCSelector.setColour(juce::Label::backgroundColourId, bankCColor);
-    bankCSelector.setColour(juce::Label::textColourId, selectedBank == 2 ? BlueprintColors::textPrimary : BlueprintColors::textSecondary);
+    bankCSelector.setColour(juce::Label::textColourId, selectedBank == 2 ? BlueprintColors::textPrimary() : BlueprintColors::textSecondary());
     bankCSelector.repaint();
     
     // Bank D - Yellow
     auto bankDColor = selectedBank == 3 ? juce::Colours::yellow : juce::Colours::yellow.withAlpha(0.3f);
     bankDSelector.setColour(juce::Label::backgroundColourId, bankDColor);
-    bankDSelector.setColour(juce::Label::textColourId, selectedBank == 3 ? BlueprintColors::textPrimary : BlueprintColors::textSecondary);
+    bankDSelector.setColour(juce::Label::textColourId, selectedBank == 3 ? BlueprintColors::textPrimary() : BlueprintColors::textSecondary());
     bankDSelector.repaint();
 }
 

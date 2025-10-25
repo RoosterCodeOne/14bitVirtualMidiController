@@ -4,13 +4,15 @@
 #include "../CustomLookAndFeel.h"
 #include "../SimpleSliderControl.h"
 #include "GlobalUIScale.h"
+#include "ThemeManager.h"
 
 // Forward declaration
 class SettingsWindow;
 
 //==============================================================================
-class GlobalSettingsTab : public juce::Component, 
-                           public GlobalUIScale::ScaleChangeListener
+class GlobalSettingsTab : public juce::Component,
+                           public GlobalUIScale::ScaleChangeListener,
+                           public ThemeManager::ThemeChangeListener
 {
 public:
     GlobalSettingsTab(SettingsWindow* parentWindow);
@@ -23,7 +25,10 @@ public:
     
     // Scale change notification implementation
     void scaleFactorChanged(float newScale) override;
-    
+
+    // Theme change notification implementation
+    void themeChanged(ThemeManager::ThemeType newTheme, const ThemeManager::ThemePalette& palette) override;
+
     // Public interface for main window coordination
     void applyPreset(const ControllerPreset& preset);
     
@@ -50,6 +55,10 @@ public:
             topLevel->setAlwaysOnTop(alwaysOnTop);
         }
     }
+
+    // Theme methods
+    juce::String getThemeName() const;
+    void setTheme(const juce::String& themeName);
 
     
     // Callback functions for communication with parent
@@ -82,6 +91,10 @@ private:
     juce::Label alwaysOnTopLabel;
     juce::ToggleButton alwaysOnTopToggle;
 
+    // Theme controls
+    juce::Label themeLabel;
+    juce::ComboBox themeCombo;
+
     // Private methods
     void setupGlobalControls();
     void updateScaleComboOptions();
@@ -95,18 +108,24 @@ inline GlobalSettingsTab::GlobalSettingsTab(SettingsWindow* parent)
     : parentWindow(parent)
 {
     setupGlobalControls();
-    
+
     // Enable keyboard focus for tab
     setWantsKeyboardFocus(true);
-    
+
     // Register for scale change notifications
     GlobalUIScale::getInstance().addScaleChangeListener(this);
+
+    // Register for theme change notifications
+    ThemeManager::getInstance().addThemeChangeListener(this);
 }
 
 inline GlobalSettingsTab::~GlobalSettingsTab()
 {
     // Remove scale change listener
     GlobalUIScale::getInstance().removeScaleChangeListener(this);
+
+    // Remove theme change listener
+    ThemeManager::getInstance().removeThemeChangeListener(this);
 }
 
 inline void GlobalSettingsTab::paint(juce::Graphics& g)
@@ -114,7 +133,7 @@ inline void GlobalSettingsTab::paint(juce::Graphics& g)
     auto& scale = GlobalUIScale::getInstance();
 
     // Blueprint aesthetic background
-    g.setColour(BlueprintColors::windowBackground);
+    g.setColour(BlueprintColors::windowBackground());
     g.fillAll();
 
     // Draw section backgrounds
@@ -130,21 +149,21 @@ inline void GlobalSettingsTab::paint(juce::Graphics& g)
     auto section1Bounds = bounds.removeFromTop(section1Height);
     section1Bounds = section1Bounds.expanded(scale.getScaled(8), scale.getScaled(4));
 
-    g.setColour(BlueprintColors::sectionBackground);
+    g.setColour(BlueprintColors::sectionBackground());
     g.fillRoundedRectangle(section1Bounds.toFloat(), scale.getScaled(4.0f));
-    g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
+    g.setColour(BlueprintColors::blueprintLines().withAlpha(0.6f));
     g.drawRoundedRectangle(section1Bounds.toFloat(), scale.getScaled(4.0f), scale.getScaledLineThickness());
 
     bounds.removeFromTop(sectionSpacing);
 
-    // Window Scaling section box (UI Scale + Always On Top)
-    const auto section2Height = headerHeight + (labelHeight + controlSpacing) * 2 + controlSpacing;
+    // Appearance section box (Theme + UI Scale + Always On Top)
+    const auto section2Height = headerHeight + (labelHeight + controlSpacing) * 3 + controlSpacing;
     auto section2Bounds = bounds.removeFromTop(section2Height);
     section2Bounds = section2Bounds.expanded(scale.getScaled(8), scale.getScaled(4));
 
-    g.setColour(BlueprintColors::sectionBackground);
+    g.setColour(BlueprintColors::sectionBackground());
     g.fillRoundedRectangle(section2Bounds.toFloat(), scale.getScaled(4.0f));
-    g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
+    g.setColour(BlueprintColors::blueprintLines().withAlpha(0.6f));
     g.drawRoundedRectangle(section2Bounds.toFloat(), scale.getScaled(4.0f), scale.getScaledLineThickness());
 }
 
@@ -185,19 +204,27 @@ inline void GlobalSettingsTab::resized()
 
     bounds.removeFromTop(sectionSpacing);
 
-    // UI Scale section
-    auto scaleBounds = bounds.removeFromTop((labelHeight + controlSpacing) * 2);
-    
+    // Appearance section (Theme + UI Scale + Always On Top)
+    auto appearanceBounds = bounds.removeFromTop((labelHeight + controlSpacing) * 3);
+
+    // Theme row
+    auto themeRow = appearanceBounds.removeFromTop(labelHeight);
+    themeLabel.setBounds(themeRow.removeFromLeft(scale.getScaled(80)));
+    themeRow.removeFromLeft(scale.getScaled(8));
+    themeCombo.setBounds(themeRow.removeFromLeft(scale.getScaled(100)));
+
+    appearanceBounds.removeFromTop(controlSpacing);
+
     // UI Scale row
-    auto scaleRow = scaleBounds.removeFromTop(labelHeight);
+    auto scaleRow = appearanceBounds.removeFromTop(labelHeight);
     uiScaleLabel.setBounds(scaleRow.removeFromLeft(scale.getScaled(80)));
     scaleRow.removeFromLeft(scale.getScaled(8));
     uiScaleCombo.setBounds(scaleRow.removeFromLeft(scale.getScaled(100)));
-    
-    scaleBounds.removeFromTop(controlSpacing);
-    
+
+    appearanceBounds.removeFromTop(controlSpacing);
+
     // Always On Top row
-    auto alwaysOnTopRow = scaleBounds.removeFromTop(labelHeight);
+    auto alwaysOnTopRow = appearanceBounds.removeFromTop(labelHeight);
     alwaysOnTopLabel.setBounds(alwaysOnTopRow.removeFromLeft(scale.getScaled(100)));
     alwaysOnTopRow.removeFromLeft(scale.getScaled(8));
     alwaysOnTopToggle.setBounds(alwaysOnTopRow.removeFromLeft(scale.getScaled(80)));
@@ -233,21 +260,21 @@ inline void GlobalSettingsTab::setupGlobalControls()
     addAndMakeVisible(globalHeader);
     globalHeader.setText("Global Settings", juce::dontSendNotification);
     globalHeader.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
-    globalHeader.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    globalHeader.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
     
     // MIDI Channel controls
     addAndMakeVisible(midiChannelLabel);
     midiChannelLabel.setText("MIDI Channel:", juce::dontSendNotification);
     midiChannelLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
-    midiChannelLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    midiChannelLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
     
     addAndMakeVisible(midiChannelCombo);
     for (int i = 1; i <= 16; ++i)
         midiChannelCombo.addItem("Channel " + juce::String(i), i);
     midiChannelCombo.setSelectedId(11); // Default to channel 11
-    midiChannelCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background);
-    midiChannelCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary);
-    midiChannelCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines);
+    midiChannelCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background());
+    midiChannelCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary());
+    midiChannelCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines());
     midiChannelCombo.onChange = [this]() {
         if (onSettingsChanged)
             onSettingsChanged();
@@ -259,16 +286,16 @@ inline void GlobalSettingsTab::setupGlobalControls()
     addAndMakeVisible(bpmLabel);
     bpmLabel.setText("BPM:", juce::dontSendNotification);
     bpmLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
-    bpmLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    bpmLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
     
     addAndMakeVisible(bpmSlider);
     bpmSlider.setSliderStyle(juce::Slider::LinearHorizontal);
     bpmSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);  // No text box on slider
     bpmSlider.setRange(60.0, 200.0, 1.0);
     bpmSlider.setValue(120.0);
-    bpmSlider.setColour(juce::Slider::backgroundColourId, BlueprintColors::background);
-    bpmSlider.setColour(juce::Slider::trackColourId, BlueprintColors::blueprintLines);
-    bpmSlider.setColour(juce::Slider::thumbColourId, BlueprintColors::active);
+    bpmSlider.setColour(juce::Slider::backgroundColourId, BlueprintColors::background());
+    bpmSlider.setColour(juce::Slider::trackColourId, BlueprintColors::blueprintLines());
+    bpmSlider.setColour(juce::Slider::thumbColourId, BlueprintColors::active());
     bpmSlider.onValueChange = [this]() {
         // Update text editor when slider changes
         bpmInput.setText(juce::String(static_cast<int>(bpmSlider.getValue())), false);
@@ -282,9 +309,9 @@ inline void GlobalSettingsTab::setupGlobalControls()
     addAndMakeVisible(bpmInput);
     bpmInput.setInputRestrictions(3, "0123456789");
     bpmInput.setText("120", false);
-    bpmInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
-    bpmInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
-    bpmInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines);
+    bpmInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background());
+    bpmInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary());
+    bpmInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines());
     bpmInput.onReturnKey = [this]() { bpmInput.moveKeyboardFocusToSibling(true); };
     bpmInput.onFocusLost = [this]() {
         // Update slider when text editor changes
@@ -299,7 +326,7 @@ inline void GlobalSettingsTab::setupGlobalControls()
     
     addAndMakeVisible(syncStatusLabel);
     syncStatusLabel.setText("Internal Sync", juce::dontSendNotification);
-    syncStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
+    syncStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary());
     syncStatusLabel.setFont(GlobalUIScale::getInstance().getScaledFont(10.0f));
     syncStatusLabel.setJustificationType(juce::Justification::centredRight);
     
@@ -307,7 +334,7 @@ inline void GlobalSettingsTab::setupGlobalControls()
     addAndMakeVisible(uiScaleLabel);
     uiScaleLabel.setText("UI Scale:", juce::dontSendNotification);
     uiScaleLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
-    uiScaleLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    uiScaleLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
     
     addAndMakeVisible(uiScaleCombo);
     
@@ -317,9 +344,9 @@ inline void GlobalSettingsTab::setupGlobalControls()
     // Load and set current scale factor
     float currentScale = GlobalUIScale::getInstance().getScaleFactor();
     setUIScale(currentScale);
-    uiScaleCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background);
-    uiScaleCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary);
-    uiScaleCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines);
+    uiScaleCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background());
+    uiScaleCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary());
+    uiScaleCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines());
     uiScaleCombo.onChange = [this]() {
         if (validScaleOptions.empty()) return;
         
@@ -339,28 +366,69 @@ inline void GlobalSettingsTab::setupGlobalControls()
         }
     };
     
+    // Theme controls
+    addAndMakeVisible(themeLabel);
+    themeLabel.setText("Theme:", juce::dontSendNotification);
+    themeLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
+    themeLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+
+    addAndMakeVisible(themeCombo);
+    themeCombo.addItem("Dark", 1);
+    themeCombo.addItem("Light", 2);
+    themeCombo.addItem("Auto", 3);
+    themeCombo.setSelectedId(1, juce::dontSendNotification); // Default to Dark
+    themeCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background());
+    themeCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary());
+    themeCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines());
+    themeCombo.onChange = [this]() {
+        int selectedId = themeCombo.getSelectedId();
+        ThemeManager::ThemeType themeType;
+
+        if (selectedId == 1)
+            themeType = ThemeManager::ThemeType::Dark;
+        else if (selectedId == 2)
+            themeType = ThemeManager::ThemeType::Light;
+        else
+            themeType = ThemeManager::ThemeType::Auto;
+
+        ThemeManager::getInstance().setTheme(themeType);
+
+        // Start/stop system theme monitoring based on selection
+        if (themeType == ThemeManager::ThemeType::Auto)
+            ThemeManager::getInstance().startSystemThemeMonitoring();
+        else
+            ThemeManager::getInstance().stopSystemThemeMonitoring();
+
+        // Save setting
+        if (onSettingsChanged)
+            onSettingsChanged();
+
+        // Restore focus to parent after selection
+        if (onRequestFocus) onRequestFocus();
+    };
+
     // Always On Top controls
     addAndMakeVisible(alwaysOnTopLabel);
     alwaysOnTopLabel.setText("Always On Top:", juce::dontSendNotification);
     alwaysOnTopLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
-    alwaysOnTopLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-    
+    alwaysOnTopLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+
     addAndMakeVisible(alwaysOnTopToggle);
     alwaysOnTopToggle.setToggleState(false, juce::dontSendNotification);
-    alwaysOnTopToggle.setColour(juce::ToggleButton::textColourId, BlueprintColors::textPrimary);
-    alwaysOnTopToggle.setColour(juce::ToggleButton::tickColourId, BlueprintColors::active);
-    alwaysOnTopToggle.setColour(juce::ToggleButton::tickDisabledColourId, BlueprintColors::textSecondary);
+    alwaysOnTopToggle.setColour(juce::ToggleButton::textColourId, BlueprintColors::textPrimary());
+    alwaysOnTopToggle.setColour(juce::ToggleButton::tickColourId, BlueprintColors::active());
+    alwaysOnTopToggle.setColour(juce::ToggleButton::tickDisabledColourId, BlueprintColors::textSecondary());
     alwaysOnTopToggle.onClick = [this]() {
         // Find the main window and set always on top property
         if (auto* topLevel = getTopLevelComponent())
         {
             topLevel->setAlwaysOnTop(alwaysOnTopToggle.getToggleState());
         }
-        
+
         // Save setting
         if (onSettingsChanged)
             onSettingsChanged();
-            
+
         // Restore focus to parent after toggle
         if (onRequestFocus) onRequestFocus();
     };
@@ -373,12 +441,12 @@ inline void GlobalSettingsTab::setSyncStatus(bool isExternal, double externalBPM
     {
         syncStatusLabel.setText("DAW Sync: " + juce::String(externalBPM, 1) + " BPM", 
                               juce::dontSendNotification);
-        syncStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::active);
+        syncStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::active());
     }
     else
     {
         syncStatusLabel.setText("Internal Sync", juce::dontSendNotification);
-        syncStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
+        syncStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary());
     }
 }
 
@@ -386,10 +454,16 @@ inline void GlobalSettingsTab::applyPreset(const ControllerPreset& preset)
 {
     // Apply MIDI channel
     midiChannelCombo.setSelectedId(preset.midiChannel, juce::dontSendNotification);
-    
+
+    // Apply theme (if available in preset)
+    if (preset.themeName.isNotEmpty())
+    {
+        setTheme(preset.themeName);
+    }
+
     // Apply UI scale factor
     setUIScale(preset.uiScale);
-    
+
     // Apply Always On Top setting
     setAlwaysOnTop(preset.alwaysOnTop);
 }
@@ -468,20 +542,53 @@ inline void GlobalSettingsTab::scaleFactorChanged(float newScale)
     midiChannelLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     bpmLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     syncStatusLabel.setFont(GlobalUIScale::getInstance().getScaledFont(10.0f));
+    themeLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     uiScaleLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     alwaysOnTopLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
-    
+
     // Update BPM TextEditor font and force refresh
     bpmInput.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     auto bpmText = bpmInput.getText();
     bpmInput.clear();
     bpmInput.setText(bpmText, false);
-    
+
     // Update scale combo options (constraints may have changed)
     updateScaleComboOptions();
     setUIScale(newScale);  // Update selection to match new scale
-    
+
     // Trigger layout and repaint
     resized();
     repaint();
+}
+
+inline void GlobalSettingsTab::themeChanged(ThemeManager::ThemeType newTheme, const ThemeManager::ThemePalette& palette)
+{
+    // Repaint to apply new theme colors
+    // The BlueprintColors namespace automatically reflects the new theme
+    repaint();
+}
+
+inline juce::String GlobalSettingsTab::getThemeName() const
+{
+    return ThemeManager::getInstance().getThemeName(ThemeManager::getInstance().getThemeType());
+}
+
+inline void GlobalSettingsTab::setTheme(const juce::String& themeName)
+{
+    ThemeManager::getInstance().setThemeFromString(themeName);
+
+    // Update combo box selection
+    int selectedId = 1; // Default to Dark
+    if (themeName.equalsIgnoreCase("Light"))
+        selectedId = 2;
+    else if (themeName.equalsIgnoreCase("Auto"))
+        selectedId = 3;
+
+    themeCombo.setSelectedId(selectedId, juce::dontSendNotification);
+
+    // Start/stop system theme monitoring based on selection
+    if (themeName.equalsIgnoreCase("Auto"))
+        ThemeManager::getInstance().startSystemThemeMonitoring();
+    else
+        ThemeManager::getInstance().stopSystemThemeMonitoring();
 }

@@ -1,24 +1,28 @@
-// CustomLookAndFeel.h - Blueprint Technical Drawing Style
+// CustomLookAndFeel.h - Blueprint Technical Drawing Style with Theme Support
 #pragma once
 #include <JuceHeader.h>
 #include <map>
 #include "Core/SliderDisplayManager.h"
 #include "UI/GlobalUIScale.h"
+#include "UI/ThemeManager.h"
 
-// Blueprint color palette
+// Dynamic color palette that automatically reflects the current theme
+// All colors now fetch from ThemeManager, making the entire UI theme-aware
 namespace BlueprintColors
 {
-    const juce::Colour background(0xFF1a1a2e);      // Dark navy base
-    const juce::Colour panel(0xFF16213e);           // Slightly lighter navy for raised areas
-    const juce::Colour windowBackground(0xFF1e2344); // Window background - slightly lighter than main
-    const juce::Colour sectionBackground(0xFF242951); // Section background - lightest blue
-    const juce::Colour blueprintLines(0xFF00d4ff);  // Bright cyan for technical lines
-    const juce::Colour textPrimary(0xFFe8e8e8);     // Soft white
-    const juce::Colour textSecondary(0xFFa0b4cc);   // Blue-gray
-    const juce::Colour active(0xFF00d4ff);          // Bright cyan for active/focus
-    const juce::Colour warning(0xFFff8c42);         // Warm amber for warning/learn
-    const juce::Colour success(0xFF4ade80);         // Soft green
-    const juce::Colour inactive(0xFF4a5568);        // Muted gray
+    // Inline functions that fetch current theme colors dynamically
+    // No macros used to avoid name collisions with function parameters
+    inline juce::Colour background() { return Theme::palette().background; }
+    inline juce::Colour panel() { return Theme::palette().panel; }
+    inline juce::Colour windowBackground() { return Theme::palette().windowBackground; }
+    inline juce::Colour sectionBackground() { return Theme::palette().sectionBackground; }
+    inline juce::Colour blueprintLines() { return Theme::palette().blueprintLines; }
+    inline juce::Colour textPrimary() { return Theme::palette().textPrimary; }
+    inline juce::Colour textSecondary() { return Theme::palette().textSecondary; }
+    inline juce::Colour active() { return Theme::palette().active; }
+    inline juce::Colour warning() { return Theme::palette().warning; }
+    inline juce::Colour success() { return Theme::palette().success; }
+    inline juce::Colour inactive() { return Theme::palette().inactive; }
 }
 
 //==============================================================================
@@ -26,7 +30,7 @@ class CustomSliderLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
     // Constructor with default color
-    CustomSliderLookAndFeel(juce::Colour defaultColor = BlueprintColors::active)
+    CustomSliderLookAndFeel(juce::Colour defaultColor = BlueprintColors::active())
         : sliderColor(defaultColor) {}
     
     void drawLinearSlider(juce::Graphics& g, int x, int y, int width, int height,
@@ -78,11 +82,11 @@ public:
         auto& scale = GlobalUIScale::getInstance();
         
         // Solid panel background matching settings sections
-        g.setColour(BlueprintColors::sectionBackground);
+        g.setColour(BlueprintColors::sectionBackground());
         g.fillRoundedRectangle(bounds, scale.getScaledCornerRadius());
         
         // Technical outline - dimmed cyan line
-        g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
+        g.setColour(BlueprintColors::blueprintLines().withAlpha(0.6f));
         g.drawRoundedRectangle(bounds, scale.getScaledCornerRadius(), scale.getScaledLineThickness());
         
         // No mounting screws - clean technical appearance
@@ -97,14 +101,14 @@ public:
         
         // Blueprint-style flat button background
         juce::Colour bgColor;
-        juce::Colour activeColor = customColor.isTransparent() ? BlueprintColors::active : customColor;
+        juce::Colour activeColor = customColor.isTransparent() ? BlueprintColors::active() : customColor;
         
         if (isPressed)
             bgColor = activeColor.darker(0.3f);
         else if (isSelected)
             bgColor = activeColor.withAlpha(0.7f);
         else
-            bgColor = BlueprintColors::panel;
+            bgColor = BlueprintColors::panel();
             
         g.setColour(bgColor);
         g.fillRoundedRectangle(bounds, scale.getScaledCornerRadius());
@@ -117,7 +121,7 @@ public:
         else if (isSelected)
             outlineColor = activeColor.brighter(0.2f);
         else
-            outlineColor = BlueprintColors::blueprintLines.withAlpha(0.6f);
+            outlineColor = BlueprintColors::blueprintLines().withAlpha(0.6f);
             
         g.setColour(outlineColor);
         g.drawRoundedRectangle(bounds, scale.getScaledCornerRadius(), lineWidth);
@@ -131,7 +135,7 @@ public:
             if (isHighlighted)
                 g.setColour(activeColor);
             else if (isPressed)
-                g.setColour(BlueprintColors::textPrimary.darker(0.2f));
+                g.setColour(BlueprintColors::textPrimary().darker(0.2f));
             else if (isSelected)
             {
                 // For better contrast on colored backgrounds, especially yellow
@@ -141,7 +145,7 @@ public:
                     g.setColour(juce::Colours::white); // White text on other colored backgrounds
             }
             else
-                g.setColour(BlueprintColors::textPrimary);
+                g.setColour(BlueprintColors::textPrimary());
                 
             g.drawText(text, bounds, juce::Justification::centred);
         }
@@ -156,7 +160,7 @@ public:
         auto track = trackArea.reduced(scale.getScaled(2), scale.getScaled(4));
         
         // Track background - solid dark fill
-        g.setColour(BlueprintColors::background);
+        g.setColour(BlueprintColors::background());
         g.fillRect(track);
         
         // Handle different orientations for visual display
@@ -173,7 +177,7 @@ public:
                 
                 // Gradient fill from dark to bright cyan
                 juce::ColourGradient fillGradient(
-                    BlueprintColors::background, fillArea.getTopLeft(),
+                    BlueprintColors::background(), fillArea.getTopLeft(),
                     trackColor, fillArea.getBottomRight(),
                     false
                 );
@@ -196,7 +200,7 @@ public:
                 // Gradient fill from bright to dark (inverted gradient)
                 juce::ColourGradient fillGradient(
                     trackColor, fillArea.getTopLeft(),
-                    BlueprintColors::background, fillArea.getBottomRight(),
+                    BlueprintColors::background(), fillArea.getBottomRight(),
                     false
                 );
                 
@@ -256,7 +260,7 @@ public:
                 // Create gradient from center (brighter) to current position (darker)
                 juce::ColourGradient fillGradient(
                     trackColor, gradientStart,                                       // Brighter at center
-                    BlueprintColors::background.withAlpha(0.2f), gradientEnd,      // Darker at current value (thumb)
+                    BlueprintColors::background().withAlpha(0.2f), gradientEnd,      // Darker at current value (thumb)
                     false
                 );
                 
@@ -266,7 +270,7 @@ public:
         }
         
         // Technical outline
-        g.setColour(BlueprintColors::blueprintLines);
+        g.setColour(BlueprintColors::blueprintLines());
         g.drawRect(track, scale.getScaledLineThickness());
     }
     
@@ -274,7 +278,7 @@ public:
     {
         auto& scale = GlobalUIScale::getInstance();
         
-        g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
+        g.setColour(BlueprintColors::blueprintLines().withAlpha(0.6f));
         
         auto tickArea = trackArea.reduced(0, scale.getScaled(4));
         
@@ -287,7 +291,7 @@ public:
                 int numSteps = (int)std::floor(displayRange / quantizationIncrement);
                 numSteps = juce::jlimit(1, 50, numSteps); // Limit number of ticks for visual clarity
                 
-                g.setColour(BlueprintColors::active.withAlpha(0.8f)); // Use active color for quantization ticks
+                g.setColour(BlueprintColors::active().withAlpha(0.8f)); // Use active color for quantization ticks
                 
                 for (int i = 0; i <= numSteps; ++i)
                 {
@@ -344,11 +348,11 @@ public:
         // No shadow for flat design
         
         // Solid flat body
-        g.setColour(BlueprintColors::panel);
+        g.setColour(BlueprintColors::panel());
         g.fillRect(thumbBounds);
         
         // Technical outline
-        g.setColour(BlueprintColors::blueprintLines);
+        g.setColour(BlueprintColors::blueprintLines());
         g.drawRect(thumbBounds, scale.getScaledLineThickness());
         
         // Horizontal indicator line using track color
@@ -367,7 +371,7 @@ public:
     {
         auto& scale = GlobalUIScale::getInstance();
         
-        g.setColour(BlueprintColors::blueprintLines.withAlpha(0.1f));
+        g.setColour(BlueprintColors::blueprintLines().withAlpha(0.1f));
         
         int gridSpacing = scale.getScaled(20);
         

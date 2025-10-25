@@ -21,11 +21,13 @@
 #include "Components/BankButtonLearnZone.h"
 #include "Components/LearnZoneTypes.h"
 #include "UI/GlobalUIScale.h"
+#include "UI/ThemeManager.h"
 
 //=====================================================================================
-class DebugMidiController : public juce::Component, 
-                            public juce::Timer, 
-                            public GlobalUIScale::ScaleChangeListener
+class DebugMidiController : public juce::Component,
+                            public juce::Timer,
+                            public GlobalUIScale::ScaleChangeListener,
+                            public ThemeManager::ThemeChangeListener
 {
 public:
     DebugMidiController()
@@ -350,7 +352,7 @@ public:
         addAndMakeVisible(&showingLabel);
         showingLabel.setText("Showing:", juce::dontSendNotification);
         showingLabel.setJustificationType(juce::Justification::centredRight);
-        showingLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        showingLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
         showingLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f).boldened());
         
         // Learn button for MIDI mapping - blueprint style
@@ -440,16 +442,16 @@ public:
         // Action tooltip - blueprint style (replaces movement speed tooltip)
         addAndMakeVisible(&actionTooltipLabel);
         actionTooltipLabel.setJustificationType(juce::Justification::centredLeft);
-        actionTooltipLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
-        actionTooltipLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background);
+        actionTooltipLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary());
+        actionTooltipLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background());
         actionTooltipLabel.setFont(GlobalUIScale::getInstance().getScaledFont(10.0f));
         actionTooltipLabel.setText("Ready", juce::dontSendNotification);
         
         // MIDI tracking tooltip - blueprint style
         addAndMakeVisible(&windowSizeLabel);
         windowSizeLabel.setJustificationType(juce::Justification::centredRight);
-        windowSizeLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
-        windowSizeLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background);
+        windowSizeLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary());
+        windowSizeLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background());
         windowSizeLabel.setFont(GlobalUIScale::getInstance().getScaledFont(10.0f));
         updateMidiTrackingDisplay();
         
@@ -485,13 +487,16 @@ public:
         
         // Apply initial window constraints to prevent manual resizing
         updateWindowConstraints();
-        
+
         // Register for scale change notifications
         GlobalUIScale::getInstance().addScaleChangeListener(this);
-        
+
+        // Register for theme change notifications
+        ThemeManager::getInstance().addThemeChangeListener(this);
+
         // Initialize screen constraints for adaptive scaling
         GlobalUIScale::getInstance().updateScreenConstraints(this);
-        
+
     }
     
     ~DebugMidiController()
@@ -499,9 +504,12 @@ public:
         // CRITICAL: Stop all timers before destruction
         stopTimer();
         midi7BitController.stopTimer();
-        
+
         // Remove scale change listener
         GlobalUIScale::getInstance().removeScaleChangeListener(this);
+
+        // Remove theme change listener
+        ThemeManager::getInstance().removeThemeChangeListener(this);
         
         // Auto-save current state before destruction
         saveCurrentState();
@@ -596,7 +604,7 @@ public:
         auto& scale = GlobalUIScale::getInstance();
         
         // Blueprint background - dark navy base
-        g.fillAll(BlueprintColors::background);
+        g.fillAll(BlueprintColors::background());
         
         // Calculate layout bounds using MainControllerLayout
         auto layoutBounds = mainLayout.calculateLayoutBounds(getLocalBounds(), 
@@ -687,7 +695,7 @@ public:
         juce::Rectangle<int> topAreaBounds = layoutBounds.topArea.withY(scale.getScaled(2)).withHeight(layoutBounds.topArea.getHeight() - scale.getScaled(2));
         
         // Draw blueprint-style outline around top area
-        g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
+        g.setColour(BlueprintColors::blueprintLines().withAlpha(0.6f));
         g.drawRect(topAreaBounds.toFloat(), scale.getScaledLineThickness());
         
         // Draw MIDI input indicator next to Learn button - blueprint style
@@ -695,15 +703,15 @@ public:
         int indicatorY = topAreaBounds.getY() + scale.getScaled(26); // Adjusted to be relative to top area bounds
         midiInputIndicatorBounds = juce::Rectangle<float>(learnButtonX + scale.getScaled(55), indicatorY, scale.getScaled(12), scale.getScaled(12));
         
-        juce::Colour inputIndicatorColor = BlueprintColors::warning;
+        juce::Colour inputIndicatorColor = BlueprintColors::warning();
         float inputAlpha = midiManager.getMidiInputActivity() ? 1.0f : 0.2f;
         g.setColour(inputIndicatorColor.withAlpha(inputAlpha));
         g.fillRect(midiInputIndicatorBounds);
-        g.setColour(BlueprintColors::blueprintLines);
+        g.setColour(BlueprintColors::blueprintLines());
         g.drawRect(midiInputIndicatorBounds, scale.getScaledLineThickness());
         
         // Show MIDI status with blueprint styling
-        g.setColour(BlueprintColors::textPrimary);
+        g.setColour(BlueprintColors::textPrimary());
         g.setFont(scale.getScaledFont(12.0f));
         juce::String status = "MIDI: ";
         if (midiManager.isOutputConnected() && midiManager.isInputConnected())
@@ -1460,7 +1468,37 @@ public:
             midiMonitorWindow->repaint();
         }
     }
-    
+
+    // Theme change notification implementation
+    void themeChanged(ThemeManager::ThemeType newTheme, const ThemeManager::ThemePalette& palette) override
+    {
+        // Repaint the entire controller to apply new theme
+        repaint();
+
+        // Repaint all child components
+        for (auto* slider : sliderControls)
+        {
+            if (slider)
+                slider->repaint();
+        }
+
+        // Notify child windows of theme change
+        if (settingsWindow.isVisible())
+        {
+            settingsWindow.repaint();
+        }
+
+        if (midiLearnWindow.isVisible())
+        {
+            midiLearnWindow.repaint();
+        }
+
+        if (midiMonitorWindow && midiMonitorWindow->isVisible())
+        {
+            midiMonitorWindow->repaint();
+        }
+    }
+
 
 private:
     

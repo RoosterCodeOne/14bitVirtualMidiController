@@ -489,12 +489,12 @@ private:
         
         secLabel.setText("SEC", juce::dontSendNotification);
         secLabel.setJustificationType(juce::Justification::centred);
-        secLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        secLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
         secLabel.setFont(scale.getScaledFont(9.0f));
         
         beatLabel.setText("BEAT", juce::dontSendNotification);
         beatLabel.setJustificationType(juce::Justification::centred);
-        beatLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        beatLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
         beatLabel.setFont(scale.getScaledFont(9.0f));
     }
     

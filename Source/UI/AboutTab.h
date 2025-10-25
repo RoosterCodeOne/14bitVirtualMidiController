@@ -66,7 +66,7 @@ inline void AboutTab::paint(juce::Graphics& g)
     auto& scale = GlobalUIScale::getInstance();
 
     // Blueprint aesthetic background
-    g.setColour(BlueprintColors::windowBackground);
+    g.setColour(BlueprintColors::windowBackground());
     g.fillAll();
 
     // Draw section background
@@ -81,9 +81,9 @@ inline void AboutTab::paint(juce::Graphics& g)
     auto section1Bounds = bounds.removeFromTop(section1Height);
     section1Bounds = section1Bounds.expanded(scale.getScaled(8), scale.getScaled(4));
 
-    g.setColour(BlueprintColors::sectionBackground);
+    g.setColour(BlueprintColors::sectionBackground());
     g.fillRoundedRectangle(section1Bounds.toFloat(), scale.getScaled(4.0f));
-    g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
+    g.setColour(BlueprintColors::blueprintLines().withAlpha(0.6f));
     g.drawRoundedRectangle(section1Bounds.toFloat(), scale.getScaled(4.0f), scale.getScaledLineThickness());
 }
 
@@ -137,12 +137,12 @@ inline void AboutTab::setupAboutControls()
     addAndMakeVisible(aboutHeader);
     aboutHeader.setText("About", juce::dontSendNotification);
     aboutHeader.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
-    aboutHeader.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    aboutHeader.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
     
     // Placeholder content
     addAndMakeVisible(placeholderLabel);
     placeholderLabel.setText("About content will be added here", juce::dontSendNotification);
-    placeholderLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
+    placeholderLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary());
     placeholderLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
 }
 

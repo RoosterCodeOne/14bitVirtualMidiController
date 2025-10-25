@@ -267,14 +267,14 @@ public:
         addAndMakeVisible(sliderNumberLabel);
         sliderNumberLabel.setText(juce::String(sliderIndex + 1), juce::dontSendNotification);
         sliderNumberLabel.setJustificationType(juce::Justification::centred);
-        sliderNumberLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        sliderNumberLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
         sliderNumberLabel.setFont(GlobalUIScale::getInstance().getScaledFont(11.0f).boldened());
         
         // Lock label (acting as button)
         addAndMakeVisible(lockLabel);
         lockLabel.setText("U", juce::dontSendNotification); // U for Unlocked by default
         lockLabel.setJustificationType(juce::Justification::centred);
-        lockLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
+        lockLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary());
         lockLabel.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened()); // Large font to fill space
         lockLabel.onClick = [this]() { toggleLock(); };
         
@@ -282,8 +282,8 @@ public:
         addAndMakeVisible(currentValueLabel);
         currentValueLabel.setText("0", juce::dontSendNotification);
         currentValueLabel.setJustificationType(juce::Justification::centred);
-        currentValueLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background);
-        currentValueLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        currentValueLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background());
+        currentValueLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
         // Match LED input font style with proper scaling
         auto& scale = GlobalUIScale::getInstance();
         juce::Font ledFont(juce::FontOptions("Monaco", scale.getScaled(12.0f), juce::Font::plain));
@@ -427,14 +427,14 @@ public:
         auto& scale = GlobalUIScale::getInstance();
         
         // Draw MIDI activity indicator above value label - blueprint style
-        juce::Colour indicatorColor = BlueprintColors::warning;
+        juce::Colour indicatorColor = BlueprintColors::warning();
         float alpha = midiActivityState ? 1.0f : 0.2f;
         
         g.setColour(indicatorColor.withAlpha(alpha));
         g.fillRect(midiIndicatorBounds);
         
         // Technical outline
-        g.setColour(BlueprintColors::blueprintLines);
+        g.setColour(BlueprintColors::blueprintLines());
         g.drawRect(midiIndicatorBounds, scale.getScaledLineThickness());
         
         // Draw learn mode corner markers
@@ -507,7 +507,7 @@ public:
             // Update label text and color
             lockLabel.setText(lockState ? "L" : "U", juce::dontSendNotification);
             lockLabel.setColour(juce::Label::textColourId,
-                               lockState ? BlueprintColors::warning : BlueprintColors::textSecondary);
+                               lockState ? BlueprintColors::warning() : BlueprintColors::textSecondary());
             
             // Enable/disable slider interaction
             mainSlider.setInterceptsMouseClicks(!lockState, !lockState);
@@ -1652,7 +1652,7 @@ private:
         float markerSize = scale.getScaled(8.0f);
         float markerThickness = scale.getScaled(2.0f);
         
-        g.setColour(BlueprintColors::warning);
+        g.setColour(BlueprintColors::warning());
         
         // Top-left corner
         g.fillRect(bounds.getX(), bounds.getY(), markerSize, markerThickness);

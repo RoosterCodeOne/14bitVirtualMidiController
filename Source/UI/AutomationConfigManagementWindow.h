@@ -52,7 +52,7 @@ public:
         {
             DBG("Painting amber highlighting for MIDI learn ready row: " + juce::String(rowNumber));
             // Row ready for MIDI learn - use warning color (amber/orange)
-            g.setColour(BlueprintColors::warning.withAlpha(0.4f));
+            g.setColour(BlueprintColors::warning().withAlpha(0.4f));
             g.fillRoundedRectangle(bounds.reduced(1.0f), 2.0f);
             
             // Draw corner brackets for MIDI learn ready state
@@ -61,27 +61,27 @@ public:
         else if (isRowHovered(rowNumber) && isLearnModeActive)
         {
             // Hovered row in learn mode - use orange/amber highlighting
-            g.setColour(BlueprintColors::warning.withAlpha(0.25f));
+            g.setColour(BlueprintColors::warning().withAlpha(0.25f));
             g.fillRoundedRectangle(bounds.reduced(1.0f), 2.0f);
             
             // Draw hover border in learn mode
-            g.setColour(BlueprintColors::warning.withAlpha(0.6f));
+            g.setColour(BlueprintColors::warning().withAlpha(0.6f));
             g.drawRoundedRectangle(bounds.reduced(1.0f), 2.0f, 1.0f);
         }
         else if (isRowSelected(rowNumber))
         {
             // Selected row - use blueprint active color with rounded corners
-            g.setColour(BlueprintColors::active.withAlpha(0.4f));
+            g.setColour(BlueprintColors::active().withAlpha(0.4f));
             g.fillRoundedRectangle(bounds.reduced(1.0f), 2.0f);
             
             // Draw selection border 
-            g.setColour(BlueprintColors::active);
+            g.setColour(BlueprintColors::active());
             g.drawRoundedRectangle(bounds.reduced(1.0f), 2.0f, 1.5f);
         }
         else if (rowNumber % 2 == 0)
         {
             // Alternating row background
-            g.setColour(BlueprintColors::panel.withAlpha(0.1f));
+            g.setColour(BlueprintColors::panel().withAlpha(0.1f));
             g.fillRoundedRectangle(bounds.reduced(1.0f), 2.0f);
         }
     }
@@ -97,19 +97,19 @@ public:
         juce::Colour textColor;
         if (isRowSelected(rowNumber))
         {
-            textColor = BlueprintColors::textPrimary.brighter(0.2f);
+            textColor = BlueprintColors::textPrimary().brighter(0.2f);
         }
         else if (isRowReadyForMidiLearn(rowNumber))
         {
-            textColor = BlueprintColors::warning.brighter(0.3f);
+            textColor = BlueprintColors::warning().brighter(0.3f);
         }
         else if (isRowHovered(rowNumber) && isLearnModeActive)
         {
-            textColor = BlueprintColors::warning.brighter(0.15f);
+            textColor = BlueprintColors::warning().brighter(0.15f);
         }
         else
         {
-            textColor = BlueprintColors::textSecondary;
+            textColor = BlueprintColors::textSecondary();
         }
         
         g.setColour(textColor);
@@ -319,7 +319,7 @@ private:
         const float bracketThickness = 2.0f;
         const float cornerOffset = 2.0f;
         
-        juce::Colour bracketColor = BlueprintColors::warning; // Orange brackets
+        juce::Colour bracketColor = BlueprintColors::warning(); // Orange brackets
         g.setColour(bracketColor);
         
         // Top-left bracket
@@ -367,7 +367,7 @@ public:
     
     AutomationConfigManagementWindow(AutomationConfigManager& configManager, Mode mode = Mode::Manage)
         : juce::DocumentWindow("Automation Config Manager", 
-                              BlueprintColors::background, 
+                              BlueprintColors::background(), 
                               juce::DocumentWindow::closeButton | juce::DocumentWindow::minimiseButton)
         , configManager(configManager)
         , currentMode(mode)
@@ -495,13 +495,13 @@ public:
         {
             DBG("Config Manager: Learn Mode activated");
             // Add visual highlighting to the entire window
-            setColour(juce::DocumentWindow::backgroundColourId, BlueprintColors::warning.withAlpha(0.05f));
+            setColour(juce::DocumentWindow::backgroundColourId, BlueprintColors::warning().withAlpha(0.05f));
         }
         else
         {
             DBG("Config Manager: Learn Mode deactivated");
             // Remove window highlighting
-            setColour(juce::DocumentWindow::backgroundColourId, BlueprintColors::background);
+            setColour(juce::DocumentWindow::backgroundColourId, BlueprintColors::background());
             // Clear any MIDI learn ready state when learn mode ends
             setConfigReadyForMidiLearn(-1, false);
         }
@@ -593,8 +593,8 @@ private:
         configTable.setMultipleSelectionEnabled(false);
         configTable.setRowSelectedOnMouseDown(false);
         
-        configTable.setColour(juce::ListBox::backgroundColourId, BlueprintColors::panel);
-        configTable.setColour(juce::ListBox::outlineColourId, BlueprintColors::active);
+        configTable.setColour(juce::ListBox::backgroundColourId, BlueprintColors::panel());
+        configTable.setColour(juce::ListBox::outlineColourId, BlueprintColors::active());
         
         // Enable mouse tracking for hover effects
         configTable.setWantsKeyboardFocus(false);
@@ -602,12 +602,12 @@ private:
         
         // Input components
         inputLabel.setText("Config Name:", juce::dontSendNotification);
-        inputLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
+        inputLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary());
         inputLabel.setJustificationType(juce::Justification::centredRight);
         
-        configNameInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::panel);
-        configNameInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
-        configNameInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::active);
+        configNameInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::panel());
+        configNameInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary());
+        configNameInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::active());
         configNameInput.setFont(12.0f);
         
         // Buttons
@@ -619,21 +619,21 @@ private:
         // Apply blueprint styling to buttons
         for (auto* button : { &saveButton, &loadButton, &loadAndSaveButton, &deleteButton })
         {
-            button->setColour(juce::TextButton::buttonColourId, BlueprintColors::panel);
-            button->setColour(juce::TextButton::textColourOffId, BlueprintColors::textSecondary);
-            button->setColour(juce::TextButton::textColourOnId, BlueprintColors::textPrimary);
+            button->setColour(juce::TextButton::buttonColourId, BlueprintColors::panel());
+            button->setColour(juce::TextButton::textColourOffId, BlueprintColors::textSecondary());
+            button->setColour(juce::TextButton::textColourOnId, BlueprintColors::textPrimary());
         }
         
         // Status labels
-        statusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
+        statusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary());
         statusLabel.setFont(GlobalUIScale::getInstance().getScaledFont(10.0f));
         
-        modeLabel.setColour(juce::Label::textColourId, BlueprintColors::active);
+        modeLabel.setColour(juce::Label::textColourId, BlueprintColors::active());
         modeLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f).boldened());
         
         // Learn mode indicator
         learnModeIndicator.setText("Learn Mode Active", juce::dontSendNotification);
-        learnModeIndicator.setColour(juce::Label::textColourId, BlueprintColors::warning);
+        learnModeIndicator.setColour(juce::Label::textColourId, BlueprintColors::warning());
         learnModeIndicator.setFont(GlobalUIScale::getInstance().getScaledFont(10.0f).boldened());
         learnModeIndicator.setJustificationType(juce::Justification::centredRight);
         learnModeIndicator.setVisible(false); // Hidden by default
@@ -993,7 +993,7 @@ private:
         if (windowHighlighted && isLearnModeActive)
         {
             auto bounds = getLocalBounds().toFloat();
-            g.setColour(BlueprintColors::warning.withAlpha(0.3f));
+            g.setColour(BlueprintColors::warning().withAlpha(0.3f));
             g.drawRoundedRectangle(bounds.reduced(1.0f), 4.0f, 2.0f);
         }
     }

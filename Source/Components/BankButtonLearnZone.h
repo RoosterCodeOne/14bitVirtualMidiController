@@ -46,7 +46,7 @@ public:
         auto bounds = getLocalBounds().toFloat();
         
         // Bank cycling specific highlight
-        juce::Colour highlightColor = BlueprintColors::warning; // Orange color
+        juce::Colour highlightColor = BlueprintColors::warning(); // Orange color
         if (isHovered)
         {
             // Brighter when hovered

@@ -245,11 +245,11 @@ private:
         auto knobBounds = knobArea.toFloat();
         
         // Flat circular body with blueprint styling
-        g.setColour(BlueprintColors::panel);
+        g.setColour(BlueprintColors::panel());
         g.fillEllipse(knobBounds);
         
         // Technical outline
-        g.setColour(BlueprintColors::blueprintLines);
+        g.setColour(BlueprintColors::blueprintLines());
         g.drawEllipse(knobBounds, 2.0f);
     }
     
@@ -272,7 +272,7 @@ private:
         float lineEndX = center.x + std::cos(angleRadians) * radius;
         float lineEndY = center.y + std::sin(angleRadians) * radius;
         
-        g.setColour(BlueprintColors::active);
+        g.setColour(BlueprintColors::active());
         juce::Line<float> indicatorLine(center.x, center.y, lineEndX, lineEndY);
         g.drawLine(indicatorLine, 3.0f);
         
@@ -284,14 +284,14 @@ private:
     {
         // Blueprint-style text with scaled font
         auto& scale = GlobalUIScale::getInstance();
-        g.setColour(BlueprintColors::textPrimary);
+        g.setColour(BlueprintColors::textPrimary());
         g.setFont(scale.getScaledFont(9.0f));
         auto adjustedLabelArea = labelArea.translated(0, 1);
         
         if (isHovered)
         {
             // Show current value when hovered with cyan highlight
-            g.setColour(BlueprintColors::active);
+            g.setColour(BlueprintColors::active());
             juce::String valueText;
             
             if (timeMode == TimeMode::Beats)

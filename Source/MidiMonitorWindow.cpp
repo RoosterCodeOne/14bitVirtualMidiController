@@ -12,13 +12,13 @@ public:
     void paint(juce::Graphics& g) override
     {
         // Window background
-        g.fillAll(BlueprintColors::windowBackground);
+        g.fillAll(BlueprintColors::windowBackground());
         
         // Draw separator line between columns
         auto bounds = getLocalBounds();
         int columnWidth = (bounds.getWidth() - 20) / 2;
         int separatorX = 10 + columnWidth;
-        g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
+        g.setColour(BlueprintColors::blueprintLines().withAlpha(0.6f));
         g.drawVerticalLine(separatorX, 60, bounds.getHeight() - 50);
     }
     
@@ -77,31 +77,31 @@ private:
         titleLabel.setText("MIDI Monitor - Debug Information", juce::dontSendNotification);
         titleLabel.setFont(juce::FontOptions(16.0f, juce::Font::bold));
         titleLabel.setJustificationType(juce::Justification::centred);
-        titleLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        titleLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
         
         // Column headers
         addAndMakeVisible(outgoingHeaderLabel);
         outgoingHeaderLabel.setText("OUTGOING", juce::dontSendNotification);
         outgoingHeaderLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
         outgoingHeaderLabel.setJustificationType(juce::Justification::centred);
-        outgoingHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::active);
-        outgoingHeaderLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::panel);
+        outgoingHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::active());
+        outgoingHeaderLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::panel());
         
         addAndMakeVisible(incomingHeaderLabel);
         incomingHeaderLabel.setText("INCOMING", juce::dontSendNotification);
         incomingHeaderLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
         incomingHeaderLabel.setJustificationType(juce::Justification::centred);
-        incomingHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::success);
-        incomingHeaderLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::panel);
+        incomingHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::success());
+        incomingHeaderLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::panel());
         
         // Text areas for message display
         addAndMakeVisible(outgoingTextArea);
         owner.setupTextEditor(outgoingTextArea);
-        outgoingTextArea.setColour(juce::TextEditor::textColourId, BlueprintColors::active);
+        outgoingTextArea.setColour(juce::TextEditor::textColourId, BlueprintColors::active());
         
         addAndMakeVisible(incomingTextArea);
         owner.setupTextEditor(incomingTextArea);
-        incomingTextArea.setColour(juce::TextEditor::textColourId, BlueprintColors::success);
+        incomingTextArea.setColour(juce::TextEditor::textColourId, BlueprintColors::success());
         
         // Clear button
         addAndMakeVisible(clearButton);
@@ -132,7 +132,7 @@ public:
 
 //==============================================================================
 MidiMonitorWindow::MidiMonitorWindow()
-    : DocumentWindow("MIDI Monitor - Debug Information", BlueprintColors::windowBackground, DocumentWindow::allButtons)
+    : DocumentWindow("MIDI Monitor - Debug Information", BlueprintColors::windowBackground(), DocumentWindow::allButtons)
 {
     // Create and set content component
     content = std::make_unique<MidiMonitorContent>(*this);
@@ -382,10 +382,10 @@ void MidiMonitorWindow::setupTextEditor(juce::TextEditor& editor)
     editor.setFont(juce::FontOptions("Courier New", 11.0f, juce::Font::plain));
     
     // Dark terminal colors
-    editor.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background);
-    editor.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines.withAlpha(0.6f));
-    editor.setColour(juce::TextEditor::focusedOutlineColourId, BlueprintColors::active);
-    editor.setColour(juce::TextEditor::highlightColourId, BlueprintColors::active.withAlpha(0.3f));
-    editor.setColour(juce::TextEditor::highlightedTextColourId, BlueprintColors::textPrimary);
-    editor.setColour(juce::CaretComponent::caretColourId, BlueprintColors::active);
+    editor.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background());
+    editor.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines().withAlpha(0.6f));
+    editor.setColour(juce::TextEditor::focusedOutlineColourId, BlueprintColors::active());
+    editor.setColour(juce::TextEditor::highlightColourId, BlueprintColors::active().withAlpha(0.3f));
+    editor.setColour(juce::TextEditor::highlightedTextColourId, BlueprintColors::textPrimary());
+    editor.setColour(juce::CaretComponent::caretColourId, BlueprintColors::active());
 }

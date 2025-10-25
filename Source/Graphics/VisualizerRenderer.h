@@ -22,7 +22,7 @@ public:
                        const juce::Point<float>& ballPosition) const
     {
         // Blueprint background
-        g.fillAll(BlueprintColors::background);
+        g.fillAll(BlueprintColors::background());
         
         // Draw technical grid
         drawBlueprintGrid(g, bounds);
@@ -41,7 +41,7 @@ public:
         
         // Draw border outline with scaled line width
         auto& scale = GlobalUIScale::getInstance();
-        g.setColour(BlueprintColors::blueprintLines);
+        g.setColour(BlueprintColors::blueprintLines());
         g.drawRect(bounds, scale.getScaled(1.0f));
     }
     
@@ -49,7 +49,7 @@ public:
     void drawBlueprintGrid(juce::Graphics& g, const juce::Rectangle<float>& bounds) const
     {
         auto& scale = GlobalUIScale::getInstance();
-        g.setColour(BlueprintColors::blueprintLines.withAlpha(0.3f));
+        g.setColour(BlueprintColors::blueprintLines().withAlpha(0.3f));
         
         // Scaled grid spacing for consistent appearance at all scales
         int gridSpacing = scale.getScaled(15);
@@ -80,7 +80,7 @@ public:
         }
         
         auto& scale = GlobalUIScale::getInstance();
-        g.setColour(BlueprintColors::active);
+        g.setColour(BlueprintColors::active());
         g.strokePath(curvePath, juce::PathStrokeType(scale.getScaled(2.0f)));
     }
     
@@ -92,7 +92,7 @@ public:
                              double returnTime) const
     {
         auto& scale = GlobalUIScale::getInstance();
-        g.setColour(BlueprintColors::blueprintLines);
+        g.setColour(BlueprintColors::blueprintLines());
         float dotSize = scale.getScaled(3.0f);
         
         // Origin point
@@ -131,12 +131,12 @@ public:
         float ballRadius = scale.getScaled(4.0f);
         
         // Bright cyan ball with glow effect
-        g.setColour(BlueprintColors::active);
+        g.setColour(BlueprintColors::active());
         g.fillEllipse(ballPosition.x - ballRadius, ballPosition.y - ballRadius, 
                      ballRadius * 2, ballRadius * 2);
         
         // Subtle glow
-        g.setColour(BlueprintColors::active.withAlpha(0.3f));
+        g.setColour(BlueprintColors::active().withAlpha(0.3f));
         g.fillEllipse(ballPosition.x - ballRadius * 1.5f, ballPosition.y - ballRadius * 1.5f, 
                      ballRadius * 3, ballRadius * 3);
     }

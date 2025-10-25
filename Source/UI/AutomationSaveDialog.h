@@ -64,10 +64,10 @@ public:
     void paint(juce::Graphics& g) override
     {
         // Draw background with blueprint style
-        g.fillAll(BlueprintColors::background);
+        g.fillAll(BlueprintColors::background());
         
         // Draw border
-        g.setColour(BlueprintColors::active);
+        g.setColour(BlueprintColors::active());
         g.drawRect(getLocalBounds(), 2);
         
         // Draw title underline
@@ -158,14 +158,14 @@ private:
         addAndMakeVisible(titleLabel);
         titleLabel.setText("Save Automation Config", juce::dontSendNotification);
         titleLabel.setJustificationType(juce::Justification::centred);
-        titleLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+        titleLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
         titleLabel.setFont(juce::FontOptions(16.0f, juce::Font::bold));
         
         // Name label
         addAndMakeVisible(nameLabel);
         nameLabel.setText("Name:", juce::dontSendNotification);
         nameLabel.setJustificationType(juce::Justification::centredRight);
-        nameLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
+        nameLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary());
         nameLabel.setFont(juce::FontOptions(12.0f));
         
         // Name editor
@@ -173,11 +173,11 @@ private:
         nameEditor.setText(configName);
         nameEditor.setMultiLine(false);
         nameEditor.setReturnKeyStartsNewLine(false);
-        nameEditor.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::panel);
-        nameEditor.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary);
-        nameEditor.setColour(juce::TextEditor::highlightColourId, BlueprintColors::active.withAlpha(0.3f));
-        nameEditor.setColour(juce::TextEditor::outlineColourId, BlueprintColors::active);
-        nameEditor.setColour(juce::TextEditor::focusedOutlineColourId, BlueprintColors::active);
+        nameEditor.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::panel());
+        nameEditor.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary());
+        nameEditor.setColour(juce::TextEditor::highlightColourId, BlueprintColors::active().withAlpha(0.3f));
+        nameEditor.setColour(juce::TextEditor::outlineColourId, BlueprintColors::active());
+        nameEditor.setColour(juce::TextEditor::focusedOutlineColourId, BlueprintColors::active());
         nameEditor.setFont(juce::FontOptions(12.0f));
         
         // Text change listener for real-time validation
@@ -304,7 +304,7 @@ class AutomationSaveDialogWindow : public juce::DocumentWindow
 public:
     AutomationSaveDialogWindow(const juce::String& initialName = "")
         : juce::DocumentWindow("Save Automation Config", 
-                              BlueprintColors::background, 
+                              BlueprintColors::background(), 
                               juce::DocumentWindow::closeButton)
         , dialog(initialName)
     {

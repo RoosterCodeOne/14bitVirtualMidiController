@@ -251,7 +251,7 @@ private:
     void drawZoneHighlight(juce::Graphics& g, const LearnZone& zone, bool isHovered)
     {
         auto bounds = zone.bounds.toFloat();
-        juce::Colour highlightColor = BlueprintColors::warning; // Orange
+        juce::Colour highlightColor = BlueprintColors::warning(); // Orange
         
         if (isHovered)
         {
@@ -270,7 +270,7 @@ private:
         const float bracketThickness = 2.0f;
         const float cornerOffset = 2.0f;
         
-        juce::Colour bracketColor = BlueprintColors::warning; // Orange brackets
+        juce::Colour bracketColor = BlueprintColors::warning(); // Orange brackets
         g.setColour(bracketColor);
         
         // Top-left bracket

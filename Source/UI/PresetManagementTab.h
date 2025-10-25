@@ -83,7 +83,7 @@ inline void PresetManagementTab::paint(juce::Graphics& g)
     auto& scale = GlobalUIScale::getInstance();
     
     // Blueprint aesthetic background
-    g.setColour(BlueprintColors::windowBackground);
+    g.setColour(BlueprintColors::windowBackground());
     g.fillAll();
     
     // Draw section backgrounds
@@ -93,9 +93,9 @@ inline void PresetManagementTab::paint(juce::Graphics& g)
     auto presetSectionBounds = bounds.removeFromTop(scale.getScaled(10 + 16 + 6 + 22 + 6 + 20));
     presetSectionBounds = presetSectionBounds.expanded(scale.getScaled(5), 0).withTrimmedBottom(scale.getScaled(1));
     
-    g.setColour(BlueprintColors::sectionBackground);
+    g.setColour(BlueprintColors::sectionBackground());
     g.fillRect(presetSectionBounds.toFloat());
-    g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
+    g.setColour(BlueprintColors::blueprintLines().withAlpha(0.6f));
     g.drawRect(presetSectionBounds.toFloat(), scale.getScaledLineThickness());
     
     // Skip spacing
@@ -105,9 +105,9 @@ inline void PresetManagementTab::paint(juce::Graphics& g)
     auto folderSectionBounds = bounds.removeFromTop(scale.getScaled(10 + 16 + 5 + 16 + 7 + 20));
     folderSectionBounds = folderSectionBounds.expanded(scale.getScaled(5), 0);
     
-    g.setColour(BlueprintColors::sectionBackground);
+    g.setColour(BlueprintColors::sectionBackground());
     g.fillRect(folderSectionBounds.toFloat());
-    g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
+    g.setColour(BlueprintColors::blueprintLines().withAlpha(0.6f));
     g.drawRect(folderSectionBounds.toFloat(), scale.getScaledLineThickness());
 }
 
@@ -169,13 +169,13 @@ inline void PresetManagementTab::setupPresetControls()
     addAndMakeVisible(presetLabel);
     presetLabel.setText("Presets:", juce::dontSendNotification);
     presetLabel.setFont(GlobalUIScale::getInstance().getScaledFont(16.0f).boldened());
-    presetLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    presetLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
     
     addAndMakeVisible(presetCombo);
     presetCombo.setTextWhenNothingSelected("Select preset...");
-    presetCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background);
-    presetCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary);
-    presetCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines);
+    presetCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background());
+    presetCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary());
+    presetCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines());
     
     addAndMakeVisible(savePresetButton);
     savePresetButton.setButtonText("Save");
@@ -203,11 +203,11 @@ inline void PresetManagementTab::setupFolderControls()
     addAndMakeVisible(presetFolderLabel);
     presetFolderLabel.setText("Preset Folder:", juce::dontSendNotification);
     presetFolderLabel.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f));
-    presetFolderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+    presetFolderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
 
     addAndMakeVisible(presetPathLabel);
     presetPathLabel.setText("", juce::dontSendNotification);
-    presetPathLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary);
+    presetPathLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary());
     presetPathLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     presetPathLabel.setJustificationType(juce::Justification::centredLeft);
     
