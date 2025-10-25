@@ -314,18 +314,21 @@ inline void SettingsWindow::setupCommunication()
     presetTab->onResetToDefaults = [this]() {
         // Reset all slider settings to defaults
         initializeSliderData();
-        
+
+        // Reset global settings (MIDI channel, BPM, UI scale, etc.)
+        ControllerPreset defaultPreset; // Creates preset with default values
+        globalTab->applyPreset(defaultPreset);
+
         // Force immediate refresh of settings controls for current slider
         updateControlsForSelectedSlider();
         controllerTab->updateBankSelectorAppearance(selectedBank);
-        
+
         if (onSettingsChanged)
             onSettingsChanged();
-        
+
         // Also notify parent to reset sliders to default values/states
         if (onPresetLoaded)
         {
-            ControllerPreset defaultPreset; // Creates preset with default values
             onPresetLoaded(defaultPreset);
         }
     };
@@ -345,7 +348,7 @@ inline void SettingsWindow::initializeSliderData()
     for (int i = 0; i < 16; ++i)
     {
         auto& settings = sliderSettingsData[i];
-        settings.ccNumber = i;
+        settings.ccNumber = i + 10; // Start at CC 10 to avoid conflicts
         // Note: is14Bit field removed - system always uses 14-bit output
         settings.rangeMin = 0.0;
         settings.rangeMax = 16383.0;
@@ -650,7 +653,7 @@ inline void SettingsWindow::resetSlider(int sliderIndex)
     // Reset slider to default settings
     auto& settings = sliderSettingsData[sliderIndex];
 
-    settings.ccNumber = sliderIndex; // Keep CC number as slider index
+    settings.ccNumber = sliderIndex + 10; // Start at CC 10
     settings.rangeMin = 0.0;
     settings.rangeMax = 16383.0;
     settings.increment = 1.0;

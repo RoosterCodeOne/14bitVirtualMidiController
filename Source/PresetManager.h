@@ -68,19 +68,19 @@ struct SliderPreset
 struct ControllerPreset
 {
     juce::String name = "Untitled";
-    int midiChannel = 1;
+    int midiChannel = 11; // Default to channel 11 to avoid conflicts
     double bpm = 120.0; // Default BPM
     float uiScale = 1.0f; // Default UI scale factor
     bool alwaysOnTop = false; // Default to not always on top
     juce::Array<SliderPreset> sliders;
-    
+
     ControllerPreset()
     {
-        // Initialize with 16 default sliders
+        // Initialize with 16 default sliders starting at CC 10
         for (int i = 0; i < 16; ++i)
         {
             SliderPreset slider;
-            slider.ccNumber = i;
+            slider.ccNumber = i + 10; // Start at CC 10 to avoid conflicts
             
             // Set default colors based on bank
             int bankIndex = i / 4;
@@ -119,7 +119,7 @@ struct ControllerPreset
         if (auto* obj = data.getDynamicObject())
         {
             name = obj->hasProperty("name") ? obj->getProperty("name").toString() : "Untitled";
-            midiChannel = obj->hasProperty("midiChannel") ? (int)obj->getProperty("midiChannel") : 1;
+            midiChannel = obj->hasProperty("midiChannel") ? (int)obj->getProperty("midiChannel") : 11;
             bpm = obj->hasProperty("bpm") ? (double)obj->getProperty("bpm") : 120.0;
             uiScale = obj->hasProperty("uiScale") ? (float)obj->getProperty("uiScale") : 1.0f;
             alwaysOnTop = obj->hasProperty("alwaysOnTop") ? (bool)obj->getProperty("alwaysOnTop") : false;
@@ -142,7 +142,7 @@ struct ControllerPreset
             while (sliders.size() < 16)
             {
                 SliderPreset slider;
-                slider.ccNumber = sliders.size();
+                slider.ccNumber = sliders.size() + 10; // Start at CC 10
                 
                 // Set default colors based on bank for new sliders
                 int bankIndex = sliders.size() / 4;

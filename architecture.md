@@ -1,7 +1,7 @@
 # 14-bit Virtual MIDI Controller - Architecture Overview
 
-**Last Updated**: October 7, 2025 (Slider Context Menu Bulk Operations Complete)
-**Status**: Production-ready with complete adaptive UI scaling system (75%-200%), comprehensive action confirmation system, and full slider bulk operations
+**Last Updated**: October 25, 2025 (Settings UI Reorganization & Default MIDI Configuration)
+**Status**: Production-ready with complete adaptive UI scaling system (75%-200%), comprehensive action confirmation system, full slider bulk operations, and reorganized settings interface
 
 ## Quick Project Summary
 
@@ -48,6 +48,48 @@ Source/
 ```
 
 ## Recent Critical Updates
+
+### October 25, 2025: Settings UI Reorganization & Default MIDI Configuration
+**Feature**: Reorganized Controller Settings Tab for improved usability and updated default MIDI values
+**Implementation**: Two-section layout with proper grouping and conflict-free defaults
+
+**Files Modified**:
+- `ControllerSettingsTab.h:88` - Renamed section headers from `section1Header, section2Header, section3Header` to `displayHeader, utilitiesHeader`
+- `ControllerSettingsTab.h:242-263` - Updated `paint()` method for two-section layout with proper spacing
+- `ControllerSettingsTab.h:459-511` - Updated `setupPerSliderControls()` with new section headers
+- `ControllerSettingsTab.h:683-794` - Reorganized `layoutPerSliderSections()` for Display/Utilities sections
+- `ControllerSettingsTab.h:1324-1325` - Updated `scaleFactorChanged()` with new header names
+- `PresetManager.h:71,83,122,145` - Changed default MIDI channel to 11 and CC numbers to start at 10
+- `GlobalSettingsTab.h:247` - Set default MIDI channel combo to 11
+- `SettingsWindow.h:314-331,351,656` - Updated reset logic and default CC numbers
+- `SettingsWindow.h:314-331` - Fixed reset button to properly reset global settings
+
+**UI Layout Changes**:
+1. **Bank Selector**: [A][B][C][D] buttons at top
+2. **Breadcrumb**: "Bank A > Slider 1" below bank selector (updates immediately with custom names)
+3. **Display Section** (rounded box):
+   - Name input
+   - Range settings (Min - Max)
+   - Custom Steps (with Auto button)
+   - Orientation (Normal/Inverted/Bipolar)
+   - Snap controls (visible only in Bipolar mode)
+   - Color picker (clickable color box)
+4. **Utilities Section** (rounded box, 8px gap above):
+   - MIDI CC Number
+   - Input Behavior (Deadzone/Direct)
+   - Show Automation toggle
+5. **Reset Slider Button**: At bottom with spacing above
+
+**Default MIDI Configuration**:
+- **Default Channel**: Channel 11 (was 1) - avoids conflicts with common controllers
+- **Default CC Numbers**: Start at CC 10 (10-25 for sliders 0-15, was 0-15) - avoids low-number CC conflicts
+- All reset operations now use these non-conflicting defaults
+
+**Visual Improvements**:
+- Proper section spacing with `.reduced(0, scale.getScaled(2))` for box insets
+- Consistent `sectionSpacing` (8px scaled) between Display and Utilities sections
+- Content properly fits within rounded rectangle bounds
+- Scale-aware layout throughout
 
 ### October 7, 2025: Slider Context Menu Bulk Operations Complete
 **Feature**: Full implementation of bulk operations for slider context menu
@@ -121,6 +163,9 @@ For detailed information, see `docs/` folder:
 - Settings not copying → Check `SettingsWindow.copySlider()` / `pasteSlider()` preserve CC numbers
 - Scale problems → Check `GlobalUIScale` usage, screen constraints, and `WindowManager`
 - Action tooltip not appearing → Check callback connections and `updateActionTooltip()` calls
+- Settings UI content overflow → Verify `paint()` and `layoutPerSliderSections()` use matching spacing values
+- Breadcrumb not updating → Check `updateBreadcrumbLabel()` is called in `applyCustomName()`
+- Reset not working → Verify global settings reset in `onResetToDefaults` callback (SettingsWindow.h:314-331)
 
 **Key Methods**:
 - `onSetAllInBank` / `onSetAllSliders` - Bulk value operations across bank or all sliders

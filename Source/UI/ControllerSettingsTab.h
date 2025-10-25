@@ -85,7 +85,7 @@ private:
     juce::TextEditor nameInput;
     
     // Section headers
-    juce::Label section1Header, section2Header, section3Header;
+    juce::Label displayHeader, utilitiesHeader;
     
     // Section 1 - Core MIDI
     juce::Label ccNumberLabel;
@@ -233,33 +233,31 @@ inline void ControllerSettingsTab::paint(juce::Graphics& g)
     const int labelHeight = scale.getScaled(18);
     const int headerHeight = scale.getScaled(22);
 
-    // Skip Breadcrumb (no background box)
-    bounds.removeFromTop(scale.getScaled(20 + 6));
+    // Skip Bank selector (no background box) - now at the top
+    bounds.removeFromTop(scale.getScaled(22 + 6));
 
-    // Skip Bank selector (no background box)
-    bounds.removeFromTop(scale.getScaled(22) + sectionSpacing);
+    // Skip Breadcrumb (no background box) - now below bank selector
+    bounds.removeFromTop(scale.getScaled(20) + sectionSpacing);
 
-    // Section 1 - Slider Configuration Box
-    auto section2Height = headerHeight + (labelHeight + controlSpacing) * 4 + controlSpacing;
-    auto section2Bounds = bounds.removeFromTop(section2Height);
-    section2Bounds = section2Bounds.expanded(scale.getScaled(8), scale.getScaled(4));
-
-    g.setColour(BlueprintColors::sectionBackground);
-    g.fillRoundedRectangle(section2Bounds.toFloat(), scale.getScaled(4.0f));
-    g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
-    g.drawRoundedRectangle(section2Bounds.toFloat(), scale.getScaled(4.0f), scale.getScaledLineThickness());
-
-    bounds.removeFromTop(sectionSpacing);
-
-    // Section 2 - Display & Range Box (expanded)
-    auto section3Height = headerHeight + (labelHeight + controlSpacing) * 6 + scale.getScaled(60) + controlSpacing * 2;
-    auto section3Bounds = bounds.removeFromTop(section3Height);
-    section3Bounds = section3Bounds.expanded(scale.getScaled(8), scale.getScaled(4));
+    // Section 1 - Display Box (Name, Range, Steps, Orientation, Color)
+    auto displayHeight = headerHeight + (labelHeight + controlSpacing) * 5 + scale.getScaled(24) + controlSpacing * 2;
+    auto displayBounds = bounds.removeFromTop(displayHeight);
 
     g.setColour(BlueprintColors::sectionBackground);
-    g.fillRoundedRectangle(section3Bounds.toFloat(), scale.getScaled(4.0f));
+    g.fillRoundedRectangle(displayBounds.reduced(0, scale.getScaled(2)).toFloat(), scale.getScaled(4.0f));
     g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
-    g.drawRoundedRectangle(section3Bounds.toFloat(), scale.getScaled(4.0f), scale.getScaledLineThickness());
+    g.drawRoundedRectangle(displayBounds.reduced(0, scale.getScaled(2)).toFloat(), scale.getScaled(4.0f), scale.getScaledLineThickness());
+
+    bounds.removeFromTop(sectionSpacing); // Spacing between sections
+
+    // Section 2 - Utilities Box (CC Number, Input Behavior, Show Automation)
+    auto utilitiesHeight = headerHeight + (labelHeight + controlSpacing) * 3 + controlSpacing;
+    auto utilitiesBounds = bounds.removeFromTop(utilitiesHeight);
+
+    g.setColour(BlueprintColors::sectionBackground);
+    g.fillRoundedRectangle(utilitiesBounds.reduced(0, scale.getScaled(2)).toFloat(), scale.getScaled(4.0f));
+    g.setColour(BlueprintColors::blueprintLines.withAlpha(0.6f));
+    g.drawRoundedRectangle(utilitiesBounds.reduced(0, scale.getScaled(2)).toFloat(), scale.getScaled(4.0f), scale.getScaledLineThickness());
 
     // Paint color grid if visible (appears on top of everything)
     paintColorGrid(g);
@@ -269,20 +267,14 @@ inline void ControllerSettingsTab::resized()
 {
     auto& scale = GlobalUIScale::getInstance();
     auto bounds = getLocalBounds().reduced(scale.getScaled(15));
-    
+
     const int sectionSpacing = scale.getScaled(8);
-    
-    // Breadcrumb (no section box) - at the top
-    auto breadcrumbArea = bounds.removeFromTop(scale.getScaled(20));
-    breadcrumbLabel.setBounds(breadcrumbArea);
-    
-    bounds.removeFromTop(scale.getScaled(6));
-    
-    // Bank selector (no section box)
+
+    // Bank selector (no section box) - now at the top
     auto bankSelectorArea = bounds.removeFromTop(scale.getScaled(22));
     bankSelectorLabel.setBounds(bankSelectorArea.removeFromLeft(scale.getScaled(40)));
     bankSelectorArea.removeFromLeft(scale.getScaled(8));
-    
+
     int bankButtonWidth = (bankSelectorArea.getWidth() - scale.getScaled(21)) / 4;
     bankASelector.setBounds(bankSelectorArea.removeFromLeft(bankButtonWidth));
     bankSelectorArea.removeFromLeft(scale.getScaled(7));
@@ -291,9 +283,15 @@ inline void ControllerSettingsTab::resized()
     bankCSelector.setBounds(bankSelectorArea.removeFromLeft(bankButtonWidth));
     bankSelectorArea.removeFromLeft(scale.getScaled(7));
     bankDSelector.setBounds(bankSelectorArea.removeFromLeft(bankButtonWidth));
-    
+
+    bounds.removeFromTop(scale.getScaled(6));
+
+    // Breadcrumb (no section box) - now below bank selector
+    auto breadcrumbArea = bounds.removeFromTop(scale.getScaled(20));
+    breadcrumbLabel.setBounds(breadcrumbArea);
+
     bounds.removeFromTop(sectionSpacing);
-    
+
     // Layout the remaining 2 sections (Slider Configuration and Display & Range)
     layoutPerSliderSections(bounds);
 }
@@ -456,17 +454,23 @@ inline void ControllerSettingsTab::setupNameControls()
 
 inline void ControllerSettingsTab::setupPerSliderControls()
 {
-    // Section 1 - Slider Configuration
-    addAndMakeVisible(section1Header);
-    section1Header.setText("Slider Configuration", juce::dontSendNotification);
-    section1Header.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
-    section1Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-    
+    // Section 1 - Display
+    addAndMakeVisible(displayHeader);
+    displayHeader.setText("Display", juce::dontSendNotification);
+    displayHeader.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
+    displayHeader.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+
+    // Section 2 - Utilities
+    addAndMakeVisible(utilitiesHeader);
+    utilitiesHeader.setText("Utilities", juce::dontSendNotification);
+    utilitiesHeader.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
+    utilitiesHeader.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
+
     addAndMakeVisible(ccNumberLabel);
     ccNumberLabel.setText("MIDI CC Number:", juce::dontSendNotification);
     ccNumberLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     ccNumberLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-    
+
     addAndMakeVisible(ccNumberInput);
     ccNumberInput.setInputRestrictions(3, "0123456789");
     ccNumberInput.setTooltip("MIDI CC number (0-127)");
@@ -477,38 +481,32 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     ccNumberInput.onFocusLost = [this]() { validateAndApplyCCNumber(); };
     // Set font after all other properties are configured
     ccNumberInput.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
-    
+
     // outputModeLabel setup removed - no longer needed
-    
-    
-    // Input Behavior controls (moved to Slider Configuration section)
+
+
+    // Input Behavior controls (in Utilities section)
     addAndMakeVisible(inputModeLabel);
     inputModeLabel.setText("Input Behavior:", juce::dontSendNotification);
     inputModeLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     inputModeLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
-    
+
     addAndMakeVisible(deadzoneButton);
     deadzoneButton.setButtonText("Deadzone");
     deadzoneButton.setRadioGroupId(2);
     deadzoneButton.setToggleState(true, juce::dontSendNotification);
-    deadzoneButton.onClick = [this]() { 
+    deadzoneButton.onClick = [this]() {
         applyInputMode();
         if (onRequestFocus) onRequestFocus();
     };
-    
+
     addAndMakeVisible(directButton);
     directButton.setButtonText("Direct");
     directButton.setRadioGroupId(2);
-    directButton.onClick = [this]() { 
+    directButton.onClick = [this]() {
         applyInputMode();
         if (onRequestFocus) onRequestFocus();
     };
-    
-    // Section 2 - Display & Range
-    addAndMakeVisible(section2Header);
-    section2Header.setText("Display & Range", juce::dontSendNotification);
-    section2Header.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
-    section2Header.setColour(juce::Label::textColourId, BlueprintColors::textPrimary);
     
     addAndMakeVisible(rangeLabel);
     rangeLabel.setText("Range:", juce::dontSendNotification);
@@ -688,54 +686,28 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     const int labelHeight = scale.getScaled(18);
     const int inputHeight = scale.getScaled(22);
     const int headerHeight = scale.getScaled(22);
-    
-    // Section 2 - Slider Configuration (Name, CC Number, Input Behavior)
-    auto section2Bounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 4 + controlSpacing);
-    
-    section2Header.setBounds(section2Bounds.removeFromTop(headerHeight));
-    section2Bounds.removeFromTop(controlSpacing);
-    
-    // Name row
-    auto nameRow = section2Bounds.removeFromTop(labelHeight);
-    nameLabel.setBounds(nameRow.removeFromLeft(scale.getScaled(60)));
-    nameRow.removeFromLeft(scale.getScaled(8));
-    nameInput.setBounds(nameRow.removeFromLeft(scale.getScaled(200)));
-    
-    section2Bounds.removeFromTop(controlSpacing);
-    
-    // CC Number row
-    auto ccRow = section2Bounds.removeFromTop(labelHeight);
-    ccNumberLabel.setBounds(ccRow.removeFromLeft(scale.getScaled(120)));
-    ccRow.removeFromLeft(scale.getScaled(8));
-    ccNumberInput.setBounds(ccRow.removeFromLeft(scale.getScaled(80)));
-    
-    section2Bounds.removeFromTop(controlSpacing);
-    
-    
-    section2Bounds.removeFromTop(controlSpacing);
-    
-    // Input Behavior row (moved from separate section)
-    auto inputModeRow = section2Bounds.removeFromTop(labelHeight);
-    inputModeLabel.setBounds(inputModeRow.removeFromLeft(scale.getScaled(120)));
-    inputModeRow.removeFromLeft(scale.getScaled(8));
-    deadzoneButton.setBounds(inputModeRow.removeFromLeft(scale.getScaled(80)));
-    inputModeRow.removeFromLeft(scale.getScaled(8));
-    directButton.setBounds(inputModeRow.removeFromLeft(scale.getScaled(60)));
-    
-    bounds.removeFromTop(sectionSpacing);
-    
+
     // Reserve space for reset button at bottom with spacing above it
     auto resetButtonArea = bounds.removeFromBottom(inputHeight); // Button height
     bounds.removeFromBottom(scale.getScaled(20)); // Blank space above reset button
-    
-    // Section 3 - Display & Range (expanded to include color, automation visibility)
-    auto section3Bounds = bounds.removeFromTop(headerHeight + (labelHeight + controlSpacing) * 6 + controlSpacing * 2);
-    
-    section3Header.setBounds(section3Bounds.removeFromTop(headerHeight));
-    section3Bounds.removeFromTop(controlSpacing);
-    
+
+    // Section 1 - Display (Name, Range, Custom Steps, Orientation, Color)
+    auto displayHeight = headerHeight + (labelHeight + controlSpacing) * 5 + scale.getScaled(24) + controlSpacing * 2;
+    auto displayBounds = bounds.removeFromTop(displayHeight);
+
+    displayHeader.setBounds(displayBounds.removeFromTop(headerHeight));
+    displayBounds.removeFromTop(controlSpacing);
+
+    // Name row
+    auto nameRow = displayBounds.removeFromTop(labelHeight);
+    nameLabel.setBounds(nameRow.removeFromLeft(scale.getScaled(60)));
+    nameRow.removeFromLeft(scale.getScaled(8));
+    nameInput.setBounds(nameRow.removeFromLeft(scale.getScaled(200)));
+
+    displayBounds.removeFromTop(controlSpacing);
+
     // Range row
-    auto rangeRow = section3Bounds.removeFromTop(labelHeight);
+    auto rangeRow = displayBounds.removeFromTop(labelHeight);
     rangeLabel.setBounds(rangeRow.removeFromLeft(scale.getScaled(50)));
     rangeRow.removeFromLeft(scale.getScaled(4));
     rangeMinInput.setBounds(rangeRow.removeFromLeft(scale.getScaled(80)));
@@ -743,29 +715,29 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     rangeDashLabel.setBounds(rangeRow.removeFromLeft(scale.getScaled(10)));
     rangeRow.removeFromLeft(scale.getScaled(2));
     rangeMaxInput.setBounds(rangeRow.removeFromLeft(scale.getScaled(80)));
-    
-    section3Bounds.removeFromTop(controlSpacing);
-    
-    // Increments row
-    auto incrementRow = section3Bounds.removeFromTop(labelHeight);
+
+    displayBounds.removeFromTop(controlSpacing);
+
+    // Custom Steps row
+    auto incrementRow = displayBounds.removeFromTop(labelHeight);
     incrementsLabel.setBounds(incrementRow.removeFromLeft(scale.getScaled(120)));
     incrementRow.removeFromLeft(scale.getScaled(8));
     incrementsInput.setBounds(incrementRow.removeFromLeft(scale.getScaled(70)));
     incrementRow.removeFromLeft(scale.getScaled(4));
     autoStepButton.setBounds(incrementRow.removeFromLeft(scale.getScaled(40)));
-    
-    section3Bounds.removeFromTop(controlSpacing);
-    
+
+    displayBounds.removeFromTop(controlSpacing);
+
     // Orientation row
-    auto orientationRow = section3Bounds.removeFromTop(labelHeight);
+    auto orientationRow = displayBounds.removeFromTop(labelHeight);
     orientationLabel.setBounds(orientationRow.removeFromLeft(scale.getScaled(120)));
     orientationRow.removeFromLeft(scale.getScaled(8));
     orientationCombo.setBounds(orientationRow.removeFromLeft(scale.getScaled(80)));
-    
-    section3Bounds.removeFromTop(controlSpacing);
-    
+
+    displayBounds.removeFromTop(controlSpacing);
+
     // Snap controls row (only visible for bipolar mode)
-    auto snapRow = section3Bounds.removeFromTop(labelHeight);
+    auto snapRow = displayBounds.removeFromTop(labelHeight);
     snapLabel.setBounds(snapRow.removeFromLeft(scale.getScaled(40)));
     snapRow.removeFromLeft(scale.getScaled(4));
     snapSmallButton.setBounds(snapRow.removeFromLeft(scale.getScaled(20)));
@@ -773,23 +745,48 @@ inline void ControllerSettingsTab::layoutPerSliderSections(juce::Rectangle<int>&
     snapMediumButton.setBounds(snapRow.removeFromLeft(scale.getScaled(20)));
     snapRow.removeFromLeft(scale.getScaled(2));
     snapLargeButton.setBounds(snapRow.removeFromLeft(scale.getScaled(20)));
-    
-    section3Bounds.removeFromTop(controlSpacing);
-    
-    // Automation Visibility row (moved above color picker)
-    auto automationRow = section3Bounds.removeFromTop(labelHeight);
-    automationVisibilityLabel.setBounds(automationRow.removeFromLeft(scale.getScaled(120)));
-    automationRow.removeFromLeft(scale.getScaled(8));
-    showAutomationButton.setBounds(automationRow.removeFromLeft(scale.getScaled(100)));
-    
-    section3Bounds.removeFromTop(controlSpacing);
-    
+
+    displayBounds.removeFromTop(controlSpacing);
+
     // Color section
-    auto colorRow = section3Bounds.removeFromTop(labelHeight);
+    auto colorRow = displayBounds.removeFromTop(scale.getScaled(24));
     colorPickerLabel.setBounds(colorRow.removeFromLeft(scale.getScaled(50)));
     colorRow.removeFromLeft(scale.getScaled(8));
     currentColorBox.setBounds(colorRow.removeFromLeft(scale.getScaled(24))); // Small square box
-    
+
+    bounds.removeFromTop(sectionSpacing); // Spacing between sections
+
+    // Section 2 - Utilities (CC Number, Input Behavior, Show Automation)
+    auto utilitiesHeight = headerHeight + (labelHeight + controlSpacing) * 3 + controlSpacing;
+    auto utilitiesBounds = bounds.removeFromTop(utilitiesHeight);
+
+    utilitiesHeader.setBounds(utilitiesBounds.removeFromTop(headerHeight));
+    utilitiesBounds.removeFromTop(controlSpacing);
+
+    // CC Number row
+    auto ccRow = utilitiesBounds.removeFromTop(labelHeight);
+    ccNumberLabel.setBounds(ccRow.removeFromLeft(scale.getScaled(120)));
+    ccRow.removeFromLeft(scale.getScaled(8));
+    ccNumberInput.setBounds(ccRow.removeFromLeft(scale.getScaled(80)));
+
+    utilitiesBounds.removeFromTop(controlSpacing);
+
+    // Input Behavior row
+    auto inputModeRow = utilitiesBounds.removeFromTop(labelHeight);
+    inputModeLabel.setBounds(inputModeRow.removeFromLeft(scale.getScaled(120)));
+    inputModeRow.removeFromLeft(scale.getScaled(8));
+    deadzoneButton.setBounds(inputModeRow.removeFromLeft(scale.getScaled(80)));
+    inputModeRow.removeFromLeft(scale.getScaled(8));
+    directButton.setBounds(inputModeRow.removeFromLeft(scale.getScaled(60)));
+
+    utilitiesBounds.removeFromTop(controlSpacing);
+
+    // Show Automation row
+    auto automationRow = utilitiesBounds.removeFromTop(labelHeight);
+    automationVisibilityLabel.setBounds(automationRow.removeFromLeft(scale.getScaled(120)));
+    automationRow.removeFromLeft(scale.getScaled(8));
+    showAutomationButton.setBounds(automationRow.removeFromLeft(scale.getScaled(100)));
+
     // Reset button at bottom with distinguishing space above it
     resetSliderButton.setBounds(resetButtonArea.reduced(scale.getScaled(20), scale.getScaled(2))); // Center with padding
 }
@@ -1085,7 +1082,10 @@ inline void ControllerSettingsTab::applyCustomName()
 {
     // Get the custom name and notify parent
     juce::String customName = nameInput.getText();
-    
+
+    // Immediately update the breadcrumb to reflect the new name
+    updateBreadcrumbLabel();
+
     if (onSliderSettingChanged)
         onSliderSettingChanged(selectedSlider);
 }
@@ -1093,7 +1093,7 @@ inline void ControllerSettingsTab::applyCustomName()
 inline void ControllerSettingsTab::resetCurrentSlider()
 {
     // Reset all controls to defaults for the current slider
-    ccNumberInput.setText(juce::String(selectedSlider), juce::dontSendNotification);
+    ccNumberInput.setText(juce::String(selectedSlider + 10), juce::dontSendNotification); // Start at CC 10
     // Always 14-bit mode - no button to reset
     rangeMinInput.setText("0", juce::dontSendNotification);
     rangeMaxInput.setText("16383", juce::dontSendNotification);
@@ -1319,10 +1319,10 @@ inline void ControllerSettingsTab::scaleFactorChanged(float newScale)
     bankCSelector.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
     bankDSelector.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
     nameLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
-    section1Header.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
+    displayHeader.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
+    utilitiesHeader.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
     ccNumberLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     inputModeLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
-    section2Header.setFont(GlobalUIScale::getInstance().getScaledFont(14.0f).boldened());
     rangeLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     rangeDashLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));
     incrementsLabel.setFont(GlobalUIScale::getInstance().getScaledFont(12.0f));

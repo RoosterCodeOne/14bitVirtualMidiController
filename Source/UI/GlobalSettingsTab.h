@@ -244,7 +244,7 @@ inline void GlobalSettingsTab::setupGlobalControls()
     addAndMakeVisible(midiChannelCombo);
     for (int i = 1; i <= 16; ++i)
         midiChannelCombo.addItem("Channel " + juce::String(i), i);
-    midiChannelCombo.setSelectedId(1);
+    midiChannelCombo.setSelectedId(11); // Default to channel 11
     midiChannelCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background);
     midiChannelCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary);
     midiChannelCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines);
