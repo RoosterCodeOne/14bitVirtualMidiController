@@ -38,7 +38,7 @@ public:
     
     ~CustomKnob() 
     {
-        // Remove scale change listener ====
+        // Remove scale change listener =====
         GlobalUIScale::getInstance().removeScaleChangeListener(this);
     }
     
