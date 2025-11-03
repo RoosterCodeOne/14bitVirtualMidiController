@@ -34,6 +34,7 @@ public:
         juce::Colour panel;
         juce::Colour windowBackground;
         juce::Colour sectionBackground;
+        juce::Colour inputBackground;  // Background for text inputs and combo boxes
 
         // Accents and lines
         juce::Colour blueprintLines;
@@ -210,6 +211,7 @@ private:
         darkPalette.panel = juce::Colour(0xFF16213e);
         darkPalette.windowBackground = juce::Colour(0xFF1e2344);
         darkPalette.sectionBackground = juce::Colour(0xFF242951);
+        darkPalette.inputBackground = juce::Colour(0xFF1a1a2e);  // Same as background for dark mode
         darkPalette.blueprintLines = juce::Colour(0xFF00d4ff);
         darkPalette.textPrimary = juce::Colour(0xFFe8e8e8);
         darkPalette.textSecondary = juce::Colour(0xFFa0b4cc);
@@ -221,21 +223,22 @@ private:
         darkPalette.sliderThumb = juce::Colour(0xFFe2e8f0);
         darkPalette.border = juce::Colour(0xFF4a5568);
 
-        // Light Theme (Professional clean style with darker backgrounds)
-        lightPalette.background = juce::Colour(0xFFD8D8D8);      // Darker gray base
-        lightPalette.panel = juce::Colour(0xFFE8E8E8);           // Light gray for panels
-        lightPalette.windowBackground = juce::Colour(0xFFDDDDDD); // Medium-light gray
-        lightPalette.sectionBackground = juce::Colour(0xFFE5E5E5); // Slightly lighter gray
+        // Light Theme (Ableton-inspired muted gray style)
+        lightPalette.background = juce::Colour(0xFFB0B0B0);      // Darker muted gray base
+        lightPalette.panel = juce::Colour(0xFFB8B8B8);           // Darker gray for panels
+        lightPalette.windowBackground = juce::Colour(0xFFB4B4B4); // Darker muted gray
+        lightPalette.sectionBackground = juce::Colour(0xFFBCBCBC); // Slightly lighter dark gray
+        lightPalette.inputBackground = juce::Colour(0xFFDCDCDC);  // Light gray for input fields
         lightPalette.blueprintLines = juce::Colour(0xFF0891B2);  // Darker cyan for visibility
-        lightPalette.textPrimary = juce::Colour(0xFF2C2C2C);
-        lightPalette.textSecondary = juce::Colour(0xFF64748B);
+        lightPalette.textPrimary = juce::Colour(0xFF1C1C1C);     // Darker text for contrast
+        lightPalette.textSecondary = juce::Colour(0xFF4A5568);   // Darker secondary text
         lightPalette.active = juce::Colour(0xFF0891B2);  // Darker cyan
         lightPalette.warning = juce::Colour(0xFFD97706);  // Darker amber
         lightPalette.success = juce::Colour(0xFF059669);  // Darker green
-        lightPalette.inactive = juce::Colour(0xFFCBD5E1);
-        lightPalette.sliderTrack = juce::Colour(0xFFCCCCCC);     // Darker track
-        lightPalette.sliderThumb = juce::Colour(0xFFF0F0F0);     // Off-white thumb
-        lightPalette.border = juce::Colour(0xFFB0B0B0);          // Darker border
+        lightPalette.inactive = juce::Colour(0xFF909090);
+        lightPalette.sliderTrack = juce::Colour(0xFFA0A0A0);     // Darker track
+        lightPalette.sliderThumb = juce::Colour(0xFFD0D0D0);     // Darker thumb
+        lightPalette.border = juce::Colour(0xFF909090);          // Darker border
     }
 
     void updateResolvedTheme()

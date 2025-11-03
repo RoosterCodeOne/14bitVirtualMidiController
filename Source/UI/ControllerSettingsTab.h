@@ -5,13 +5,15 @@
 #include "../SimpleSliderControl.h"
 #include "../Core/SliderDisplayManager.h"
 #include "GlobalUIScale.h"
+#include "ThemeManager.h"
 
 // Forward declaration
 class SettingsWindow;
 
 //==============================================================================
-class ControllerSettingsTab : public juce::Component, 
-                               public GlobalUIScale::ScaleChangeListener
+class ControllerSettingsTab : public juce::Component,
+                               public GlobalUIScale::ScaleChangeListener,
+                               public ThemeManager::ThemeChangeListener
 {
 public:
     ControllerSettingsTab(SettingsWindow* parentWindow);
@@ -21,9 +23,12 @@ public:
     void resized() override;
     bool keyPressed(const juce::KeyPress& key) override;
     void mouseDown(const juce::MouseEvent& event) override;
-    
+
     // Scale change notification implementation
     void scaleFactorChanged(float newScale) override;
+
+    // Theme change notification implementation
+    void themeChanged(ThemeManager::ThemeType newTheme, const ThemeManager::ThemePalette& palette) override;
     
     // Public interface for main window coordination
     void updateControlsForSelectedSlider(int sliderIndex);
@@ -198,18 +203,20 @@ inline ControllerSettingsTab::ControllerSettingsTab(SettingsWindow* parent)
     setupBankSelector();
     setupNameControls();
     setupPerSliderControls();
-    
+
     // Enable keyboard focus for tab
     setWantsKeyboardFocus(true);
-    
-    // Register for scale change notifications
+
+    // Register for notifications
     GlobalUIScale::getInstance().addScaleChangeListener(this);
+    ThemeManager::getInstance().addThemeChangeListener(this);
 }
 
 inline ControllerSettingsTab::~ControllerSettingsTab()
 {
-    // Remove scale change listener
+    // Remove listeners
     GlobalUIScale::getInstance().removeScaleChangeListener(this);
+    ThemeManager::getInstance().removeThemeChangeListener(this);
     
     // Clean up custom look and feel
     resetSliderButton.setLookAndFeel(nullptr);
@@ -442,7 +449,7 @@ inline void ControllerSettingsTab::setupNameControls()
     // Name input
     addAndMakeVisible(nameInput);
     nameInput.setInputRestrictions(20); // 20 character limit
-    nameInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background());
+    nameInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::inputBackground());
     nameInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary());
     nameInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines());
     nameInput.onReturnKey = [this]() { nameInput.moveKeyboardFocusToSibling(true); };
@@ -474,7 +481,7 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     addAndMakeVisible(ccNumberInput);
     ccNumberInput.setInputRestrictions(3, "0123456789");
     ccNumberInput.setTooltip("MIDI CC number (0-127)");
-    ccNumberInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background());
+    ccNumberInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::inputBackground());
     ccNumberInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary());
     ccNumberInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines());
     ccNumberInput.onReturnKey = [this]() { ccNumberInput.moveKeyboardFocusToSibling(true); };
@@ -515,7 +522,7 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     
     addAndMakeVisible(rangeMinInput);
     rangeMinInput.setInputRestrictions(0, "-0123456789.");
-    rangeMinInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background());
+    rangeMinInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::inputBackground());
     rangeMinInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary());
     rangeMinInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines());
     rangeMinInput.onReturnKey = [this]() { rangeMinInput.moveKeyboardFocusToSibling(true); };
@@ -531,7 +538,7 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     
     addAndMakeVisible(rangeMaxInput);
     rangeMaxInput.setInputRestrictions(0, "-0123456789.");
-    rangeMaxInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background());
+    rangeMaxInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::inputBackground());
     rangeMaxInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary());
     rangeMaxInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines());
     rangeMaxInput.onReturnKey = [this]() { rangeMaxInput.moveKeyboardFocusToSibling(true); };
@@ -547,7 +554,7 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     
     addAndMakeVisible(incrementsInput);
     incrementsInput.setInputRestrictions(0, "0123456789.");
-    incrementsInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background());
+    incrementsInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::inputBackground());
     incrementsInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary());
     incrementsInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines());
     incrementsInput.onReturnKey = [this]() { incrementsInput.moveKeyboardFocusToSibling(true); };
@@ -578,7 +585,7 @@ inline void ControllerSettingsTab::setupPerSliderControls()
     orientationCombo.addItem("Inverted", static_cast<int>(SliderOrientation::Inverted) + 1);
     orientationCombo.addItem("Bipolar", static_cast<int>(SliderOrientation::Bipolar) + 1);
     orientationCombo.setSelectedId(static_cast<int>(SliderOrientation::Normal) + 1);
-    orientationCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background());
+    orientationCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::inputBackground());
     orientationCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary());
     orientationCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines());
     orientationCombo.onChange = [this]() { 
@@ -1360,5 +1367,59 @@ inline void ControllerSettingsTab::scaleFactorChanged(float newScale)
     
     // Trigger layout and repaint
     resized();
+    repaint();
+}
+
+inline void ControllerSettingsTab::themeChanged(ThemeManager::ThemeType newTheme, const ThemeManager::ThemePalette& palette)
+{
+    // Update all label text colors
+    breadcrumbLabel.setColour(juce::Label::textColourId, BlueprintColors::active());
+    bankSelectorLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+    nameLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+    displayHeader.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+    utilitiesHeader.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+    ccNumberLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+    inputModeLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+    rangeLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+    rangeDashLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+    incrementsLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+    orientationLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+    snapLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+    automationVisibilityLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+    colorPickerLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+
+    // Update bank selector colors (preserve selected/inactive states via updateBankSelectorAppearance)
+    bankASelector.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+    bankBSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary());
+    bankCSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary());
+    bankDSelector.setColour(juce::Label::textColourId, BlueprintColors::textSecondary());
+
+    // Update text editor colors
+    nameInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::inputBackground());
+    nameInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary());
+    nameInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines());
+
+    ccNumberInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::inputBackground());
+    ccNumberInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary());
+    ccNumberInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines());
+
+    rangeMinInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::inputBackground());
+    rangeMinInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary());
+    rangeMinInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines());
+
+    rangeMaxInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::inputBackground());
+    rangeMaxInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary());
+    rangeMaxInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines());
+
+    incrementsInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::inputBackground());
+    incrementsInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary());
+    incrementsInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines());
+
+    // Update combo box colors
+    orientationCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::inputBackground());
+    orientationCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary());
+    orientationCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines());
+
+    // Repaint to apply new theme
     repaint();
 }

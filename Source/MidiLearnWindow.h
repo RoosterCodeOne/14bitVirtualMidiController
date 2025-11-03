@@ -4,9 +4,12 @@
 #include "CustomLookAndFeel.h"
 #include "Core/Midi7BitController.h" // For MidiTargetType
 #include "UI/GlobalUIScale.h"
+#include "UI/ThemeManager.h"
 
 //==============================================================================
-class MidiLearnWindow : public juce::Component, public GlobalUIScale::ScaleChangeListener
+class MidiLearnWindow : public juce::Component,
+                        public GlobalUIScale::ScaleChangeListener,
+                        public ThemeManager::ThemeChangeListener
 {
 public:
     MidiLearnWindow()
@@ -27,7 +30,7 @@ public:
         
         addAndMakeVisible(inputDeviceCombo);
         inputDeviceCombo.setTextWhenNothingSelected("Select MIDI Input Device...");
-        inputDeviceCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background());
+        inputDeviceCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::inputBackground());
         inputDeviceCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary());
         inputDeviceCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines());
         inputDeviceCombo.onChange = [this]() {
@@ -96,15 +99,19 @@ public:
         statusLabel.setJustificationType(juce::Justification::centred);
         statusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary());
         updateStatusLabel();
-        
+
         // Register for scale change notifications
         GlobalUIScale::getInstance().addScaleChangeListener(this);
+
+        // Register for theme change notifications
+        ThemeManager::getInstance().addThemeChangeListener(this);
     }
-    
+
     ~MidiLearnWindow()
     {
-        // Unregister from scale change notifications
+        // Unregister from notifications
         GlobalUIScale::getInstance().removeScaleChangeListener(this);
+        ThemeManager::getInstance().removeThemeChangeListener(this);
         
         // Clean up custom look and feel
         refreshDevicesButton.setLookAndFeel(nullptr);
@@ -380,7 +387,39 @@ public:
         resized();
         repaint();
     }
-    
+
+    void themeChanged(ThemeManager::ThemeType newTheme, const ThemeManager::ThemePalette& palette) override
+    {
+        // Update all label text colors
+        titleLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+        inputDeviceLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+        connectionStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary());
+        sliderHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+        sliderHeaderLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background());
+        channelHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+        channelHeaderLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background());
+        ccHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+        ccHeaderLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background());
+        actionHeaderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+        actionHeaderLabel.setColour(juce::Label::backgroundColourId, BlueprintColors::background());
+        statusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary());
+
+        // Update combo box colors
+        inputDeviceCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::inputBackground());
+        inputDeviceCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary());
+        inputDeviceCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines());
+
+        // Update mapping row colors
+        for (auto& row : mappingRows)
+        {
+            if (row)
+                row->updateColors();
+        }
+
+        // Repaint to apply new theme
+        repaint();
+    }
+
 private:
     // Mapping row component
     class MappingRow : public juce::Component
@@ -440,9 +479,19 @@ private:
             channelLabel.setFont(scale.getScaledFont(11.0f));
             ccLabel.setFont(scale.getScaledFont(11.0f));
         }
-        
+
+        void updateColors()
+        {
+            // Update all label and button colors to match current theme
+            sliderLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+            channelLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+            ccLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+            removeButton.setColour(juce::TextButton::buttonColourId, BlueprintColors::panel());
+            removeButton.setColour(juce::TextButton::textColourOffId, BlueprintColors::textPrimary());
+        }
+
         std::function<void()> onRemoveClicked;
-        
+
     private:
         MidiTargetType targetType;
         int sliderIndex;

@@ -1,13 +1,13 @@
 # 14-bit Virtual MIDI Controller - Architecture Overview
 
-**Last Updated**: October 25, 2025 (Settings UI Reorganization & Default MIDI Configuration)
-**Status**: Production-ready with complete adaptive UI scaling system (75%-200%), comprehensive action confirmation system, full slider bulk operations, and reorganized settings interface
+**Last Updated**: November 3, 2025 (Light Mode Theme Implementation)
+**Status**: Production-ready with complete adaptive UI scaling system (75%-200%), comprehensive action confirmation system, full slider bulk operations, reorganized settings interface, and Dark/Light/Auto theme support
 
 ## Quick Project Summary
 
-JUCE-based desktop application providing hardware-realistic 14-bit MIDI slider control with professional automation, blueprint-style UI, adaptive scaling system, comprehensive action confirmation feedback, and powerful bulk slider operations.
+JUCE-based desktop application providing hardware-realistic 14-bit MIDI slider control with professional automation, blueprint-style UI, adaptive scaling system, comprehensive action confirmation feedback, powerful bulk slider operations, and dynamic theming.
 
-**Key Features**: 16 sliders (4 banks × 4 sliders), 4/8 slider modes, MIDI learn, advanced automation, preset management, adaptive screen-aware UI scaling, action tooltip system, slider bulk operations (value & settings copy)
+**Key Features**: 16 sliders (4 banks × 4 sliders), 4/8 slider modes, MIDI learn, advanced automation, preset management, adaptive screen-aware UI scaling, action tooltip system, slider bulk operations (value & settings copy), Dark/Light/Auto themes
 
 ## Essential Architecture
 
@@ -22,6 +22,7 @@ MidiLearnWindow.h                   - MIDI mapping interface
 ### Key Systems
 - **MIDI System**: `MidiManager.h`, `Midi7BitController.h` - True 14-bit MIDI with learn mode
 - **Adaptive UI Scaling**: `GlobalUIScale.h`, `WindowManager.h` - Screen-aware scaling with intelligent constraints
+- **Theme System**: `ThemeManager.h`, `CustomLookAndFeel.h` - Dynamic Dark/Light/Auto theming with system detection
 - **Automation**: `AutomationEngine.h`, `AutomationConfigManager.h` - 3-phase curves with BPM sync
 - **Layout**: `MainControllerLayout.h` - Scale-aware positioning and bounds
 - **Display**: `SliderDisplayManager.h` - MIDI-to-display value mapping
@@ -35,19 +36,64 @@ Source/
 ├── DebugMidiController.h           # Main controller with bulk operation callbacks (lines 236-320)
 ├── SimpleSliderControl.h           # Individual slider logic with context menu (lines 1315-1407, 1443-1447)
 ├── SettingsWindow.h                # Settings interface with copy/paste/reset methods
+├── MidiLearnWindow.h               # MIDI Learn interface with theme support
+├── CustomLookAndFeel.h             # Blueprint styling with BlueprintColors namespace
 ├── UI/
+│   ├── ThemeManager.h              # Theme system with Dark/Light/Auto modes and system detection
 │   ├── SliderContextMenu.h         # Slider right-click menu (range presets, copy/paste, bulk ops)
 │   ├── AutomationContextMenu.h     # Automation right-click menu (save/load/copy/paste configs)
 │   ├── GlobalUIScale.h             # Adaptive scaling with screen detection
 │   ├── WindowManager.h             # Window constraints & resizing
 │   ├── MainControllerLayout.h      # Layout calculations
-│   └── GlobalSettingsTab.h         # Settings UI with constraint-aware controls
+│   ├── GlobalSettingsTab.h         # Global settings with theme selector
+│   └── ControllerSettingsTab.h     # Per-slider settings with theme support
 └── Core/
     ├── MidiManager.h               # MIDI I/O
     └── AutomationEngine.h          # Automation system
 ```
 
 ## Recent Critical Updates
+
+### November 3, 2025: Light Mode Theme Implementation (In Progress)
+**Feature**: Dynamic theming system with Dark/Light/Auto modes and Ableton-inspired light theme
+**Implementation**: Complete theme infrastructure with automatic color updates and system theme detection
+**Status**: Core implementation complete, additional refinements pending
+
+**Files Modified**:
+- `ThemeManager.h:30-241` - Added `inputBackground` to ThemePalette, updated light theme colors
+- `CustomLookAndFeel.h:19` - Added `inputBackground()` accessor to BlueprintColors namespace
+- `MidiLearnWindow.h:10-12,107,114,391-421,483-491` - Added ThemeChangeListener support and `themeChanged()` implementation
+- `GlobalSettingsTab.h:564-604` - Enhanced `themeChanged()` to update all input components
+- `ControllerSettingsTab.h:8,16,31,212,219,1373-1425` - Added theme support with comprehensive color updates
+- All TextEditor and ComboBox components updated to use `BlueprintColors::inputBackground()`
+
+**Theme Color Palettes**:
+- **Dark Theme** (unchanged): Blueprint-style dark blue/cyan theme (0x1A-0x24 range)
+  - `inputBackground`: 0x1A1A2E (same as background)
+- **Light Theme** (Ableton-inspired): Muted gray theme with proper contrast
+  - `background`: 0xB0B0B0 (darker muted gray base)
+  - `panel`: 0xB8B8B8 (darker gray for panels)
+  - `sectionBackground`: 0xBCBCBC (section containers)
+  - `inputBackground`: 0xDCDCDC (light gray for input fields - high contrast)
+  - `textPrimary`: 0x1C1C1C (very dark text)
+  - `textSecondary`: 0x4A5568 (medium-dark secondary text)
+
+**Theme System Architecture**:
+- `ThemeManager`: Singleton providing theme management with listener pattern
+- `ThemeChangeListener`: Interface for components to receive theme updates
+- `BlueprintColors`: Dynamic color namespace that auto-reflects current theme
+- System theme monitoring for Auto mode (polls every 1 second on macOS/Windows)
+
+**Component Theme Support**:
+- All settings tabs properly update colors on theme change
+- MIDI Learn window supports dynamic theming
+- Input components use dedicated `inputBackground` color for proper contrast
+- Labels, ComboBoxes, TextEditors, and Sliders all theme-aware
+
+**Known Pending Work**:
+- Additional light mode refinements and visual polish
+- Potential toggle button styling adjustments
+- Further color palette fine-tuning based on user feedback
 
 ### October 25, 2025: Settings UI Reorganization & Default MIDI Configuration
 **Feature**: Reorganized Controller Settings Tab for improved usability and updated default MIDI values
@@ -118,11 +164,20 @@ Source/
 
 ## Implementation Guidelines
 
+### Theme-Aware Development
+- **Colors**: Always use `BlueprintColors::` namespace functions, never hardcode colors
+- **Input backgrounds**: Use `BlueprintColors::inputBackground()` for TextEditor and ComboBox backgrounds
+- **Theme listener**: Implement `ThemeManager::ThemeChangeListener` interface for dynamic theme updates
+- **Registration**: Register/unregister in constructor/destructor: `ThemeManager::getInstance().addThemeChangeListener(this)`
+- **Update method**: Implement `themeChanged()` to update all color properties when theme changes
+- **Testing**: Test components in both Dark and Light modes to ensure proper contrast and readability
+- **Reference implementation**: Check `themeChanged()` methods in GlobalSettingsTab, ControllerSettingsTab, MidiLearnWindow
+
 ### Adaptive Scale-Aware Development
 - **Dimensions**: `GlobalUIScale::getInstance().getScaled(value)` for all UI measurements
 - **Fonts**: `GlobalUIScale::getInstance().getScaledFont(baseSize)` for all text components
 - **TextEditor fonts**: Set in setup AND in `scaleFactorChanged()` with refresh pattern
-- **Constraint-aware scaling**: Use `setScaleFactorWithConstraints()` instead of `setScaleFactor()` 
+- **Constraint-aware scaling**: Use `setScaleFactorWithConstraints()` instead of `setScaleFactor()`
 - **Screen-aware setup**: Call `updateScreenConstraints()` during component initialization
 - **Window constraints**: Use `WindowManager.h` methods, never hardcode widths
 - **Layout**: Use `MainControllerLayout::Constants::` methods for scaled values
@@ -141,6 +196,7 @@ Source/
 - **Visual-Functional Split**: Visual elements in parent, JUCE components handle interaction
 - **State Management**: Boolean flags + callback pattern for mode switching
 - **Context Menus**: Shared pointer pattern for async menu safety, callbacks capture slider index by value
+- **Theme Updates**: Listener pattern with `ThemeChangeListener` interface, auto-updates via `BlueprintColors` namespace
 
 ### Build System
 - **Location**: `Builds/MacOSX/14bit Virtual Midi Controller.xcodeproj`
@@ -166,6 +222,9 @@ For detailed information, see `docs/` folder:
 - Settings UI content overflow → Verify `paint()` and `layoutPerSliderSections()` use matching spacing values
 - Breadcrumb not updating → Check `updateBreadcrumbLabel()` is called in `applyCustomName()`
 - Reset not working → Verify global settings reset in `onResetToDefaults` callback (SettingsWindow.h:314-331)
+- Theme not updating → Check component implements `ThemeChangeListener` and registers/unregisters properly
+- Wrong colors in light mode → Verify using `BlueprintColors::inputBackground()` for inputs, not `background()`
+- Text invisible in theme → Check `themeChanged()` updates all label/input `textColourId` properties
 
 **Key Methods**:
 - `onSetAllInBank` / `onSetAllSliders` - Bulk value operations across bank or all sliders
@@ -173,3 +232,5 @@ For detailed information, see `docs/` folder:
 - `updateActionTooltip()` - Thread-safe action confirmation with text truncation
 - `scaleFactorChanged()` - Reference implementation for scale-aware resizing
 - `setScaleFactorWithConstraints()` - Constraint-aware scale setting with validation
+- `themeChanged()` - Theme update callback, updates all color properties for current theme
+- `BlueprintColors::*()` - Dynamic color accessors that auto-reflect current theme

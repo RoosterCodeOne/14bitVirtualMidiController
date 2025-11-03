@@ -16,6 +16,7 @@ namespace BlueprintColors
     inline juce::Colour panel() { return Theme::palette().panel; }
     inline juce::Colour windowBackground() { return Theme::palette().windowBackground; }
     inline juce::Colour sectionBackground() { return Theme::palette().sectionBackground; }
+    inline juce::Colour inputBackground() { return Theme::palette().inputBackground; }
     inline juce::Colour blueprintLines() { return Theme::palette().blueprintLines; }
     inline juce::Colour textPrimary() { return Theme::palette().textPrimary; }
     inline juce::Colour textSecondary() { return Theme::palette().textSecondary; }

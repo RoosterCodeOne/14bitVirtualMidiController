@@ -272,7 +272,7 @@ inline void GlobalSettingsTab::setupGlobalControls()
     for (int i = 1; i <= 16; ++i)
         midiChannelCombo.addItem("Channel " + juce::String(i), i);
     midiChannelCombo.setSelectedId(11); // Default to channel 11
-    midiChannelCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background());
+    midiChannelCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::inputBackground());
     midiChannelCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary());
     midiChannelCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines());
     midiChannelCombo.onChange = [this]() {
@@ -293,7 +293,7 @@ inline void GlobalSettingsTab::setupGlobalControls()
     bpmSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);  // No text box on slider
     bpmSlider.setRange(60.0, 200.0, 1.0);
     bpmSlider.setValue(120.0);
-    bpmSlider.setColour(juce::Slider::backgroundColourId, BlueprintColors::background());
+    bpmSlider.setColour(juce::Slider::backgroundColourId, BlueprintColors::inputBackground());
     bpmSlider.setColour(juce::Slider::trackColourId, BlueprintColors::blueprintLines());
     bpmSlider.setColour(juce::Slider::thumbColourId, BlueprintColors::active());
     bpmSlider.onValueChange = [this]() {
@@ -309,7 +309,7 @@ inline void GlobalSettingsTab::setupGlobalControls()
     addAndMakeVisible(bpmInput);
     bpmInput.setInputRestrictions(3, "0123456789");
     bpmInput.setText("120", false);
-    bpmInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::background());
+    bpmInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::inputBackground());
     bpmInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary());
     bpmInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines());
     bpmInput.onReturnKey = [this]() { bpmInput.moveKeyboardFocusToSibling(true); };
@@ -344,7 +344,7 @@ inline void GlobalSettingsTab::setupGlobalControls()
     // Load and set current scale factor
     float currentScale = GlobalUIScale::getInstance().getScaleFactor();
     setUIScale(currentScale);
-    uiScaleCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background());
+    uiScaleCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::inputBackground());
     uiScaleCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary());
     uiScaleCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines());
     uiScaleCombo.onChange = [this]() {
@@ -377,7 +377,7 @@ inline void GlobalSettingsTab::setupGlobalControls()
     themeCombo.addItem("Light", 2);
     themeCombo.addItem("Auto", 3);
     themeCombo.setSelectedId(1, juce::dontSendNotification); // Default to Dark
-    themeCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::background());
+    themeCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::inputBackground());
     themeCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary());
     themeCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines());
     themeCombo.onChange = [this]() {
@@ -563,8 +563,43 @@ inline void GlobalSettingsTab::scaleFactorChanged(float newScale)
 
 inline void GlobalSettingsTab::themeChanged(ThemeManager::ThemeType newTheme, const ThemeManager::ThemePalette& palette)
 {
+    // Update all label text colors
+    globalHeader.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+    midiChannelLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+    bpmLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+    uiScaleLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+    alwaysOnTopLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+    themeLabel.setColour(juce::Label::textColourId, BlueprintColors::textPrimary());
+
+    // Update sync status label (preserve sync-specific color logic)
+    if (syncStatusLabel.getText().contains("External"))
+        syncStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::active());
+    else
+        syncStatusLabel.setColour(juce::Label::textColourId, BlueprintColors::textSecondary());
+
+    // Update combo box colors
+    midiChannelCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::inputBackground());
+    midiChannelCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary());
+    midiChannelCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines());
+
+    uiScaleCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::inputBackground());
+    uiScaleCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary());
+    uiScaleCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines());
+
+    themeCombo.setColour(juce::ComboBox::backgroundColourId, BlueprintColors::inputBackground());
+    themeCombo.setColour(juce::ComboBox::textColourId, BlueprintColors::textPrimary());
+    themeCombo.setColour(juce::ComboBox::outlineColourId, BlueprintColors::blueprintLines());
+
+    // Update BPM slider and input colors
+    bpmSlider.setColour(juce::Slider::backgroundColourId, BlueprintColors::inputBackground());
+    bpmSlider.setColour(juce::Slider::trackColourId, BlueprintColors::blueprintLines());
+    bpmSlider.setColour(juce::Slider::thumbColourId, BlueprintColors::active());
+
+    bpmInput.setColour(juce::TextEditor::backgroundColourId, BlueprintColors::inputBackground());
+    bpmInput.setColour(juce::TextEditor::textColourId, BlueprintColors::textPrimary());
+    bpmInput.setColour(juce::TextEditor::outlineColourId, BlueprintColors::blueprintLines());
+
     // Repaint to apply new theme colors
-    // The BlueprintColors namespace automatically reflects the new theme
     repaint();
 }
 
